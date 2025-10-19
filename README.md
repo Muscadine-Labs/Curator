@@ -102,7 +102,7 @@ Switch between modes by updating the `USE_MOCK` environment variable.
 
 The project is configured for automatic Vercel deployments:
 
-1. **DNS**: Point `curator.muscadine.box` to Vercel CNAME `cname.vercel-dns.com`
+1. **DNS**: Point `curator.muscadine.io` to Vercel CNAME `cname.vercel-dns.com`
 2. **Environment**: Set environment variables in Vercel dashboard
 3. **Deploy**: Push to main branch triggers automatic deployment
 
@@ -141,6 +141,10 @@ The project is configured for automatic Vercel deployments:
 4. Add loading states for better UX
 5. Ensure responsive design
 6. Test with both mock and on-chain data
+
+## Contact
+
+For questions or support, contact us at: **contact@muscadine.io**
 
 ## License
 
