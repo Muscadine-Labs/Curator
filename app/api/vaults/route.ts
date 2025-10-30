@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { vaults as configuredVaults } from '@/lib/config/vaults';
 
 const MORPHO_GRAPHQL_ENDPOINT = 'https://api.morpho.org/graphql';
@@ -17,7 +17,7 @@ type MorphoPositionItem = {
   user: { address: string };
 };
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     // Limit to known vault addresses in config; this keeps metadata (name, symbol, etc.)
     const addresses = configuredVaults.map(v => v.address.toLowerCase());

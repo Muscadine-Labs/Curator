@@ -27,6 +27,9 @@ export default function Home() {
               <Button variant="outline" asChild>
                 <Link href="/vaults">View All Vaults</Link>
               </Button>
+              <Button variant="outline" asChild>
+                <Link href="/markets-supplied">Markets Supplied</Link>
+              </Button>
               <Button asChild>
                 <Link href="/fees">Fee Splitter</Link>
               </Button>
@@ -105,6 +108,12 @@ export default function Home() {
                 <Link href="/vaults" className="flex items-center gap-2">
                   Explore Vaults
                   <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+              <Button variant="outline" size="lg" asChild>
+                <Link href="/markets-supplied" className="flex items-center gap-2">
+                  View Markets
+                  <TrendingUp className="h-4 w-4" />
                 </Link>
               </Button>
               <Button variant="outline" size="lg" asChild>

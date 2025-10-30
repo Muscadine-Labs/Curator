@@ -35,9 +35,14 @@ export default function FeesPage() {
                 </p>
               </div>
             </div>
-            <Button asChild>
-              <Link href="/vaults">View Vaults</Link>
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" asChild>
+                <Link href="/markets-supplied">Markets</Link>
+              </Button>
+              <Button asChild>
+                <Link href="/vaults">View Vaults</Link>
+              </Button>
+            </div>
           </div>
         </div>
       </header>
