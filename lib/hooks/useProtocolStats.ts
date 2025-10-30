@@ -28,18 +28,18 @@ export interface VaultWithData {
   apy30d: number;
   depositors: number;
   utilization: number;
-  lastHarvest: string;
+  lastHarvest: string | null;
 }
 
 export interface VaultDetail extends VaultWithData {
-  apyBase: number;
-  apyBoosted: number;
-  feesYtd: number;
+  apyBase: number | null;
+  apyBoosted: number | null;
+  feesYtd: number | null;
   charts: {
     tvl: Array<{ date: string; value: number }>;
     performance: Array<{ date: string; value: number }>;
     fees: Array<{ date: string; value: number }>;
-  };
+  } | null;
   parameters: {
     performanceFeeBps: number;
     maxDeposit: number | null;
@@ -96,7 +96,7 @@ export const useVaultList = (filters?: {
       if (filters?.riskTier) searchParams.set('riskTier', filters.riskTier);
       if (filters?.search) searchParams.set('search', filters.search);
       
-      const response = await fetch(`/api/mock/vaults?${searchParams}`);
+      const response = await fetch(`/api/vaults?${searchParams}`);
       if (!response.ok) throw new Error('Failed to fetch vaults');
       return response.json();
     },
@@ -110,7 +110,7 @@ export const useVault = (id: string) => {
   return useQuery<VaultDetail>({
     queryKey: ['vault', id],
     queryFn: async () => {
-      const response = await fetch(`/api/mock/vaults/${id}`);
+      const response = await fetch(`/api/vaults/${id}`);
       if (!response.ok) throw new Error('Failed to fetch vault');
       return response.json();
     },

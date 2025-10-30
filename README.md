@@ -36,11 +36,14 @@ A vault explorer for Muscadine protocol, similar to curator.morpho.org/vaults. B
    cp .env.example .env.local
    ```
 
-   Required environment variables:
-   - `ALCHEMY_API_KEY`: Your Alchemy API key for Base
-   - `NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID`: WalletConnect project ID
-   - `NEXT_PUBLIC_FEE_SPLITTER`: Fee splitter contract address
-   - `USE_MOCK=1`: Enable mock mode for development
+   Required environment variables (public addresses included for clarity):
+   - `NEXT_PUBLIC_CHAIN_ID` (Base = 8453)
+   - `NEXT_PUBLIC_MORPHO_GRAPHQL` (default `https://api.morpho.org/graphql`)
+   - `NEXT_PUBLIC_VAULT_USDC` (vault address)
+   - `NEXT_PUBLIC_VAULT_CBBTC` (vault address)
+   - `NEXT_PUBLIC_VAULT_WETH` (vault address)
+   - `NEXT_PUBLIC_FEE_SPLITTER` (fee splitter contract address)
+   - Optional: `NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID`, `ALCHEMY_API_KEY`
 
 3. **Run development server**:
    ```bash
@@ -59,12 +62,13 @@ Vault configurations are defined in `/lib/config/vaults.ts`. To add new vaults:
 2. Update environment variables if needed
 3. Restart the development server
 
-### Mock vs On-chain Mode
+### Data Sources
 
-- **Mock Mode** (`USE_MOCK=1`): Uses mock API routes for development
-- **On-chain Mode** (`USE_MOCK=0`): Reads data directly from contracts
+- Vault list: Morpho GraphQL (`/api/vaults`) maps TVL and APY fields per Morpho docs
+- Vault detail: Morpho GraphQL (`/api/vaults/[id]`) via `vaultByAddress` + positions
+- Fee splitter: On-chain reads via viem from `NEXT_PUBLIC_FEE_SPLITTER`
 
-Switch between modes by updating the `USE_MOCK` environment variable.
+Reference: `https://docs.morpho.org/build/earn/tutorials/get-data`
 
 ## Project Structure
 
@@ -74,7 +78,9 @@ Switch between modes by updating the `USE_MOCK` environment variable.
   /vaults/page.tsx         # All vaults list
   /vaults/[id]/page.tsx    # Vault detail page
   /fees/page.tsx           # Fees page
-  /api/mock/               # Mock API routes
+/api/mock/               # Mock API routes (legacy; vault list/detail use live endpoints)
+/api/vaults              # Live vault list (Morpho GraphQL)
+/api/vaults/[id]         # Live vault detail (Morpho GraphQL)
   /layout.tsx              # Root layout
   /providers.tsx           # App providers
 
@@ -109,8 +115,8 @@ The project is configured for automatic Vercel deployments:
 ## Development Notes
 
 - Uses automatic Vercel deployments (no manual deployment needed)
-- Mock API routes provide realistic data for development
-- On-chain reads are resilient with fallbacks to mock data
+- Vaults list/detail use Morpho API; fee splitter uses on-chain reads
+- UI tolerates missing fields and renders N/A gracefully
 - All components are responsive and accessible
 - Charts load with skeleton states for better UX
 
@@ -125,6 +131,15 @@ The project is configured for automatic Vercel deployments:
 - Immutable contract with fixed payees and shares
 - Real-time pending token calculations
 - Disabled claim functions (coming soon)
+
+## Why addresses are in `.env.example`
+
+We include public addresses in `.env.example` so you can:
+- Quickly boot the app locally without hunting for values
+- Swap to your deployments by editing `.env.local`
+- Keep production addresses configurable via CI/CD
+
+No secrets are committed; only public on-chain addresses are shown for convenience. Always set your own values for production.
 
 ### Supported Methods
 - `asset()`: Vault asset address

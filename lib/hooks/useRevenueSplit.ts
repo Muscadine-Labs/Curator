@@ -20,14 +20,16 @@ export const useRevenueSplit = () => {
   return useQuery<RevenueSplitData>({
     queryKey: ['revenue-split'],
     queryFn: async () => {
-      const splitterAddress = process.env.NEXT_PUBLIC_FEE_SPLITTER as Address;
+      const splitterAddress = (process.env.NEXT_PUBLIC_FEE_SPLITTER as Address) || (
+        '0x194DeC45D34040488f355823e1F94C0434304188' as Address
+      );
       if (!splitterAddress) {
         throw new Error('Fee splitter address not configured');
       }
       
       return readFeeSplitterData(splitterAddress);
     },
-    enabled: !!process.env.NEXT_PUBLIC_FEE_SPLITTER,
+    enabled: true,
     staleTime: 5 * 60 * 1000, // 5 minutes
     refetchInterval: 5 * 60 * 1000, // Refetch every 5 minutes
   });
@@ -41,7 +43,9 @@ export const usePendingToken = (
   return useQuery<PendingTokenData>({
     queryKey: ['pending-token', tokenAddress, payeeAddress],
     queryFn: async () => {
-      const splitterAddress = process.env.NEXT_PUBLIC_FEE_SPLITTER as Address;
+      const splitterAddress = (process.env.NEXT_PUBLIC_FEE_SPLITTER as Address) || (
+        '0x194DeC45D34040488f355823e1F94C0434304188' as Address
+      );
       if (!splitterAddress || !tokenAddress) {
         throw new Error('Splitter or token address not configured');
       }

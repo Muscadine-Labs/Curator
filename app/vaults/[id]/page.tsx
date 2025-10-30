@@ -160,25 +160,27 @@ export default function VaultDetailPage() {
         </div>
 
         {/* Charts */}
-        <Tabs defaultValue="tvl" className="mb-8">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="tvl">TVL</TabsTrigger>
-            <TabsTrigger value="performance">Performance</TabsTrigger>
-            <TabsTrigger value="fees">Fees</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="tvl">
-            <ChartTvl data={vault.charts.tvl} title={`${vault.name} - TVL`} />
-          </TabsContent>
-          
-          <TabsContent value="performance">
-            <ChartPerf data={vault.charts.performance} title={`${vault.name} - Performance Index`} />
-          </TabsContent>
-          
-          <TabsContent value="fees">
-            <ChartFees data={vault.charts.fees} title={`${vault.name} - Fees Accrued`} />
-          </TabsContent>
-        </Tabs>
+        {vault.charts && (
+          <Tabs defaultValue="tvl" className="mb-8">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="tvl">TVL</TabsTrigger>
+              <TabsTrigger value="performance">Performance</TabsTrigger>
+              <TabsTrigger value="fees">Fees</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="tvl">
+              <ChartTvl data={vault.charts.tvl} title={`${vault.name} - TVL`} />
+            </TabsContent>
+            
+            <TabsContent value="performance">
+              <ChartPerf data={vault.charts.performance} title={`${vault.name} - Performance Index`} />
+            </TabsContent>
+            
+            <TabsContent value="fees">
+              <ChartFees data={vault.charts.fees} title={`${vault.name} - Fees Accrued`} />
+            </TabsContent>
+          </Tabs>
+        )}
 
         {/* Roles and Parameters */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
