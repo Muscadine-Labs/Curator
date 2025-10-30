@@ -23,13 +23,27 @@ export async function GET(
       query VaultDetail($address: String!, $chainId: Int!) {
         vault: vaultByAddress(address: $address, chainId: $chainId) {
           address
-          asset { address decimals }
+          name
+          whitelisted
+          metadata {
+            description
+            forumLink
+            image
+            curators { image name url }
+          }
+          allocators { address }
+          asset { address decimals yield { apr } }
           state {
+            owner
+            curator
+            guardian
+            timelock
             totalAssets
             totalAssetsUsd
             totalSupply
             apy
             netApy
+            netApyWithoutRewards
             avgApy
             avgNetApy
             dailyApy
@@ -38,14 +52,36 @@ export async function GET(
             weeklyNetApy
             monthlyApy
             monthlyNetApy
+            warnings { type level }
             rewards {
-              asset { address }
+              asset { address chain { id } }
               supplyApr
               yearlySupplyTokens
             }
             allocation {
               supplyAssets
               supplyAssetsUsd
+              supplyCap
+              market {
+                uniqueKey
+                loanAsset { name }
+                collateralAsset { name }
+                oracleAddress
+                irmAddress
+                lltv
+                state {
+                  rewards {
+                    asset { address chain { id } }
+                    supplyApr
+                    borrowApr
+                  }
+                }
+              }
+            }
+            lastTotalAssets
+            allocationQueues: allocation {
+              supplyQueueIndex
+              withdrawQueueIndex
               market { uniqueKey }
             }
           }
@@ -53,8 +89,14 @@ export async function GET(
         positions: vaultPositions(
           first: 1000,
           where: { vaultAddress_in: [$address] }
+        ) { items { user { address } } }
+        txs: transactions(
+          first: 10,
+          orderBy: Timestamp,
+          orderDirection: Desc,
+          where: { vaultAddress_in: [$address] }
         ) {
-          items { user { address } }
+          items { blockNumber hash type user { address } }
         }
       }
     `;
@@ -76,6 +118,7 @@ export async function GET(
 
     const mv = json?.data?.vault;
     const positions = (json?.data?.positions?.items || []) as Array<{ user: { address: string } }>;
+    const txs = (json?.data?.txs?.items || []) as Array<{ blockNumber: number; hash: string; type: string; user?: { address?: string } }>;
     const depositors = new Set(positions.map((p) => p.user.address.toLowerCase())).size;
 
     const tvlUsd = mv?.state?.totalAssetsUsd ?? 0;
@@ -91,6 +134,74 @@ export async function GET(
       feesYtd: 0,
       utilization: 0,
       lastHarvest: null,
+      apyBreakdown: {
+        apy: (mv?.state?.apy ?? 0) * 100,
+        netApy: (mv?.state?.netApy ?? 0) * 100,
+        netApyWithoutRewards: (mv?.state?.netApyWithoutRewards ?? 0) * 100,
+        avgApy: (mv?.state?.avgApy ?? 0) * 100,
+        avgNetApy: (mv?.state?.avgNetApy ?? 0) * 100,
+        dailyApy: (mv?.state?.dailyApy ?? 0) * 100,
+        dailyNetApy: (mv?.state?.dailyNetApy ?? 0) * 100,
+        weeklyApy: (mv?.state?.weeklyApy ?? 0) * 100,
+        weeklyNetApy: (mv?.state?.weeklyNetApy ?? 0) * 100,
+        monthlyApy: (mv?.state?.monthlyApy ?? 0) * 100,
+        monthlyNetApy: (mv?.state?.monthlyNetApy ?? 0) * 100,
+        underlyingYieldApr: (mv?.asset?.yield?.apr ?? 0) * 100,
+      },
+      rewards: (mv?.state?.rewards || []).map((r: { asset?: { address?: string; chain?: { id?: number } | null } | null; supplyApr?: number | null; yearlySupplyTokens?: number | null }) => ({
+        assetAddress: r?.asset?.address ?? '',
+        chainId: r?.asset?.chain?.id ?? null,
+        supplyApr: ((r?.supplyApr ?? 0) as number) * 100,
+        yearlySupplyTokens: (r?.yearlySupplyTokens ?? 0) as number,
+      })),
+      allocation: (mv?.state?.allocation || []).map((a: {
+        market?: {
+          uniqueKey?: string;
+          loanAsset?: { name?: string | null } | null;
+          collateralAsset?: { name?: string | null } | null;
+          oracleAddress?: string | null;
+          irmAddress?: string | null;
+          lltv?: number | null;
+          state?: { rewards?: Array<{ asset?: { address?: string; chain?: { id?: number } | null } | null; supplyApr?: number | null; borrowApr?: number | null }> } | null;
+        } | null;
+        supplyCap?: number | null;
+        supplyAssets?: number | null;
+        supplyAssetsUsd?: number | null;
+      }) => ({
+        marketKey: a.market?.uniqueKey,
+        loanAssetName: a.market?.loanAsset?.name ?? null,
+        collateralAssetName: a.market?.collateralAsset?.name ?? null,
+        oracleAddress: a.market?.oracleAddress ?? null,
+        irmAddress: a.market?.irmAddress ?? null,
+        lltv: a.market?.lltv ?? null,
+        supplyCap: a.supplyCap ?? null,
+        supplyAssets: a.supplyAssets ?? null,
+        supplyAssetsUsd: a.supplyAssetsUsd ?? null,
+        marketRewards: (a.market?.state?.rewards || []).map((mr: { asset?: { address?: string; chain?: { id?: number } | null } | null; supplyApr?: number | null; borrowApr?: number | null }) => ({
+          assetAddress: mr?.asset?.address ?? '',
+          chainId: mr?.asset?.chain?.id ?? null,
+          supplyApr: ((mr?.supplyApr ?? 0) as number) * 100,
+          borrowApr: mr?.borrowApr != null ? ((mr.borrowApr as number) * 100) : null,
+        })),
+      })),
+      queues: {
+        supplyQueueIndex: mv?.state?.allocationQueues?.supplyQueueIndex ?? null,
+        withdrawQueueIndex: mv?.state?.allocationQueues?.withdrawQueueIndex ?? null,
+      },
+      warnings: mv?.state?.warnings || [],
+      metadata: mv?.metadata || {},
+      roles: {
+        owner: mv?.state?.owner ?? null,
+        curator: mv?.state?.curator ?? null,
+        guardian: mv?.state?.guardian ?? null,
+        timelock: mv?.state?.timelock ?? null,
+      },
+      transactions: txs.map(t => ({
+        blockNumber: t.blockNumber,
+        hash: t.hash,
+        type: t.type,
+        userAddress: t.user?.address ?? null,
+      })),
       charts: null,
       parameters: {
         performanceFeeBps: cfg.performanceFeeBps,

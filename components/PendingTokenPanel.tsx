@@ -9,16 +9,23 @@ import { usePendingToken, useRevenueSplit } from '@/lib/hooks/useRevenueSplit';
 import { formatCompactUSD } from '@/lib/format/number';
 import { vaults } from '@/lib/config/vaults';
 import { AddressBadge } from './AddressBadge';
+import { useAccount, useWriteContract } from 'wagmi';
+import { Address } from 'viem';
+import { ERC20_FEE_SPLITTER_ABI } from '@/lib/onchain/client';
 
 export function PendingTokenPanel() {
   const [selectedVault, setSelectedVault] = useState<string>('');
   const [selectedPayee, setSelectedPayee] = useState<string>('');
+  const [txError, setTxError] = useState<string>('');
+  const [txHash, setTxHash] = useState<string>('');
   
   const { data: revenueSplit, isLoading: splitLoading } = useRevenueSplit();
   const { data: pendingData, isLoading: pendingLoading } = usePendingToken(
     selectedVault as `0x${string}` || null,
     selectedPayee as `0x${string}` || null
   );
+  const { address: connectedAddress } = useAccount();
+  const { writeContract, isPending } = useWriteContract();
 
   // Get payee addresses from revenue split
   const payees = revenueSplit ? [
@@ -112,9 +119,34 @@ export function PendingTokenPanel() {
           {/* Action Buttons */}
           {selectedVault && selectedPayee && (
             <div className="flex gap-2">
-              <Button disabled className="flex items-center gap-2">
+              <Button
+                onClick={async () => {
+                  setTxError('');
+                  setTxHash('');
+                  try {
+                    const splitterAddress = (process.env.NEXT_PUBLIC_FEE_SPLITTER as Address) ||
+                      ('0x194DeC45D34040488f355823e1F94C0434304188' as Address);
+                const hash = await writeContract({
+                      address: splitterAddress,
+                      abi: ERC20_FEE_SPLITTER_ABI,
+                      functionName: 'claim',
+                      args: [selectedVault as Address],
+                    });
+                    // wagmi v2 returns hash directly
+                setTxHash(typeof hash === 'string' ? hash : '');
+              } catch (e: unknown) {
+                type WagmiTxError = { shortMessage?: string; message?: string };
+                const err = (typeof e === 'object' && e !== null) ? (e as Partial<WagmiTxError>) : {};
+                const msg = typeof err.message === 'string' ? err.message : 'Transaction failed';
+                const shortMsg = typeof err.shortMessage === 'string' ? err.shortMessage : '';
+                setTxError(shortMsg || msg);
+                  }
+                }}
+                disabled={!connectedAddress || !selectedVault || isPending}
+                className="flex items-center gap-2"
+              >
                 <AlertCircle className="h-4 w-4" />
-                Claim (Coming Soon)
+                {isPending ? 'Claiming...' : 'Claim'}
               </Button>
             </div>
           )}
@@ -122,6 +154,14 @@ export function PendingTokenPanel() {
           {/* Instructions */}
           <div className="text-sm text-muted-foreground">
             <p>Select a vault (token) and a payee to check pending fees from the Fee Splitter contract.</p>
+            {txHash && (
+              <p className="mt-2">
+                Tx sent: <a className="underline" target="_blank" rel="noreferrer" href={`https://basescan.org/tx/${txHash}`}>{txHash.slice(0, 10)}...</a>
+              </p>
+            )}
+            {txError && (
+              <p className="mt-2 text-red-600">{txError}</p>
+            )}
           </div>
         </div>
       </CardContent>

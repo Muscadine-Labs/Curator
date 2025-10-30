@@ -1,6 +1,6 @@
 # Muscadine Curator
 
-A vault explorer for Muscadine protocol, similar to curator.morpho.org/vaults. Built with Next.js 14, TypeScript, Tailwind CSS, and shadcn/ui.
+Modern Next.js dashboard for Muscadine vaults on Morpho. Live data is sourced from the Morpho GraphQL API and onchain reads; wallet connection and fee-claim actions are powered by Wagmi + Coinbase OnchainKit.
 
 ## Features
 
@@ -8,18 +8,18 @@ A vault explorer for Muscadine protocol, similar to curator.morpho.org/vaults. B
 - **Vault Explorer**: Comprehensive list of all Muscadine vaults with filtering and search
 - **Vault Details**: Individual vault pages with performance charts and role information
 - **Fee Splitter**: Integration with immutable ERC20FeeSplitter contract
-- **Wallet Integration**: Reown (WalletConnect) integration with wagmi + viem
+- **Wallet Integration**: Coinbase OnchainKit + wagmi + viem
 - **On-chain Data**: Real-time data from Base chain via Alchemy
 - **Mock Mode**: Development mode with mock API routes
 
 ## Tech Stack
 
-- **Framework**: Next.js 14 (App Router)
+- **Framework**: Next.js 15 (App Router)
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS + shadcn/ui
 - **Charts**: Recharts
 - **State Management**: React Query (TanStack)
-- **Wallet**: Reown (WalletConnect) + wagmi + viem
+- **Wallet**: Coinbase OnchainKit + wagmi + viem
 - **Blockchain**: Base (Chain ID: 8453)
 - **RPC**: Alchemy
 
@@ -36,14 +36,11 @@ A vault explorer for Muscadine protocol, similar to curator.morpho.org/vaults. B
    cp .env.example .env.local
    ```
 
-   Required environment variables (public addresses included for clarity):
-   - `NEXT_PUBLIC_CHAIN_ID` (Base = 8453)
-   - `NEXT_PUBLIC_MORPHO_GRAPHQL` (default `https://api.morpho.org/graphql`)
-   - `NEXT_PUBLIC_VAULT_USDC` (vault address)
-   - `NEXT_PUBLIC_VAULT_CBBTC` (vault address)
-   - `NEXT_PUBLIC_VAULT_WETH` (vault address)
-   - `NEXT_PUBLIC_FEE_SPLITTER` (fee splitter contract address)
-   - Optional: `NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID`, `ALCHEMY_API_KEY`
+   Required environment variables:
+   - Server: `ALCHEMY_API_KEY`
+   - Client: `NEXT_PUBLIC_ALCHEMY_API_KEY`, `NEXT_PUBLIC_ONCHAINKIT_API_KEY`
+   - Addresses: `NEXT_PUBLIC_VAULT_USDC`, `NEXT_PUBLIC_VAULT_CBBTC`, `NEXT_PUBLIC_VAULT_WETH`, `NEXT_PUBLIC_FEE_SPLITTER`
+   - Optional: `NEXT_PUBLIC_DEFAULT_PERF_FEE_BPS`, `NEXT_PUBLIC_ROLE_OWNER`, `NEXT_PUBLIC_ROLE_GUARDIAN`, `NEXT_PUBLIC_ROLE_CURATOR`, `NEXT_PUBLIC_ALLOCATOR_HOT`, `NEXT_PUBLIC_ALLOCATOR_IGNAS`
 
 3. **Run development server**:
    ```bash
@@ -65,10 +62,14 @@ Vault configurations are defined in `/lib/config/vaults.ts`. To add new vaults:
 ### Data Sources
 
 - Vault list: Morpho GraphQL (`/api/vaults`) maps TVL and APY fields per Morpho docs
-- Vault detail: Morpho GraphQL (`/api/vaults/[id]`) via `vaultByAddress` + positions
+- Vault detail: Morpho GraphQL (`/api/vaults/[id]`) via `vaultByAddress` + positions + allocations + rewards + warnings + queues + txs
+- Protocol overview: `/api/protocol-stats` aggregates TVL/users across configured vaults
+- Markets supplied: `/api/markets-supplied` discovers markets from allocations and fetches market stats and historical series
 - Fee splitter: On-chain reads via viem from `NEXT_PUBLIC_FEE_SPLITTER`
 
-Reference: `https://docs.morpho.org/build/earn/tutorials/get-data`
+References:
+- Earn (vaults/allocations): https://docs.morpho.org/build/earn/tutorials/get-data
+- Markets (markets/apy/history): https://docs.morpho.org/build/borrow/tutorials/get-data
 
 ## Project Structure
 
@@ -78,9 +79,12 @@ Reference: `https://docs.morpho.org/build/earn/tutorials/get-data`
   /vaults/page.tsx         # All vaults list
   /vaults/[id]/page.tsx    # Vault detail page
   /fees/page.tsx           # Fees page
+  /markets-supplied/page.tsx # Markets we supply to
 /api/mock/               # Mock API routes (legacy; vault list/detail use live endpoints)
 /api/vaults              # Live vault list (Morpho GraphQL)
 /api/vaults/[id]         # Live vault detail (Morpho GraphQL)
+ /api/protocol-stats      # Protocol aggregates (Morpho GraphQL)
+ /api/markets-supplied    # Aggregated supplied markets + history
   /layout.tsx              # Root layout
   /providers.tsx           # App providers
 
@@ -106,11 +110,12 @@ Reference: `https://docs.morpho.org/build/earn/tutorials/get-data`
 
 ## Deployment
 
-The project is configured for automatic Vercel deployments:
-
-1. **DNS**: Point `curator.muscadine.io` to Vercel CNAME `cname.vercel-dns.com`
-2. **Environment**: Set environment variables in Vercel dashboard
-3. **Deploy**: Push to main branch triggers automatic deployment
+Production checklist:
+1. Set `.env` with production keys and addresses
+2. `npm run build` succeeds
+3. `npm start` runs and pages load without 500s
+4. Verify wallet connect, fee splitter reads, and claim tx on test wallet
+5. Monitor logs for Morpho API errors
 
 ## Development Notes
 
@@ -130,7 +135,7 @@ The project is configured for automatic Vercel deployments:
 ### Fee Splitter Contract
 - Immutable contract with fixed payees and shares
 - Real-time pending token calculations
-- Disabled claim functions (coming soon)
+- Claim function enabled via wagmi `writeContract`
 
 ## Why addresses are in `.env.example`
 

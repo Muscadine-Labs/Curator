@@ -136,6 +136,15 @@ export const ERC20_FEE_SPLITTER_ABI = [
       { name: 'amount', type: 'uint256', indexed: false },
     ],
   },
+  {
+    name: 'claim',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'token', type: 'address' }
+    ],
+    outputs: [],
+  },
 ] as const;
 
 // Helper function to safely read contract data

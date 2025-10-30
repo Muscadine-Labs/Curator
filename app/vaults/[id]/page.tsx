@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArrowLeft, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { formatCompactUSD, formatPercentage, formatRelativeTime } from '@/lib/format/number';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 export default function VaultDetailPage() {
   const params = useParams();
@@ -158,6 +159,166 @@ export default function VaultDetailPage() {
             format="raw"
           />
         </div>
+
+        {/* APY Breakdown */}
+        {vault.apyBreakdown && (
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle>APY Breakdown</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                <KpiCard title="Avg APY" value={vault.apyBreakdown.avgApy} format="percentage" subtitle="6h avg" />
+                <KpiCard title="Avg Net APY" value={vault.apyBreakdown.avgNetApy} format="percentage" subtitle="6h avg" />
+                <KpiCard title="Daily Net" value={vault.apyBreakdown.dailyNetApy} format="percentage" subtitle="24h" />
+                <KpiCard title="Weekly Net" value={vault.apyBreakdown.weeklyNetApy} format="percentage" subtitle="7d" />
+                <KpiCard title="Monthly Net" value={vault.apyBreakdown.monthlyNetApy} format="percentage" subtitle="30d" />
+                <KpiCard title="Underlying APR" value={vault.apyBreakdown.underlyingYieldApr} format="percentage" subtitle="Token yield" />
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Rewards */}
+        {vault.rewards && vault.rewards.length > 0 && (
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle>Vault Rewards</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Reward Token</TableHead>
+                    <TableHead>APR</TableHead>
+                    <TableHead>Yearly Tokens</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {vault.rewards.map((r, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="font-mono text-sm">{r.assetAddress}</TableCell>
+                      <TableCell className="text-green-600">{formatPercentage(r.supplyApr)}</TableCell>
+                      <TableCell>{r.yearlySupplyTokens.toLocaleString()}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Allocation */}
+        {vault.allocation && vault.allocation.length > 0 && (
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle>Market Allocation</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Market</TableHead>
+                    <TableHead>Loan / Collateral</TableHead>
+                    <TableHead>LLTV</TableHead>
+                    <TableHead>Supply (USD)</TableHead>
+                    <TableHead>Rewards APR</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {vault.allocation.map((a, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="font-mono text-xs">{a.marketKey}</TableCell>
+                      <TableCell>{a.loanAssetName} / {a.collateralAssetName}</TableCell>
+                      <TableCell>{a.lltv ?? '-'}
+                      </TableCell>
+                      <TableCell>{formatCompactUSD(a.supplyAssetsUsd || 0)}</TableCell>
+                      <TableCell>
+                        {a.marketRewards && a.marketRewards.length > 0
+                          ? a.marketRewards.map((mr, idx) => (
+                              <span key={idx} className="block text-green-600">
+                                {formatPercentage(mr.supplyApr)}
+                              </span>
+                            ))
+                          : '-'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Queues & Warnings */}
+        {(vault.queues || (vault.warnings && vault.warnings.length > 0)) && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            {vault.queues && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Queues</CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-sm text-muted-foreground">Supply Queue Index</div>
+                    <div className="text-lg font-semibold">{vault.queues.supplyQueueIndex ?? '-'}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-muted-foreground">Withdraw Queue Index</div>
+                    <div className="text-lg font-semibold">{vault.queues.withdrawQueueIndex ?? '-'}</div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            {vault.warnings && vault.warnings.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Warnings</CardTitle>
+                </CardHeader>
+                <CardContent className="flex flex-wrap gap-2">
+                  {vault.warnings.map((w, i) => (
+                    <Badge key={i} variant={w.level === 'RED' ? 'destructive' : 'secondary'}>
+                      {w.type}
+                    </Badge>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
+
+        {/* Transactions */}
+        {vault.transactions && vault.transactions.length > 0 && (
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle>Recent Transactions</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Block</TableHead>
+                    <TableHead>Hash</TableHead>
+                    <TableHead>User</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {vault.transactions.map((t, i) => (
+                    <TableRow key={i}>
+                      <TableCell>{t.type}</TableCell>
+                      <TableCell>{t.blockNumber}</TableCell>
+                      <TableCell className="font-mono text-xs">
+                        <a className="underline" target="_blank" rel="noreferrer" href={`https://basescan.org/tx/${t.hash}`}>{t.hash.slice(0, 10)}...</a>
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">{t.userAddress || '-'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Charts */}
         {vault.charts && (

@@ -35,6 +35,66 @@ export interface VaultDetail extends VaultWithData {
   apyBase: number | null;
   apyBoosted: number | null;
   feesYtd: number | null;
+  apyBreakdown?: {
+    apy: number | null;
+    netApy: number | null;
+    netApyWithoutRewards: number | null;
+    avgApy: number | null;
+    avgNetApy: number | null;
+    dailyApy: number | null;
+    dailyNetApy: number | null;
+    weeklyApy: number | null;
+    weeklyNetApy: number | null;
+    monthlyApy: number | null;
+    monthlyNetApy: number | null;
+    underlyingYieldApr: number | null;
+  };
+  rewards?: Array<{
+    assetAddress: string;
+    supplyApr: number;
+    yearlySupplyTokens: number;
+    chainId?: number | null;
+  }>;
+  allocation?: Array<{
+    marketKey: string;
+    loanAssetName?: string | null;
+    collateralAssetName?: string | null;
+    oracleAddress?: string | null;
+    irmAddress?: string | null;
+    lltv?: number | null;
+    supplyCap?: number | null;
+    supplyAssets?: number | null;
+    supplyAssetsUsd?: number | null;
+    marketRewards?: Array<{
+      assetAddress: string;
+      chainId?: number | null;
+      supplyApr: number;
+      borrowApr?: number | null;
+    }>;
+  }>;
+  queues?: {
+    supplyQueueIndex: number | null;
+    withdrawQueueIndex: number | null;
+  };
+  warnings?: Array<{ type: string; level: 'YELLOW' | 'RED' }>;
+  metadata?: {
+    description?: string | null;
+    image?: string | null;
+    forumLink?: string | null;
+    curators?: Array<{ image?: string | null; name?: string | null; url?: string | null }>;
+  };
+  roles?: {
+    owner?: string | null;
+    curator?: string | null;
+    guardian?: string | null;
+    timelock?: string | null;
+  };
+  transactions?: Array<{
+    blockNumber: number;
+    hash: string;
+    type: string;
+    userAddress?: string | null;
+  }>;
   charts: {
     tvl: Array<{ date: string; value: number }>;
     performance: Array<{ date: string; value: number }>;
@@ -71,7 +131,7 @@ export const useProtocolStats = () => {
   return useQuery<ProtocolStats>({
     queryKey: ['protocol-stats'],
     queryFn: async () => {
-      const response = await fetch('/api/mock/protocol-stats');
+      const response = await fetch('/api/protocol-stats');
       if (!response.ok) throw new Error('Failed to fetch protocol stats');
       return response.json();
     },
