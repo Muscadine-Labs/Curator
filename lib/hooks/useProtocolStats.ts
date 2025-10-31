@@ -37,6 +37,7 @@ export interface VaultDetail extends VaultWithData {
   apyBase: number | null;
   apyBoosted: number | null;
   feesYtd: number | null;
+  // charts: removed - always null, historical data not available via current Morpho API
   apyBreakdown?: {
     apy: number | null;
     netApy: number | null;
@@ -97,11 +98,6 @@ export interface VaultDetail extends VaultWithData {
     type: string;
     userAddress?: string | null;
   }>;
-  charts: {
-    tvl: Array<{ date: string; value: number }>;
-    performance: Array<{ date: string; value: number }>;
-    fees: Array<{ date: string; value: number }>;
-  } | null;
   parameters: {
     performanceFeeBps: number;
     maxDeposit: number | null;

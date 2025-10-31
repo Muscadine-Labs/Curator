@@ -5,7 +5,6 @@ import { ChartTvl } from '@/components/ChartTvl';
 import { ChartFees } from '@/components/ChartFees';
 import { useProtocolStats } from '@/lib/hooks/useProtocolStats';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 
 export default function Home() {
@@ -94,36 +93,6 @@ export default function Home() {
             isLoading={isLoading}
             title="Fees Over Time"
           />
-        </div>
-
-        {/* Quick Actions */}
-        <div className="bg-muted/50 rounded-lg p-8">
-          <div className="text-center">
-            <h3 className="text-xl font-semibold mb-2">Ready to explore?</h3>
-            <p className="text-muted-foreground mb-6">
-              Discover Muscadine vaults and start earning yield on your assets
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" asChild>
-                <Link href="/vaults" className="flex items-center gap-2">
-                  Explore Vaults
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </Button>
-              <Button variant="outline" size="lg" asChild>
-                <Link href="/markets-supplied" className="flex items-center gap-2">
-                  View Markets
-                  <TrendingUp className="h-4 w-4" />
-                </Link>
-              </Button>
-              <Button variant="outline" size="lg" asChild>
-                <Link href="/fees" className="flex items-center gap-2">
-                  View Fee Splitter
-                  <TrendingUp className="h-4 w-4" />
-                </Link>
-              </Button>
-            </div>
-          </div>
         </div>
       </main>
 

@@ -3,16 +3,12 @@
 import { useParams } from 'next/navigation';
 import { useVault } from '@/lib/hooks/useProtocolStats';
 import { KpiCard } from '@/components/KpiCard';
-import { ChartTvl } from '@/components/ChartTvl';
-import { ChartPerf } from '@/components/ChartPerf';
-import { ChartFees } from '@/components/ChartFees';
 import { RoleList } from '@/components/RoleList';
 import { AllocatorList } from '@/components/AllocatorList';
 import { AddressBadge } from '@/components/AddressBadge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArrowLeft, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { formatCompactUSD, formatPercentage, formatRelativeTime } from '@/lib/format/number';
@@ -320,28 +316,7 @@ export default function VaultDetailPage() {
           </Card>
         )}
 
-        {/* Charts */}
-        {vault.charts && (
-          <Tabs defaultValue="tvl" className="mb-8">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="tvl">TVL</TabsTrigger>
-              <TabsTrigger value="performance">Performance</TabsTrigger>
-              <TabsTrigger value="fees">Fees</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="tvl">
-              <ChartTvl data={vault.charts.tvl} title={`${vault.name} - TVL`} />
-            </TabsContent>
-            
-            <TabsContent value="performance">
-              <ChartPerf data={vault.charts.performance} title={`${vault.name} - Performance Index`} />
-            </TabsContent>
-            
-            <TabsContent value="fees">
-              <ChartFees data={vault.charts.fees} title={`${vault.name} - Fees Accrued`} />
-            </TabsContent>
-          </Tabs>
-        )}
+        {/* Charts - Historical data not yet available via Morpho API */}
 
         {/* Roles and Parameters */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">

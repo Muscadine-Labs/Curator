@@ -120,32 +120,6 @@ export const readReleased = async (
   );
 };
 
-// Helper to format token amounts
-export const formatTokenAmount = (
-  amount: bigint | null,
-  decimals: number | null,
-  displayDecimals: number = 2
-): string => {
-  if (!amount || !decimals) return '0';
-  
-  const divisor = BigInt(10 ** decimals);
-  const wholePart = amount / divisor;
-  const fractionalPart = amount % divisor;
-  
-  if (fractionalPart === BigInt(0)) {
-    return wholePart.toString();
-  }
-  
-  const fractionalStr = fractionalPart.toString().padStart(decimals, '0');
-  const trimmedFractional = fractionalStr.slice(0, displayDecimals).replace(/0+$/, '');
-  
-  if (trimmedFractional === '') {
-    return wholePart.toString();
-  }
-  
-  return `${wholePart}.${trimmedFractional}`;
-};
-
 // Helper to calculate percentage from basis points
 export const bpsToPercentage = (bps: number | null): number => {
   if (!bps) return 0;

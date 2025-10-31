@@ -202,7 +202,6 @@ export async function GET(
         type: t.type,
         userAddress: t.user?.address ?? null,
       })),
-      charts: null,
       parameters: {
         performanceFeeBps: cfg.performanceFeeBps,
         maxDeposit: null,

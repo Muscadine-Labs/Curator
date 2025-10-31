@@ -8,9 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, TrendingUp } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-import { formatCompactUSD, formatPercentage, formatDate } from '@/lib/format/number';
+import { formatCompactUSD, formatDate } from '@/lib/format/number';
 
 export default function FeesPage() {
   const { data: feesData, isLoading: feesLoading } = useFeesData();
@@ -49,23 +49,6 @@ export default function FeesPage() {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
-        {/* Fee Policy Banner */}
-        <Card className="mb-8 border-blue-200 bg-blue-50/50">
-          <CardContent className="pt-6">
-            <div className="flex items-start gap-3">
-              <TrendingUp className="h-5 w-5 text-blue-600 mt-0.5" />
-              <div>
-                <h3 className="font-semibold text-blue-900">Performance Fee Policy</h3>
-                <p className="text-blue-700 mt-1">
-                  Muscadine V1 vaults charge a {formatPercentage(200)} performance fee across all vaults. 
-                  This fee is automatically deducted from yield generated and distributed according to the 
-                  immutable fee splitter contract.
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Fee Splitter and Pending Tokens */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           <SplitterPanel />
@@ -142,7 +125,7 @@ export default function FeesPage() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">
-                {formatPercentage(200)}
+                2.00%
               </div>
               <p className="text-sm text-muted-foreground mt-1">
                 Applied to all Muscadine V1 vaults
