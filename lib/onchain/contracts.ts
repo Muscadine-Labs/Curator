@@ -93,6 +93,33 @@ export const readPendingToken = async (
   );
 };
 
+// Total released reader
+export const readTotalReleased = async (
+  splitterAddress: Address,
+  tokenAddress: Address
+): Promise<bigint | null> => {
+  return safeContractRead<bigint>(
+    splitterAddress,
+    ERC20_FEE_SPLITTER_ABI,
+    'totalReleased',
+    [tokenAddress]
+  );
+};
+
+// Released reader (for specific account)
+export const readReleased = async (
+  splitterAddress: Address,
+  tokenAddress: Address,
+  accountAddress: Address
+): Promise<bigint | null> => {
+  return safeContractRead<bigint>(
+    splitterAddress,
+    ERC20_FEE_SPLITTER_ABI,
+    'released',
+    [tokenAddress, accountAddress]
+  );
+};
+
 // Helper to format token amounts
 export const formatTokenAmount = (
   amount: bigint | null,

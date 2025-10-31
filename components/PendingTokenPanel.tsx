@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { AlertCircle } from 'lucide-react';
-import { usePendingToken, useRevenueSplit } from '@/lib/hooks/useRevenueSplit';
+import { usePendingToken, useRevenueSplit, useTotalReleased, useReleased } from '@/lib/hooks/useRevenueSplit';
 import { formatCompactUSD } from '@/lib/format/number';
 import { vaults } from '@/lib/config/vaults';
 import { AddressBadge } from './AddressBadge';
@@ -21,6 +21,13 @@ export function PendingTokenPanel() {
   
   const { data: revenueSplit, isLoading: splitLoading } = useRevenueSplit();
   const { data: pendingData, isLoading: pendingLoading } = usePendingToken(
+    selectedVault as `0x${string}` || null,
+    selectedPayee as `0x${string}` || null
+  );
+  const { data: totalReleased, isLoading: totalReleasedLoading } = useTotalReleased(
+    selectedVault as `0x${string}` || null
+  );
+  const { data: released, isLoading: releasedLoading } = useReleased(
     selectedVault as `0x${string}` || null,
     selectedPayee as `0x${string}` || null
   );
@@ -97,21 +104,47 @@ export function PendingTokenPanel() {
                 <AddressBadge address={selectedPayee} scanUrl={`https://basescan.org/address/${selectedPayee}`} />
               </div>
               
-              <div className="pt-3 border-t">
-                <label className="text-sm font-medium mb-2 block">Pending Amount</label>
-                {pendingLoading ? (
-                  <Skeleton className="h-8 w-32" />
-                ) : pendingData?.payee1Pending || pendingData?.payee2Pending ? (
-                  <div className="text-2xl font-bold">
-                    {formatCompactUSD(
-                      selectedPayee === revenueSplit?.payee1 
-                        ? Number(pendingData.payee1Pending || 0)
-                        : Number(pendingData.payee2Pending || 0)
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-lg text-muted-foreground">$0.00</div>
-                )}
+              <div className="pt-3 border-t space-y-3">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Pending Amount</label>
+                  {pendingLoading ? (
+                    <Skeleton className="h-8 w-32" />
+                  ) : pendingData?.payee1Pending || pendingData?.payee2Pending ? (
+                    <div className="text-2xl font-bold">
+                      {formatCompactUSD(
+                        selectedPayee === revenueSplit?.payee1 
+                          ? Number(pendingData.payee1Pending || 0)
+                          : Number(pendingData.payee2Pending || 0)
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-lg text-muted-foreground">$0.00</div>
+                  )}
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Released Amount</label>
+                  {releasedLoading ? (
+                    <Skeleton className="h-8 w-32" />
+                  ) : released ? (
+                    <div className="text-2xl font-bold">
+                      {formatCompactUSD(Number(released))}
+                    </div>
+                  ) : (
+                    <div className="text-lg text-muted-foreground">$0.00</div>
+                  )}
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Total Released (Token)</label>
+                  {totalReleasedLoading ? (
+                    <Skeleton className="h-8 w-32" />
+                  ) : totalReleased ? (
+                    <div className="text-xl font-semibold">
+                      {formatCompactUSD(Number(totalReleased))}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-muted-foreground">$0.00</div>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -126,27 +159,59 @@ export function PendingTokenPanel() {
                   try {
                     const splitterAddress = (process.env.NEXT_PUBLIC_FEE_SPLITTER as Address) ||
                       ('0x194DeC45D34040488f355823e1F94C0434304188' as Address);
-                const hash = await writeContract({
+                    const hash = await writeContract({
                       address: splitterAddress,
                       abi: ERC20_FEE_SPLITTER_ABI,
                       functionName: 'claim',
-                      args: [selectedVault as Address],
+                      args: [selectedVault as Address, selectedPayee as Address],
                     });
                     // wagmi v2 returns hash directly
-                setTxHash(typeof hash === 'string' ? hash : '');
-              } catch (e: unknown) {
-                type WagmiTxError = { shortMessage?: string; message?: string };
-                const err = (typeof e === 'object' && e !== null) ? (e as Partial<WagmiTxError>) : {};
-                const msg = typeof err.message === 'string' ? err.message : 'Transaction failed';
-                const shortMsg = typeof err.shortMessage === 'string' ? err.shortMessage : '';
-                setTxError(shortMsg || msg);
+                    setTxHash(typeof hash === 'string' ? hash : '');
+                  } catch (e: unknown) {
+                    type WagmiTxError = { shortMessage?: string; message?: string };
+                    const err = (typeof e === 'object' && e !== null) ? (e as Partial<WagmiTxError>) : {};
+                    const msg = typeof err.message === 'string' ? err.message : 'Transaction failed';
+                    const shortMsg = typeof err.shortMessage === 'string' ? err.shortMessage : '';
+                    setTxError(shortMsg || msg);
+                  }
+                }}
+                disabled={!connectedAddress || !selectedVault || !selectedPayee || isPending}
+                className="flex items-center gap-2"
+              >
+                <AlertCircle className="h-4 w-4" />
+                {isPending ? 'Claiming...' : 'Claim'}
+              </Button>
+            </div>
+          )}
+          {selectedVault && (
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  setTxError('');
+                  setTxHash('');
+                  try {
+                    const splitterAddress = (process.env.NEXT_PUBLIC_FEE_SPLITTER as Address) ||
+                      ('0x194DeC45D34040488f355823e1F94C0434304188' as Address);
+                    const hash = await writeContract({
+                      address: splitterAddress,
+                      abi: ERC20_FEE_SPLITTER_ABI,
+                      functionName: 'claimAll',
+                      args: [selectedVault as Address],
+                    });
+                    setTxHash(typeof hash === 'string' ? hash : '');
+                  } catch (e: unknown) {
+                    type WagmiTxError = { shortMessage?: string; message?: string };
+                    const err = (typeof e === 'object' && e !== null) ? (e as Partial<WagmiTxError>) : {};
+                    const msg = typeof err.message === 'string' ? err.message : 'Transaction failed';
+                    const shortMsg = typeof err.shortMessage === 'string' ? err.shortMessage : '';
+                    setTxError(shortMsg || msg);
                   }
                 }}
                 disabled={!connectedAddress || !selectedVault || isPending}
                 className="flex items-center gap-2"
               >
-                <AlertCircle className="h-4 w-4" />
-                {isPending ? 'Claiming...' : 'Claim'}
+                {isPending ? 'Claiming All...' : 'Claim All'}
               </Button>
             </div>
           )}

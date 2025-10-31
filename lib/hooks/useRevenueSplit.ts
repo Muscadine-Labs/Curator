@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { readFeeSplitterData, readPendingToken } from '@/lib/onchain/contracts';
+import { readFeeSplitterData, readPendingToken, readTotalReleased, readReleased } from '@/lib/onchain/contracts';
 import { Address } from 'viem';
 
 export interface RevenueSplitData {
@@ -87,5 +87,46 @@ export const usePendingToken = (
     enabled: !!process.env.NEXT_PUBLIC_FEE_SPLITTER && !!tokenAddress,
     staleTime: 2 * 60 * 1000, // 2 minutes
     refetchInterval: 2 * 60 * 1000, // Refetch every 2 minutes
+  });
+};
+
+// Total released hook
+export const useTotalReleased = (tokenAddress: Address | null) => {
+  return useQuery<bigint | null>({
+    queryKey: ['total-released', tokenAddress],
+    queryFn: async () => {
+      const splitterAddress = (process.env.NEXT_PUBLIC_FEE_SPLITTER as Address) || (
+        '0x194DeC45D34040488f355823e1F94C0434304188' as Address
+      );
+      if (!splitterAddress || !tokenAddress) {
+        throw new Error('Splitter or token address not configured');
+      }
+      return readTotalReleased(splitterAddress, tokenAddress);
+    },
+    enabled: !!process.env.NEXT_PUBLIC_FEE_SPLITTER && !!tokenAddress,
+    staleTime: 2 * 60 * 1000,
+    refetchInterval: 2 * 60 * 1000,
+  });
+};
+
+// Released hook (for specific account)
+export const useReleased = (
+  tokenAddress: Address | null,
+  accountAddress?: Address | null
+) => {
+  return useQuery<bigint | null>({
+    queryKey: ['released', tokenAddress, accountAddress],
+    queryFn: async () => {
+      const splitterAddress = (process.env.NEXT_PUBLIC_FEE_SPLITTER as Address) || (
+        '0x194DeC45D34040488f355823e1F94C0434304188' as Address
+      );
+      if (!splitterAddress || !tokenAddress || !accountAddress) {
+        throw new Error('Splitter, token, or account address not configured');
+      }
+      return readReleased(splitterAddress, tokenAddress, accountAddress);
+    },
+    enabled: !!process.env.NEXT_PUBLIC_FEE_SPLITTER && !!tokenAddress && !!accountAddress,
+    staleTime: 2 * 60 * 1000,
+    refetchInterval: 2 * 60 * 1000,
   });
 };

@@ -128,6 +128,23 @@ export const ERC20_FEE_SPLITTER_ABI = [
     outputs: [{ name: '', type: 'uint256' }],
   },
   {
+    name: 'totalReleased',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'token', type: 'address' }],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+  {
+    name: 'released',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'token', type: 'address' },
+      { name: 'account', type: 'address' }
+    ],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+  {
     name: 'ERC20Claimed',
     type: 'event',
     inputs: [
@@ -138,6 +155,16 @@ export const ERC20_FEE_SPLITTER_ABI = [
   },
   {
     name: 'claim',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'token', type: 'address' },
+      { name: 'payee', type: 'address' }
+    ],
+    outputs: [],
+  },
+  {
+    name: 'claimAll',
     type: 'function',
     stateMutability: 'nonpayable',
     inputs: [
