@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { formatCompactUSD, formatPercentage } from '@/lib/format/number';
-import { ConnectWallet } from '@coinbase/onchainkit/wallet';
+import { WalletConnect } from '@/components/WalletConnect';
 
 export default function MarketsSuppliedPage() {
   const { data, isLoading, error } = useMarketsSupplied();
@@ -42,7 +42,7 @@ export default function MarketsSuppliedPage() {
               <Button asChild>
                 <Link href="/vaults">View Vaults</Link>
               </Button>
-              <ConnectWallet />
+              <WalletConnect />
             </div>
           </div>
         </div>

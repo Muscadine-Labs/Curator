@@ -9,8 +9,10 @@ import { usePendingToken, useRevenueSplit, useTotalReleased, useReleased } from 
 import { formatCompactUSD } from '@/lib/format/number';
 import { vaults } from '@/lib/config/vaults';
 import { AddressBadge } from './AddressBadge';
+// OnchainKit integrates with wagmi, so we use wagmi hooks for contract interactions
 import { useAccount, useWriteContract } from 'wagmi';
 import { Address } from 'viem';
+import { base } from 'viem/chains';
 import { ERC20_FEE_SPLITTER_ABI } from '@/lib/onchain/client';
 
 export function PendingTokenPanel() {
@@ -169,6 +171,7 @@ export function PendingTokenPanel() {
                       abi: ERC20_FEE_SPLITTER_ABI,
                       functionName: 'claim',
                       args: [selectedVault as Address, selectedPayee as Address],
+                      chainId: base.id, // Explicitly use Base chain
                     });
                     setTxHash(hash);
                   } catch (e: unknown) {
@@ -214,6 +217,7 @@ export function PendingTokenPanel() {
                       abi: ERC20_FEE_SPLITTER_ABI,
                       functionName: 'claimAll',
                       args: [selectedVault as Address],
+                      chainId: base.id, // Explicitly use Base chain
                     });
                     console.log('Transaction hash:', hash);
                     setTxHash(hash);

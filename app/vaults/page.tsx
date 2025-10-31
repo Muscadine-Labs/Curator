@@ -5,7 +5,7 @@ import { useVaultList } from '@/lib/hooks/useProtocolStats';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-import { ConnectWallet } from '@coinbase/onchainkit/wallet';
+import { WalletConnect } from '@/components/WalletConnect';
 
 export default function VaultsPage() {
   const { data: vaults, isLoading } = useVaultList();
@@ -37,7 +37,7 @@ export default function VaultsPage() {
               <Button asChild>
                 <Link href="/fees">Fee Splitter</Link>
               </Button>
-              <ConnectWallet />
+              <WalletConnect />
             </div>
           </div>
         </div>
