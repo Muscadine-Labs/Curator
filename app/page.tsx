@@ -6,6 +6,7 @@ import { ChartFees } from '@/components/ChartFees';
 import { useProtocolStats } from '@/lib/hooks/useProtocolStats';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { ConnectWallet } from '@coinbase/onchainkit/wallet';
 
 export default function Home() {
   const { data: stats, isLoading } = useProtocolStats();
@@ -32,6 +33,7 @@ export default function Home() {
               <Button asChild>
                 <Link href="/fees">Fee Splitter</Link>
               </Button>
+              <ConnectWallet />
             </div>
           </div>
         </div>

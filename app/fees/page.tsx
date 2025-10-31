@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { formatCompactUSD, formatDate } from '@/lib/format/number';
+import { ConnectWallet } from '@coinbase/onchainkit/wallet';
 
 export default function FeesPage() {
   const { data: feesData, isLoading: feesLoading } = useFeesData();
@@ -42,6 +43,7 @@ export default function FeesPage() {
               <Button asChild>
                 <Link href="/vaults">View Vaults</Link>
               </Button>
+              <ConnectWallet />
             </div>
           </div>
         </div>

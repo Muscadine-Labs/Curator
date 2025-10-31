@@ -32,7 +32,7 @@ export function PendingTokenPanel() {
     selectedPayee as `0x${string}` || null
   );
   const { address: connectedAddress } = useAccount();
-  const { writeContract, isPending } = useWriteContract();
+  const { writeContractAsync, isPending } = useWriteContract();
 
   return (
     <Card>
@@ -164,14 +164,13 @@ export function PendingTokenPanel() {
                   try {
                     const splitterAddress = (process.env.NEXT_PUBLIC_FEE_SPLITTER as Address) ||
                       ('0x194DeC45D34040488f355823e1F94C0434304188' as Address);
-                    const hash = await writeContract({
+                    const hash = await writeContractAsync({
                       address: splitterAddress,
                       abi: ERC20_FEE_SPLITTER_ABI,
                       functionName: 'claim',
                       args: [selectedVault as Address, selectedPayee as Address],
                     });
-                    // wagmi v2 returns hash directly
-                    setTxHash(typeof hash === 'string' ? hash : '');
+                    setTxHash(hash);
                   } catch (e: unknown) {
                     type WagmiTxError = { shortMessage?: string; message?: string };
                     const err = (typeof e === 'object' && e !== null) ? (e as Partial<WagmiTxError>) : {};
@@ -195,22 +194,37 @@ export function PendingTokenPanel() {
                 onClick={async () => {
                   setTxError('');
                   setTxHash('');
+                  if (!connectedAddress) {
+                    setTxError('Please connect your wallet first');
+                    return;
+                  }
+                  if (!selectedVault) {
+                    setTxError('Please select a vault (token) first');
+                    return;
+                  }
                   try {
-                    const splitterAddress = (process.env.NEXT_PUBLIC_FEE_SPLITTER as Address) ||
-                      ('0x194DeC45D34040488f355823e1F94C0434304188' as Address);
-                    const hash = await writeContract({
+                    const splitterAddress = '0x194DeC45D34040488f355823e1F94C0434304188' as Address;
+                    console.log('Calling claimAll:', {
+                      address: splitterAddress,
+                      functionName: 'claimAll',
+                      args: [selectedVault],
+                    });
+                    const hash = await writeContractAsync({
                       address: splitterAddress,
                       abi: ERC20_FEE_SPLITTER_ABI,
                       functionName: 'claimAll',
                       args: [selectedVault as Address],
                     });
-                    setTxHash(typeof hash === 'string' ? hash : '');
+                    console.log('Transaction hash:', hash);
+                    setTxHash(hash);
                   } catch (e: unknown) {
-                    type WagmiTxError = { shortMessage?: string; message?: string };
+                    console.error('claimAll error:', e);
+                    type WagmiTxError = { shortMessage?: string; message?: string; cause?: unknown };
                     const err = (typeof e === 'object' && e !== null) ? (e as Partial<WagmiTxError>) : {};
                     const msg = typeof err.message === 'string' ? err.message : 'Transaction failed';
                     const shortMsg = typeof err.shortMessage === 'string' ? err.shortMessage : '';
-                    setTxError(shortMsg || msg);
+                    const errorMsg = shortMsg || msg || 'Unknown error occurred';
+                    setTxError(errorMsg);
                   }
                 }}
                 disabled={!connectedAddress || !selectedVault || isPending}

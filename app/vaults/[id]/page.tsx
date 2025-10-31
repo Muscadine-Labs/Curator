@@ -13,6 +13,7 @@ import { ArrowLeft, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { formatCompactUSD, formatPercentage, formatRelativeTime } from '@/lib/format/number';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ConnectWallet } from '@coinbase/onchainkit/wallet';
 
 export default function VaultDetailPage() {
   const params = useParams();
@@ -99,6 +100,7 @@ export default function VaultDetailPage() {
               <Button variant="outline" size="sm" disabled>
                 Withdraw (Coming Soon)
               </Button>
+              <ConnectWallet />
             </div>
           </div>
         </div>
