@@ -182,8 +182,8 @@ export async function GET() {
       lltv: m.lltv,
       oracleAddress: m.oracleAddress,
       irmAddress: m.irmAddress,
-      loanAsset: m.loanAsset,
-      collateralAsset: m.collateralAsset,
+      loanAsset: m.loanAsset || null,
+      collateralAsset: m.collateralAsset || null,
       state: {
         supplyAssetsUsd: m.state?.supplyAssetsUsd ?? 0,
         borrowAssetsUsd: m.state?.borrowAssetsUsd ?? 0,

@@ -14,8 +14,8 @@ export interface SuppliedMarket {
   lltv: number | null;
   oracleAddress: string | null;
   irmAddress: string | null;
-  loanAsset: { address: string; symbol: string; decimals: number };
-  collateralAsset: { address: string; symbol: string; decimals: number };
+  loanAsset: { address: string; symbol: string; decimals: number } | null;
+  collateralAsset: { address: string; symbol: string; decimals: number } | null;
   state: {
     supplyAssetsUsd: number;
     borrowAssetsUsd: number;

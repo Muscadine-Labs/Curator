@@ -80,14 +80,16 @@ export default function MarketsSuppliedPage() {
                   {markets.map((m) => (
                     <TableRow key={m.uniqueKey}>
                       <TableCell className="font-mono text-xs">{m.uniqueKey}</TableCell>
-                      <TableCell>{m.loanAsset.symbol} / {m.collateralAsset.symbol}</TableCell>
-                      <TableCell>{m.lltv ?? '-'}</TableCell>
-                      <TableCell>{formatCompactUSD(m.state.supplyAssetsUsd || 0)}</TableCell>
-                      <TableCell>{formatPercentage((m.state.utilization || 0) * 100)}</TableCell>
                       <TableCell>
-                        {m.state.rewards && m.state.rewards.length > 0
+                        {m.loanAsset?.symbol || 'N/A'} / {m.collateralAsset?.symbol || 'N/A'}
+                      </TableCell>
+                      <TableCell>{m.lltv ?? '-'}</TableCell>
+                      <TableCell>{formatCompactUSD(m.state?.supplyAssetsUsd || 0)}</TableCell>
+                      <TableCell>{formatPercentage((m.state?.utilization || 0) * 100)}</TableCell>
+                      <TableCell>
+                        {m.state?.rewards && m.state.rewards.length > 0
                           ? m.state.rewards.map((r, i) => (
-                              <span key={i} className="block text-green-600">{formatPercentage(r.supplyApr)}</span>
+                              <span key={i} className="block text-green-600">{formatPercentage(r.supplyApr || 0)}</span>
                             ))
                           : '-'}
                       </TableCell>
@@ -104,7 +106,9 @@ export default function MarketsSuppliedPage() {
           {markets.map((m) => (
             <Card key={m.uniqueKey}>
               <CardHeader>
-                <CardTitle>{m.loanAsset.symbol} / {m.collateralAsset.symbol} — {m.uniqueKey.slice(0, 10)}...</CardTitle>
+                <CardTitle>
+                  {m.loanAsset?.symbol || 'N/A'} / {m.collateralAsset?.symbol || 'N/A'} — {m.uniqueKey.slice(0, 10)}...
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
