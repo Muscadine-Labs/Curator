@@ -10,7 +10,7 @@ import { formatCompactUSD } from '@/lib/format/number';
 import { vaults } from '@/lib/config/vaults';
 import { AddressBadge } from './AddressBadge';
 // OnchainKit integrates with wagmi, so we use wagmi hooks for contract interactions
-import { useAccount, useWriteContract } from 'wagmi';
+import { useAccount, useWriteContract, useChainId, useSwitchChain } from 'wagmi';
 import { Address } from 'viem';
 import { base } from 'viem/chains';
 import { ERC20_FEE_SPLITTER_ABI } from '@/lib/onchain/client';
@@ -35,6 +35,8 @@ export function PendingTokenPanel() {
   );
   const { address: connectedAddress } = useAccount();
   const { writeContractAsync, isPending } = useWriteContract();
+  const chainId = useChainId();
+  const { switchChain } = useSwitchChain();
 
   return (
     <Card>
@@ -43,6 +45,43 @@ export function PendingTokenPanel() {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
+          {/* Network Warning */}
+          {connectedAddress && chainId !== base.id && (
+            <div className="rounded-lg border border-yellow-500/50 bg-yellow-500/10 p-4">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-yellow-600" />
+                <div className="flex-1">
+                  <p className="font-medium text-yellow-800 dark:text-yellow-200">
+                    Wrong Network Detected
+                  </p>
+                  <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
+                    Your wallet is connected to {chainId === 1 ? 'Ethereum Mainnet' : `Chain ID ${chainId}`}. 
+                    Please switch to Base network to interact with the fee splitter contract.
+                  </p>
+                </div>
+                <Button
+                  onClick={async () => {
+                    setTxError('');
+                    try {
+                      await switchChain({ chainId: base.id });
+                    } catch (e: unknown) {
+                      type WagmiTxError = { shortMessage?: string; message?: string };
+                      const err = (typeof e === 'object' && e !== null) ? (e as Partial<WagmiTxError>) : {};
+                      const msg = typeof err.message === 'string' ? err.message : 'Failed to switch network';
+                      const shortMsg = typeof err.shortMessage === 'string' ? err.shortMessage : '';
+                      setTxError(shortMsg || msg || 'Please switch to Base network in your wallet');
+                    }
+                  }}
+                  size="sm"
+                  variant="outline"
+                  className="flex items-center gap-2"
+                >
+                  Switch to Base
+                </Button>
+              </div>
+            </div>
+          )}
+          
           {/* Vault Selection */}
           <div>
             <label className="text-sm font-medium mb-2 block">Select Vault (Token)</label>
@@ -159,83 +198,139 @@ export function PendingTokenPanel() {
           {/* Action Buttons */}
           {selectedVault && selectedPayee && (
             <div className="flex gap-2">
-              <Button
-                onClick={async () => {
-                  setTxError('');
-                  setTxHash('');
-                  try {
-                    const splitterAddress = (process.env.NEXT_PUBLIC_FEE_SPLITTER as Address) ||
-                      ('0x194DeC45D34040488f355823e1F94C0434304188' as Address);
-                    const hash = await writeContractAsync({
-                      address: splitterAddress,
-                      abi: ERC20_FEE_SPLITTER_ABI,
-                      functionName: 'claim',
-                      args: [selectedVault as Address, selectedPayee as Address],
-                      chainId: base.id, // Explicitly use Base chain
-                    });
-                    setTxHash(hash);
-                  } catch (e: unknown) {
-                    type WagmiTxError = { shortMessage?: string; message?: string };
-                    const err = (typeof e === 'object' && e !== null) ? (e as Partial<WagmiTxError>) : {};
-                    const msg = typeof err.message === 'string' ? err.message : 'Transaction failed';
-                    const shortMsg = typeof err.shortMessage === 'string' ? err.shortMessage : '';
-                    setTxError(shortMsg || msg);
-                  }
-                }}
-                disabled={!connectedAddress || !selectedVault || !selectedPayee || isPending}
-                className="flex items-center gap-2"
-              >
-                <AlertCircle className="h-4 w-4" />
-                {isPending ? 'Claiming...' : 'Claim'}
-              </Button>
+              {chainId !== base.id ? (
+                <Button
+                  onClick={async () => {
+                    setTxError('');
+                    try {
+                      await switchChain({ chainId: base.id });
+                    } catch (e: unknown) {
+                      type WagmiTxError = { shortMessage?: string; message?: string };
+                      const err = (typeof e === 'object' && e !== null) ? (e as Partial<WagmiTxError>) : {};
+                      const msg = typeof err.message === 'string' ? err.message : 'Failed to switch network';
+                      const shortMsg = typeof err.shortMessage === 'string' ? err.shortMessage : '';
+                      setTxError(shortMsg || msg || 'Please switch to Base network in your wallet');
+                    }
+                  }}
+                  variant="outline"
+                  className="flex items-center gap-2"
+                >
+                  <AlertCircle className="h-4 w-4" />
+                  Switch to Base Network
+                </Button>
+              ) : (
+                <Button
+                  onClick={async () => {
+                    setTxError('');
+                    setTxHash('');
+                    try {
+                      const splitterAddress = (process.env.NEXT_PUBLIC_FEE_SPLITTER as Address) ||
+                        ('0x194DeC45D34040488f355823e1F94C0434304188' as Address);
+                      const hash = await writeContractAsync({
+                        address: splitterAddress,
+                        abi: ERC20_FEE_SPLITTER_ABI,
+                        functionName: 'claim',
+                        args: [selectedVault as Address, selectedPayee as Address],
+                        chainId: base.id, // Explicitly use Base chain
+                      });
+                      setTxHash(hash);
+                    } catch (e: unknown) {
+                      type WagmiTxError = { shortMessage?: string; message?: string; cause?: unknown };
+                      const err = (typeof e === 'object' && e !== null) ? (e as Partial<WagmiTxError>) : {};
+                      const msg = typeof err.message === 'string' ? err.message : 'Transaction failed';
+                      const shortMsg = typeof err.shortMessage === 'string' ? err.shortMessage : '';
+                      
+                      // Check for chain mismatch error
+                      if (msg.includes('chain') || msg.includes('network')) {
+                        setTxError('Please switch to Base network in your wallet');
+                      } else {
+                        setTxError(shortMsg || msg);
+                      }
+                    }
+                  }}
+                  disabled={!connectedAddress || !selectedVault || !selectedPayee || isPending}
+                  className="flex items-center gap-2"
+                >
+                  <AlertCircle className="h-4 w-4" />
+                  {isPending ? 'Claiming...' : 'Claim'}
+                </Button>
+              )}
             </div>
           )}
           {selectedVault && (
             <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={async () => {
-                  setTxError('');
-                  setTxHash('');
-                  if (!connectedAddress) {
-                    setTxError('Please connect your wallet first');
-                    return;
-                  }
-                  if (!selectedVault) {
-                    setTxError('Please select a vault (token) first');
-                    return;
-                  }
-                  try {
-                    const splitterAddress = '0x194DeC45D34040488f355823e1F94C0434304188' as Address;
-                    console.log('Calling claimAll:', {
-                      address: splitterAddress,
-                      functionName: 'claimAll',
-                      args: [selectedVault],
-                    });
-                    const hash = await writeContractAsync({
-                      address: splitterAddress,
-                      abi: ERC20_FEE_SPLITTER_ABI,
-                      functionName: 'claimAll',
-                      args: [selectedVault as Address],
-                      chainId: base.id, // Explicitly use Base chain
-                    });
-                    console.log('Transaction hash:', hash);
-                    setTxHash(hash);
-                  } catch (e: unknown) {
-                    console.error('claimAll error:', e);
-                    type WagmiTxError = { shortMessage?: string; message?: string; cause?: unknown };
-                    const err = (typeof e === 'object' && e !== null) ? (e as Partial<WagmiTxError>) : {};
-                    const msg = typeof err.message === 'string' ? err.message : 'Transaction failed';
-                    const shortMsg = typeof err.shortMessage === 'string' ? err.shortMessage : '';
-                    const errorMsg = shortMsg || msg || 'Unknown error occurred';
-                    setTxError(errorMsg);
-                  }
-                }}
-                disabled={!connectedAddress || !selectedVault || isPending}
-                className="flex items-center gap-2"
-              >
-                {isPending ? 'Claiming All...' : 'Claim All'}
-              </Button>
+              {chainId !== base.id ? (
+                <Button
+                  onClick={async () => {
+                    setTxError('');
+                    try {
+                      await switchChain({ chainId: base.id });
+                    } catch (e: unknown) {
+                      type WagmiTxError = { shortMessage?: string; message?: string };
+                      const err = (typeof e === 'object' && e !== null) ? (e as Partial<WagmiTxError>) : {};
+                      const msg = typeof err.message === 'string' ? err.message : 'Failed to switch network';
+                      const shortMsg = typeof err.shortMessage === 'string' ? err.shortMessage : '';
+                      setTxError(shortMsg || msg || 'Please switch to Base network in your wallet');
+                    }
+                  }}
+                  variant="outline"
+                  className="flex items-center gap-2"
+                >
+                  <AlertCircle className="h-4 w-4" />
+                  Switch to Base Network
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  onClick={async () => {
+                    setTxError('');
+                    setTxHash('');
+                    if (!connectedAddress) {
+                      setTxError('Please connect your wallet first');
+                      return;
+                    }
+                    if (!selectedVault) {
+                      setTxError('Please select a vault (token) first');
+                      return;
+                    }
+                    try {
+                      const splitterAddress = '0x194DeC45D34040488f355823e1F94C0434304188' as Address;
+                      console.log('Calling claimAll:', {
+                        address: splitterAddress,
+                        functionName: 'claimAll',
+                        args: [selectedVault],
+                      });
+                      const hash = await writeContractAsync({
+                        address: splitterAddress,
+                        abi: ERC20_FEE_SPLITTER_ABI,
+                        functionName: 'claimAll',
+                        args: [selectedVault as Address],
+                        chainId: base.id, // Explicitly use Base chain
+                      });
+                      console.log('Transaction hash:', hash);
+                      setTxHash(hash);
+                    } catch (e: unknown) {
+                      console.error('claimAll error:', e);
+                      type WagmiTxError = { shortMessage?: string; message?: string; cause?: unknown };
+                      const err = (typeof e === 'object' && e !== null) ? (e as Partial<WagmiTxError>) : {};
+                      const msg = typeof err.message === 'string' ? err.message : 'Transaction failed';
+                      const shortMsg = typeof err.shortMessage === 'string' ? err.shortMessage : '';
+                      
+                      // Check for chain mismatch error
+                      if (msg.includes('chain') || msg.includes('network')) {
+                        setTxError('Please switch to Base network in your wallet');
+                      } else {
+                        const errorMsg = shortMsg || msg || 'Unknown error occurred';
+                        setTxError(errorMsg);
+                      }
+                    }
+                  }}
+                  disabled={!connectedAddress || !selectedVault || isPending}
+                  className="flex items-center gap-2"
+                >
+                  {isPending ? 'Claiming All...' : 'Claim All'}
+                </Button>
+              )}
             </div>
           )}
 
