@@ -40,7 +40,7 @@ export async function GET() {
     // 1) Fetch vault allocations to discover markets we supply to
     const vaultsQuery = `
       query VaultAllocations($addresses: [String!]) {
-        vaults(first: 1000, where: { address_in: $addresses, chainId_in: [1, 8453] }) {
+        vaults(first: 1000, where: { address_in: $addresses, chainId_in: [8453] }) {
           items {
             address
             state {
@@ -113,7 +113,7 @@ export async function GET() {
     const mResp = await fetch(MORPHO_GRAPHQL_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: marketsQuery, variables: { chainIds: [1, 8453] } }),
+      body: JSON.stringify({ query: marketsQuery, variables: { chainIds: [8453] } }),
     });
     if (!mResp.ok) {
       const text = await mResp.text();

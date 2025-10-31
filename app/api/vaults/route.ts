@@ -31,7 +31,7 @@ export async function GET() {
       query FetchVaultsAndPositions($addresses: [String!]) {
         vaults(
           first: 1000
-          where: { address_in: $addresses, chainId_in: [1, 8453] }
+          where: { address_in: $addresses, chainId_in: [8453] }
         ) {
           items {
             address

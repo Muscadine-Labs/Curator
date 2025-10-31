@@ -8,7 +8,11 @@ import { base } from 'viem/chains';
 const config = createConfig({
   chains: [base],
   transports: {
-    [base.id]: http(`https://base-mainnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`),
+    [base.id]: http(
+      process.env.NEXT_PUBLIC_ALCHEMY_API_KEY
+        ? `https://base-mainnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`
+        : `https://base-mainnet.g.alchemy.com/v2/demo` // Fallback for build
+    ),
   },
 });
 
