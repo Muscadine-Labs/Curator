@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { formatCompactUSD, formatPercentage, formatCompactNumber, formatRelativeTime } from '@/lib/format/number';
+import { formatCompactUSD, formatPercentage, formatCompactNumber, formatRelativeTime, formatTokenAmount } from '@/lib/format/number';
 import { VaultWithData } from '@/lib/hooks/useProtocolStats';
 import Link from 'next/link';
 
@@ -68,7 +68,16 @@ export function VaultTable({ vaults, isLoading = false }: VaultTableProps) {
                 <TableCell>
                   <Badge variant="outline">{vault.asset}</Badge>
                 </TableCell>
-                <TableCell>{formatCompactUSD(vault.tvl)}</TableCell>
+                <TableCell>
+                  <div className="flex flex-col">
+                    <div className="font-medium">{formatCompactUSD(vault.tvl)}</div>
+                    {vault.tokenAmount && (
+                      <div className="text-sm text-muted-foreground">
+                        {formatTokenAmount(BigInt(vault.tokenAmount), vault.assetDecimals, 2)} {vault.asset}
+                      </div>
+                    )}
+                  </div>
+                </TableCell>
                 <TableCell className="text-green-600">
                   {formatPercentage(vault.apy7d)}
                 </TableCell>

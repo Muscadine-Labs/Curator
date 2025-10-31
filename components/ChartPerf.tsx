@@ -22,6 +22,21 @@ export function ChartPerf({ data, isLoading = false, title = "Performance Index"
     );
   }
 
+  if (!data || data.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>{title}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center h-64 text-muted-foreground">
+            No data available
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   const formatTooltipValue = (value: number) => `${value.toFixed(4)}`;
   const formatXAxisLabel = (tickItem: string) => {
     const date = new Date(tickItem);

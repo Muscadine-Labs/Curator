@@ -23,6 +23,21 @@ export function ChartTvl({ data, isLoading = false, title = "TVL Over Time" }: C
     );
   }
 
+  if (!data || data.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>{title}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center h-64 text-muted-foreground">
+            No data available
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   const formatTooltipValue = (value: number) => formatCompactUSD(value);
   const formatXAxisLabel = (tickItem: string) => {
     const date = new Date(tickItem);

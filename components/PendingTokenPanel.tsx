@@ -19,7 +19,7 @@ export function PendingTokenPanel() {
   const [txError, setTxError] = useState<string>('');
   const [txHash, setTxHash] = useState<string>('');
   
-  const { data: revenueSplit, isLoading: splitLoading } = useRevenueSplit();
+  const { data: revenueSplit, isLoading: splitLoading, error: splitError } = useRevenueSplit();
   const { data: pendingData, isLoading: pendingLoading } = usePendingToken(
     selectedVault as `0x${string}` || null,
     selectedPayee as `0x${string}` || null
@@ -33,12 +33,6 @@ export function PendingTokenPanel() {
   );
   const { address: connectedAddress } = useAccount();
   const { writeContract, isPending } = useWriteContract();
-
-  // Get payee addresses from revenue split
-  const payees = revenueSplit ? [
-    { label: 'Payee 1', address: revenueSplit.payee1 },
-    { label: 'Payee 2', address: revenueSplit.payee2 },
-  ].filter(p => p.address) : [];
 
   return (
     <Card>
@@ -70,7 +64,7 @@ export function PendingTokenPanel() {
               <Skeleton className="h-4 w-32" />
               <Skeleton className="h-10 w-full" />
             </div>
-          ) : payees.length > 0 ? (
+          ) : revenueSplit && (revenueSplit.payee1 || revenueSplit.payee2) ? (
             <div>
               <label className="text-sm font-medium mb-2 block">Select Payee</label>
               <select
@@ -79,16 +73,27 @@ export function PendingTokenPanel() {
                 className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm"
               >
                 <option value="">Select a payee...</option>
-                {payees.map((payee, index) => (
-                  <option key={index} value={payee.address || ''}>
-                    {payee.label} - {payee.address?.slice(0, 10)}...
+                {revenueSplit.payee1 && (
+                  <option value={revenueSplit.payee1}>
+                    Payee 1 - {revenueSplit.payee1.slice(0, 10)}...
                   </option>
-                ))}
+                )}
+                {revenueSplit.payee2 && (
+                  <option value={revenueSplit.payee2}>
+                    Payee 2 - {revenueSplit.payee2.slice(0, 10)}...
+                  </option>
+                )}
               </select>
             </div>
+          ) : splitError ? (
+            <div className="text-sm text-red-600 space-y-1">
+              <p>Error loading fee splitter: {splitError instanceof Error ? splitError.message : 'Unknown error'}</p>
+              <p className="text-xs text-muted-foreground">Contract: 0x194DeC45D34040488f355823e1F94C0434304188</p>
+            </div>
           ) : (
-            <div className="text-sm text-muted-foreground">
-              Fee splitter contract not configured
+            <div className="text-sm text-muted-foreground space-y-1">
+              <p>Loading fee splitter data...</p>
+              <p className="text-xs">Contract: 0x194DeC45D34040488f355823e1F94C0434304188</p>
             </div>
           )}
 

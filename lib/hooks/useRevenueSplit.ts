@@ -84,7 +84,7 @@ export const usePendingToken = (
         payee2Pending,
       };
     },
-    enabled: !!process.env.NEXT_PUBLIC_FEE_SPLITTER && !!tokenAddress,
+    enabled: !!tokenAddress,
     staleTime: 2 * 60 * 1000, // 2 minutes
     refetchInterval: 2 * 60 * 1000, // Refetch every 2 minutes
   });
@@ -103,7 +103,7 @@ export const useTotalReleased = (tokenAddress: Address | null) => {
       }
       return readTotalReleased(splitterAddress, tokenAddress);
     },
-    enabled: !!process.env.NEXT_PUBLIC_FEE_SPLITTER && !!tokenAddress,
+    enabled: !!tokenAddress,
     staleTime: 2 * 60 * 1000,
     refetchInterval: 2 * 60 * 1000,
   });
@@ -125,7 +125,7 @@ export const useReleased = (
       }
       return readReleased(splitterAddress, tokenAddress, accountAddress);
     },
-    enabled: !!process.env.NEXT_PUBLIC_FEE_SPLITTER && !!tokenAddress && !!accountAddress,
+    enabled: !!tokenAddress && !!accountAddress,
     staleTime: 2 * 60 * 1000,
     refetchInterval: 2 * 60 * 1000,
   });

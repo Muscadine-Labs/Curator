@@ -19,18 +19,19 @@ export const formatUSD = (amount: number | bigint | null, decimals: number = 2):
 
 // Format compact USD amounts (K, M, B)
 export const formatCompactUSD = (amount: number | bigint | null): string => {
-  if (!amount) return '$0';
+  if (!amount) return '$0.00';
   
   const numAmount = typeof amount === 'bigint' ? Number(amount) : amount;
   
-  if (numAmount === 0) return '$0';
+  if (numAmount === 0) return '$0.00';
   if (numAmount < 1000) return formatUSD(numAmount, 2);
   
   const formatter = new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
     notation: 'compact',
-    maximumFractionDigits: 1,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   });
   
   return formatter.format(numAmount);
@@ -146,4 +147,22 @@ export const formatAddress = (address: string | null, startChars: number = 6, en
 export const formatTokenSymbol = (symbol: string | null): string => {
   if (!symbol) return 'N/A';
   return symbol.toUpperCase();
+};
+
+// Format token amount with decimals
+export const formatTokenAmount = (
+  amount: bigint | number | null,
+  decimals: number,
+  displayDecimals: number = 2
+): string => {
+  if (!amount || !decimals) return '0.00';
+  
+  const numAmount = typeof amount === 'bigint' ? Number(amount) : amount;
+  const divisor = Math.pow(10, decimals);
+  const formatted = numAmount / divisor;
+  
+  return new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: displayDecimals,
+    maximumFractionDigits: displayDecimals,
+  }).format(formatted);
 };

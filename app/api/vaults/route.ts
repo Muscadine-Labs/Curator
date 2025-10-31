@@ -5,7 +5,11 @@ const MORPHO_GRAPHQL_ENDPOINT = 'https://api.morpho.org/graphql';
 
 type MorphoVaultItem = {
   address: string;
+  asset: {
+    decimals: number | null;
+  } | null;
   state: {
+    totalAssets: string | null;
     totalAssetsUsd: number | null;
     weeklyNetApy: number | null;
     monthlyNetApy: number | null;
@@ -31,7 +35,11 @@ export async function GET() {
         ) {
           items {
             address
+            asset {
+              decimals
+            }
             state {
+              totalAssets
               totalAssetsUsd
               weeklyNetApy
               monthlyNetApy
@@ -92,6 +100,8 @@ export async function GET() {
     const merged = configuredVaults.map(v => {
       const m = morphoByAddress[v.address.toLowerCase()];
       const tvl = m?.state?.totalAssetsUsd ?? 0;
+      const totalAssetsRaw = m?.state?.totalAssets ? BigInt(m.state.totalAssets) : null;
+      const assetDecimals = m?.asset?.decimals ?? 18; // Default to 18 if not found
       const weeklyNetApy = m?.state?.weeklyNetApy ?? 0; // decimal e.g. 0.05
       const monthlyNetApy = m?.state?.monthlyNetApy ?? 0; // decimal e.g. 0.07
       const depositors = depositorsByVault[v.address.toLowerCase()] ?? 0;
@@ -99,6 +109,8 @@ export async function GET() {
       return {
         ...v,
         tvl,
+        tokenAmount: totalAssetsRaw?.toString() ?? null,
+        assetDecimals,
         apy7d: weeklyNetApy * 100,
         apy30d: monthlyNetApy * 100,
         depositors,

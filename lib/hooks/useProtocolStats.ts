@@ -24,6 +24,8 @@ export interface VaultWithData {
   createdAt: string;
   description?: string;
   tvl: number;
+  tokenAmount: string | null;
+  assetDecimals: number;
   apy7d: number;
   apy30d: number;
   depositors: number;

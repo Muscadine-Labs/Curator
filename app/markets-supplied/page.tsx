@@ -67,8 +67,7 @@ export default function MarketsSuppliedPage() {
                     <TableHead>Market</TableHead>
                     <TableHead>Loan / Collateral</TableHead>
                     <TableHead>LLTV</TableHead>
-                    <TableHead>Supplied (USD)</
-                    TableHead>
+                    <TableHead>Supplied (USD)</TableHead>
                     <TableHead>Utilization</TableHead>
                     <TableHead>Rewards APR</TableHead>
                   </TableRow>
@@ -105,8 +104,16 @@ export default function MarketsSuppliedPage() {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  <ChartTvl data={m.history.tvl} title="Supply TVL (USD)" />
-                  <ChartPerf data={m.history.supplyApy} title="Supply APY (%)" />
+                  <ChartTvl 
+                    data={m.history?.tvl || []} 
+                    title="Supply TVL (USD)" 
+                    isLoading={isLoading && !m.history?.tvl}
+                  />
+                  <ChartPerf 
+                    data={m.history?.supplyApy || []} 
+                    title="Supply APY (%)" 
+                    isLoading={isLoading && !m.history?.supplyApy}
+                  />
                 </div>
               </CardContent>
             </Card>
