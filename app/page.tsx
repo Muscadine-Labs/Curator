@@ -25,13 +25,10 @@ export default function Home() {
             </div>
             <div className="flex items-center gap-4">
               <Button variant="outline" asChild>
-                <Link href="/markets">Morpho Markets</Link>
+                <Link href="/markets">Markets</Link>
               </Button>
               <Button variant="outline" asChild>
                 <Link href="/vaults">View All Vaults</Link>
-              </Button>
-              <Button variant="outline" asChild>
-                <Link href="/markets-supplied">Markets Supplied</Link>
               </Button>
               <Button variant="outline" asChild>
                 <Link href="/fees">Fee Splitter</Link>

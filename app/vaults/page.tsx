@@ -32,7 +32,7 @@ export default function VaultsPage() {
             </div>
             <div className="flex items-center gap-2">
               <Button variant="outline" asChild>
-                <Link href="/markets-supplied">Markets</Link>
+                <Link href="/markets">Markets</Link>
               </Button>
               <Button asChild>
                 <Link href="/fees">Fee Splitter</Link>

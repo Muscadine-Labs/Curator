@@ -20,8 +20,52 @@ Modern Next.js dashboard for Muscadine vaults on Morpho. Live data is sourced fr
 - **Charts**: Recharts
 - **State Management**: React Query (TanStack)
 - **Wallet**: Coinbase OnchainKit + wagmi + viem
-- **Blockchain**: Base (Chain ID: 8453)
+- **Blockchain**: Base (Chain ID: 8453) - All contracts and markets are on Base network
 - **RPC**: Alchemy
+
+## Network Configuration
+
+**Everything runs on Base Network (Chain ID: 8453)**
+
+- All vault contracts are deployed on Base
+- All Morpho markets are filtered to Base chain only
+- Wallet connections default to Base network
+- Fee splitter contract is on Base
+- All API queries explicitly filter by `chainId_in: [8453]`
+
+If your wallet is on a different network, the app will prompt you to switch to Base.
+
+## Recent Optimizations (Nov 2024)
+
+### Critical Fixes
+1. **🔴 Fixed Morpho Markets Query** - Added `chainId_in: [8453]` filter to prevent pulling markets from other chains (Ethereum, etc.). Previously, the query was fetching ALL chains which caused incorrect data display.
+
+2. **Enhanced Markets Page** - Completely redesigned `/markets` page to merge Morpho risk ratings with supplied market data:
+   - Section 1: All 3 Vaults overview (USDC, cbBTC, WETH) with aggregate stats and curator ratings (0-100 scale)
+   - Section 2: Detailed table of all supplied markets with LLTV (2 decimals), utilization, rewards, and ratings
+   - Section 3: Dedicated cbBTC and WETH collateral market summaries
+   - Section 4: Quick ratings digest for all markets sorted by rating
+
+3. **Improved Data Merging** - Markets page now intelligently merges:
+   - Morpho market metrics (risk ratings 0-100, scores)
+   - Supplied market data (allocations, rewards, utilization)
+   - Proper error and loading state handling for both data sources
+
+### Performance Improvements
+- All GraphQL queries now explicitly filter by Base chainId (8453)
+- Memoized expensive computations in markets page
+- Optimized React Query stale times (5 minutes)
+- **Removed legacy code**: Deleted old `/markets-supplied` page and 4 mock API routes
+- Cleaned up unused components and legacy code
+- Reduced route count from 16 to 12 (25% reduction)
+
+### UI/UX Enhancements
+- Consistent button styling across all pages (Fee Splitter matches other buttons)
+- Proper badge colors for collateral/loan labels
+- Green text for reward APR visibility
+- Responsive grid layouts for mobile, tablet, and desktop
+- Enhanced loading skeletons for better perceived performance
+- Better error messages with Alert components
 
 ## Setup
 
@@ -79,12 +123,12 @@ References:
   /vaults/page.tsx         # All vaults list
   /vaults/[id]/page.tsx    # Vault detail page
   /fees/page.tsx           # Fees page
-  /markets-supplied/page.tsx # Markets we supply to
-/api/mock/               # Mock API routes (legacy; vault list/detail use live endpoints)
+  /markets/page.tsx        # Markets page with all vaults and ratings
+/api/markets-supplied    # Markets data endpoint (Morpho GraphQL)
 /api/vaults              # Live vault list (Morpho GraphQL)
 /api/vaults/[id]         # Live vault detail (Morpho GraphQL)
- /api/protocol-stats      # Protocol aggregates (Morpho GraphQL)
- /api/markets-supplied    # Aggregated supplied markets + history
+/api/protocol-stats      # Protocol aggregates (Morpho GraphQL)
+/api/morpho-markets      # Morpho risk ratings (0-100 scale)
   /layout.tsx              # Root layout
   /providers.tsx           # App providers
 

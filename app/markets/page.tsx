@@ -57,48 +57,49 @@ export default function MarketsPage() {
     });
   }, [supplied.data?.markets, morpho.data?.markets]);
 
-  const usdcVault = useMemo(() => {
-    const vault = vaults.find((v) => v.asset === 'USDC');
-    if (!vault || !supplied.data?.vaultAllocations) return null;
+  const vaultSummaries = useMemo(() => {
+    if (!supplied.data?.vaultAllocations) return [];
 
-    const allocation = supplied.data.vaultAllocations.find(
-      (va) => va.address.toLowerCase() === vault.address.toLowerCase()
-    );
+    return vaults.map((vault) => {
+      const allocation = supplied.data.vaultAllocations.find(
+        (va) => va.address.toLowerCase() === vault.address.toLowerCase()
+      );
 
-    const totalSupplied = allocation?.allocations.reduce(
-      (sum, a) => sum + a.supplyAssetsUsd,
-      0
-    ) ?? 0;
+      const totalSupplied = allocation?.allocations.reduce(
+        (sum, a) => sum + a.supplyAssetsUsd,
+        0
+      ) ?? 0;
 
-    const vaultMarkets = mergedMarkets.filter((m) =>
-      allocation?.allocations.some((a) => a.marketKey === m.uniqueKey)
-    );
+      const vaultMarkets = mergedMarkets.filter((m) =>
+        allocation?.allocations.some((a) => a.marketKey === m.uniqueKey)
+      );
 
-    const avgUtilization =
-      vaultMarkets.length > 0
-        ? vaultMarkets.reduce((sum, m) => sum + (m.state?.utilization ?? 0), 0) / vaultMarkets.length
-        : 0;
+      const avgUtilization =
+        vaultMarkets.length > 0
+          ? vaultMarkets.reduce((sum, m) => sum + (m.state?.utilization ?? 0), 0) / vaultMarkets.length
+          : 0;
 
-    const totalRewardApr = vaultMarkets.reduce((sum, m) => {
-      const rewards = m.state?.rewards ?? [];
-      const rewardApr = rewards.reduce((s, r) => s + (r.supplyApr ?? 0), 0);
-      return sum + rewardApr;
-    }, 0);
+      const totalRewardApr = vaultMarkets.reduce((sum, m) => {
+        const rewards = m.state?.rewards ?? [];
+        const rewardApr = rewards.reduce((s, r) => s + (r.supplyApr ?? 0), 0);
+        return sum + rewardApr;
+      }, 0);
 
-    const avgRating =
-      vaultMarkets.filter((m) => m.rating).length > 0
-        ? vaultMarkets.filter((m) => m.rating).reduce((sum, m) => sum + (m.rating ?? 0), 0) /
-          vaultMarkets.filter((m) => m.rating).length
-        : null;
+      const avgRating =
+        vaultMarkets.filter((m) => m.rating).length > 0
+          ? vaultMarkets.filter((m) => m.rating).reduce((sum, m) => sum + (m.rating ?? 0), 0) /
+            vaultMarkets.filter((m) => m.rating).length
+          : null;
 
-    return {
-      vault,
-      totalSupplied,
-      avgUtilization,
-      totalRewardApr,
-      avgRating,
-      markets: vaultMarkets,
-    };
+      return {
+        vault,
+        totalSupplied,
+        avgUtilization,
+        totalRewardApr,
+        avgRating,
+        markets: vaultMarkets,
+      };
+    });
   }, [supplied.data, mergedMarkets]);
 
   const { cbBTCMarkets, wethMarkets } = useMemo(() => {
@@ -185,62 +186,78 @@ export default function MarketsPage() {
           <LoadingState />
         ) : (
           <>
-            {/* Section 1: Muscadine USDC Vault Overview */}
-            {usdcVault && (
-              <Card className="border-emerald-500/20">
-                <CardHeader>
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                    <div>
-                      <CardTitle className="text-2xl">{usdcVault.vault.name}</CardTitle>
-                      <CardDescription className="mt-2">
-                        {usdcVault.vault.description}
-                      </CardDescription>
-                    </div>
-                    {usdcVault.avgRating && (
-                      <RatingBadge rating={usdcVault.avgRating} className="text-sm px-3 py-1.5" />
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                    <StatCard
-                      label="Total Supplied"
-                      value={formatCompactUSD(usdcVault.totalSupplied)}
-                    />
-                    <StatCard
-                      label="Avg Utilization"
-                      value={formatPercentage(usdcVault.avgUtilization * 100, 2)}
-                    />
-                    <StatCard
-                      label="Reward APR"
-                      value={formatPercentage(usdcVault.totalRewardApr, 2)}
-                      className="text-green-600 dark:text-green-400"
-                    />
-                    <StatCard
-                      label="Markets"
-                      value={usdcVault.markets.length.toString()}
-                    />
-                  </div>
+            {/* Section 1: All Muscadine Vaults Overview */}
+            <div className="space-y-6">
+              {vaultSummaries.map((vaultSummary) => {
+                const borderColor = 
+                  vaultSummary.vault.asset === 'USDC' ? 'border-emerald-500/20' :
+                  vaultSummary.vault.asset === 'cbBTC' ? 'border-orange-500/20' :
+                  'border-blue-500/20';
+                
+                return (
+                  <Card key={vaultSummary.vault.id} className={borderColor}>
+                    <CardHeader>
+                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                        <div>
+                          <div className="flex items-center gap-3">
+                            <CardTitle className="text-2xl">{vaultSummary.vault.name}</CardTitle>
+                            <Badge variant="outline">{vaultSummary.vault.asset}</Badge>
+                          </div>
+                          <CardDescription className="mt-2">
+                            {vaultSummary.vault.description}
+                          </CardDescription>
+                        </div>
+                        {vaultSummary.avgRating && (
+                          <RatingBadge rating={vaultSummary.avgRating} className="text-sm px-3 py-1.5" />
+                        )}
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                        <StatCard
+                          label="Total Supplied"
+                          value={formatCompactUSD(vaultSummary.totalSupplied)}
+                        />
+                        <StatCard
+                          label="Avg Utilization"
+                          value={formatPercentage(vaultSummary.avgUtilization * 100, 2)}
+                        />
+                        <StatCard
+                          label="Reward APR"
+                          value={formatPercentage(vaultSummary.totalRewardApr, 2)}
+                          className="text-green-600 dark:text-green-400"
+                        />
+                        <StatCard
+                          label="Markets"
+                          value={vaultSummary.markets.length.toString()}
+                        />
+                      </div>
 
-                  <div className="flex flex-wrap gap-2">
-                    {usdcVault.markets.map((m) => (
-                      <Badge key={m.uniqueKey} variant="outline" className="px-3 py-1.5">
-                        {m.collateralAsset?.symbol} / {m.loanAsset?.symbol}
-                      </Badge>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+                      <div className="flex flex-wrap gap-2">
+                        {vaultSummary.markets.length > 0 ? (
+                          vaultSummary.markets.map((m) => (
+                            <Badge key={m.uniqueKey} variant="outline" className="px-3 py-1.5">
+                              {m.collateralAsset?.symbol} / {m.loanAsset?.symbol}
+                            </Badge>
+                          ))
+                        ) : (
+                          <p className="text-sm text-muted-foreground">No active markets</p>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
 
             {/* Section 2: Analysis of Supplied Markets */}
-            <Card>
-              <CardHeader>
+          <Card>
+            <CardHeader>
                 <CardTitle>Supplied Markets Analysis</CardTitle>
-                <CardDescription>
+              <CardDescription>
                   Detailed view of all markets where vaults are actively allocating capital
-                </CardDescription>
-              </CardHeader>
+              </CardDescription>
+            </CardHeader>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
                   <Table>
@@ -272,7 +289,7 @@ export default function MarketsPage() {
                               </div>
                             </TableCell>
                             <TableCell>
-                              {market.lltv ? formatPercentage(market.lltv * 100, 1) : '—'}
+                              {market.lltv ? formatPercentage(market.lltv * 100, 2) : '—'}
                             </TableCell>
                             <TableCell>
                               {formatCompactUSD(market.state?.supplyAssetsUsd ?? 0)}
@@ -299,19 +316,19 @@ export default function MarketsPage() {
                     </TableBody>
                   </Table>
                 </div>
-              </CardContent>
-            </Card>
+            </CardContent>
+          </Card>
 
             {/* Section 3: Dedicated cbBTC and WETH Summaries */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* cbBTC Markets */}
               <Card>
-                <CardHeader>
+            <CardHeader>
                   <CardTitle>cbBTC Collateral Markets</CardTitle>
-                  <CardDescription>
+              <CardDescription>
                     Markets using cbBTC as collateral
-                  </CardDescription>
-                </CardHeader>
+              </CardDescription>
+            </CardHeader>
                 <CardContent>
                   {cbBTCMarkets.length > 0 ? (
                     <>
@@ -322,7 +339,7 @@ export default function MarketsPage() {
                         />
                         <StatCard
                           label="Avg Rating"
-                          value={
+                value={
                             getCollateralStats(cbBTCMarkets).avgRating?.toFixed(0) ?? 'N/A'
                           }
                         />
@@ -377,7 +394,7 @@ export default function MarketsPage() {
                         />
                         <StatCard
                           label="Avg Rating"
-                          value={
+                value={
                             getCollateralStats(wethMarkets).avgRating?.toFixed(0) ?? 'N/A'
                           }
                         />
@@ -411,19 +428,19 @@ export default function MarketsPage() {
                   ) : (
                     <p className="text-sm text-muted-foreground">No WETH markets found</p>
                   )}
-                </CardContent>
-              </Card>
+            </CardContent>
+          </Card>
             </div>
 
             {/* Section 4: Ratings Digest */}
             <Card>
-              <CardHeader>
+            <CardHeader>
                 <CardTitle>Ratings Digest</CardTitle>
                 <CardDescription>
                   Quick overview of all market ratings
                 </CardDescription>
-              </CardHeader>
-              <CardContent>
+            </CardHeader>
+            <CardContent>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {mergedMarkets
                     .filter((m) => m.rating)
@@ -445,8 +462,8 @@ export default function MarketsPage() {
                       </div>
                     ))}
                 </div>
-              </CardContent>
-            </Card>
+            </CardContent>
+          </Card>
           </>
         )}
       </main>

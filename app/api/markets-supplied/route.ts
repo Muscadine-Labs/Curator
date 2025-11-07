@@ -130,53 +130,7 @@ export async function GET() {
       .map(k => marketsByKey[k])
       .filter(Boolean);
 
-    // 3) Historical charts: supplyAssetsUsd and APYs (last 30 days, DAY)
-    const nowSec = Math.floor(Date.now() / 1000);
-    const thirtyDaysSec = nowSec - 30 * 24 * 60 * 60;
-    const historyPromises = uniqueMarketKeys.map(async (uniqueKey) => {
-      const histQuery = `
-        query MarketHistory($uniqueKey: String!, $options: TimeseriesOptions) {
-          marketByUniqueKey(uniqueKey: $uniqueKey) {
-            uniqueKey
-            historicalState {
-              supplyAssetsUsd(options: $options) { x y }
-              supplyApy(options: $options) { x y }
-              borrowApy(options: $options) { x y }
-            }
-          }
-        }
-      `;
-      const hResp = await fetch(MORPHO_GRAPHQL_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          query: histQuery,
-          variables: {
-            uniqueKey,
-            options: { startTimestamp: thirtyDaysSec, endTimestamp: nowSec, interval: 'DAY' },
-          },
-        }),
-      });
-      if (!hResp.ok) return { uniqueKey, tvl: [], supplyApy: [], borrowApy: [] } as { uniqueKey: string; tvl: { date: string; value: number }[]; supplyApy: { date: string; value: number }[]; borrowApy: { date: string; value: number }[] };
-      const hJson = await hResp.json();
-      const hs = hJson?.data?.marketByUniqueKey?.historicalState;
-      type TSPoint = { x: number; y: number | null };
-      const mapPoint = (p: TSPoint) => ({ date: new Date(p.x * 1000).toISOString(), value: (p.y ?? 0) });
-      const mapPct = (p: TSPoint) => ({ date: new Date(p.x * 1000).toISOString(), value: ((p.y ?? 0) * 100) });
-      return {
-        uniqueKey,
-        tvl: (hs?.supplyAssetsUsd || []).map((p: TSPoint) => mapPoint(p)),
-        supplyApy: (hs?.supplyApy || []).map((p: TSPoint) => mapPct(p)),
-        borrowApy: (hs?.borrowApy || []).map((p: TSPoint) => mapPct(p)),
-      } as { uniqueKey: string; tvl: { date: string; value: number }[]; supplyApy: { date: string; value: number }[]; borrowApy: { date: string; value: number }[] };
-    });
-
-    const histories = await Promise.all(historyPromises);
-    type SeriesPoint = { date: string; value: number };
-    const historyByKey: Record<string, { tvl: SeriesPoint[]; supplyApy: SeriesPoint[]; borrowApy: SeriesPoint[] }> = {};
-    for (const h of histories) historyByKey[h.uniqueKey] = { tvl: h.tvl as SeriesPoint[], supplyApy: h.supplyApy as SeriesPoint[], borrowApy: h.borrowApy as SeriesPoint[] };
-
-    // 4) Shape response
+    // 3) Shape response
     const markets = filteredMarkets.map((m) => ({
       uniqueKey: m.uniqueKey,
       lltv: m.lltv,
@@ -196,7 +150,6 @@ export async function GET() {
           borrowApr: (r.borrowApr ?? 0) * 100,
         })),
       },
-      history: historyByKey[m.uniqueKey] || { tvl: [], supplyApy: [], borrowApy: [] },
     }));
 
     return NextResponse.json({ markets, vaultAllocations });
@@ -204,5 +157,4 @@ export async function GET() {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }
-
 
