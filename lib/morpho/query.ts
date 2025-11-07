@@ -3,8 +3,8 @@ import { mergeConfig } from './config';
 import type { CuratorConfig, MorphoMarketRaw } from './types';
 
 const MARKETS_QUERY = gql`
-  query MorphoMarkets($first: Int!) {
-    markets(first: $first) {
+  query MorphoMarkets($first: Int!, $chainIds: [Int!]) {
+    markets(first: $first, where: { chainId_in: $chainIds }) {
       items {
         id
         loanAsset {
@@ -31,7 +31,8 @@ const MARKETS_QUERY = gql`
 
 export async function fetchMorphoMarkets(
   limit = 200,
-  config?: CuratorConfig
+  config?: CuratorConfig,
+  chainIds: number[] = [8453] // Default to Base chain
 ): Promise<MorphoMarketRaw[]> {
   const effectiveConfig = config ?? mergeConfig();
 
@@ -40,7 +41,7 @@ export async function fetchMorphoMarkets(
   }>(
     effectiveConfig.morphoApiUrl,
     MARKETS_QUERY,
-    { first: limit }
+    { first: limit, chainIds }
   );
 
   return data.markets?.items?.filter(Boolean) ?? [];
