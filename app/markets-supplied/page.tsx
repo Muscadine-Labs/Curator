@@ -39,6 +39,9 @@ export default function MarketsSuppliedPage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <Button variant="outline" asChild>
+                <Link href="/markets">Morpho Markets</Link>
+              </Button>
               <Button asChild>
                 <Link href="/vaults">View Vaults</Link>
               </Button>
