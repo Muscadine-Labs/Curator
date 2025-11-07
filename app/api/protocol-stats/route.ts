@@ -7,6 +7,7 @@ type MorphoVaultItem = {
   address: string;
   state: {
     totalAssetsUsd: number | null;
+    fee: number | null;
   };
 };
 
@@ -27,7 +28,10 @@ export async function GET() {
         ) {
           items {
             address
-            state { totalAssetsUsd }
+            state { 
+              totalAssetsUsd
+              fee
+            }
           }
         }
 
@@ -64,6 +68,13 @@ export async function GET() {
 
     const totalDeposited = morphoVaults.reduce((sum, v) => sum + (v.state.totalAssetsUsd ?? 0), 0);
     const activeVaults = configuredVaults.length;
+    
+    // Calculate total fees generated (interest) from Morpho fee data
+    const totalFeesGenerated = morphoVaults.reduce((sum, v) => sum + (v.state.fee ?? 0), 0);
+    
+    // Total interest generated is approximately the fees generated (in a MetaMorpho vault, fees = performance fees from interest)
+    // For more accurate calculation, we'd need historical APY data
+    const totalInterestGenerated = totalFeesGenerated;
 
     // Unique depositors across our vaults
     const uniqueUsers = new Set<string>();
@@ -81,9 +92,9 @@ export async function GET() {
 
     const stats = {
       totalDeposited,
-      totalFeesGenerated: 0,
+      totalFeesGenerated,
       activeVaults,
-      volume30d: 0,
+      totalInterestGenerated,
       users: uniqueUsers.size,
       tvlTrend,
       feesTrend,

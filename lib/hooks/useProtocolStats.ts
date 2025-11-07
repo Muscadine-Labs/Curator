@@ -4,7 +4,7 @@ export interface ProtocolStats {
   totalDeposited: number;
   totalFeesGenerated: number;
   activeVaults: number;
-  volume30d: number;
+  totalInterestGenerated: number;
   users: number;
   tvlTrend: Array<{ date: string; value: number }>;
   feesTrend: Array<{ date: string; value: number }>;

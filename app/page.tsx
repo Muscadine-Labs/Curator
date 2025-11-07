@@ -67,9 +67,9 @@ export default function Home() {
               format="number"
             />
             <KpiCard
-              title="30d Volume"
-              value={stats?.volume30d || 0}
-              subtitle="Monthly volume"
+              title="Total Interest Generated"
+              value={stats?.totalInterestGenerated || 0}
+              subtitle="Across all vaults"
               isLoading={isLoading}
               format="usd"
             />
