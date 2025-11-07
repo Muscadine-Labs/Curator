@@ -102,34 +102,6 @@ export default function MarketsPage() {
     });
   }, [supplied.data, mergedMarkets]);
 
-  const { cbBTCMarkets, wethMarkets } = useMemo(() => {
-    const cbBTC = mergedMarkets.filter(
-      (m) => m.collateralAsset?.symbol?.toUpperCase() === 'CBBTC'
-    );
-    const weth = mergedMarkets.filter(
-      (m) => m.collateralAsset?.symbol?.toUpperCase() === 'WETH'
-    );
-
-    return {
-      cbBTCMarkets: cbBTC,
-      wethMarkets: weth,
-    };
-  }, [mergedMarkets]);
-
-  const getCollateralStats = (markets: MergedMarket[]) => {
-    const count = markets.length;
-    const avgRating =
-      markets.filter((m) => m.rating).length > 0
-        ? markets.filter((m) => m.rating).reduce((sum, m) => sum + (m.rating ?? 0), 0) /
-          markets.filter((m) => m.rating).length
-        : null;
-    const totalSupplied = markets.reduce(
-      (sum, m) => sum + (m.state?.supplyAssetsUsd ?? 0),
-      0
-    );
-
-    return { count, avgRating, totalSupplied };
-  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -186,8 +158,8 @@ export default function MarketsPage() {
           <LoadingState />
         ) : (
           <>
-            {/* Section 1: All Muscadine Vaults Overview */}
-            <div className="space-y-6">
+            {/* Each Vault followed by its Markets Table */}
+            <div className="space-y-12">
               {vaultSummaries.map((vaultSummary) => {
                 const borderColor = 
                   vaultSummary.vault.asset === 'USDC' ? 'border-emerald-500/20' :
@@ -195,244 +167,128 @@ export default function MarketsPage() {
                   'border-blue-500/20';
                 
                 return (
-                  <Card key={vaultSummary.vault.id} className={borderColor}>
-                    <CardHeader>
-                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                        <div>
-                          <div className="flex items-center gap-3">
-                            <CardTitle className="text-2xl">{vaultSummary.vault.name}</CardTitle>
-                            <Badge variant="outline">{vaultSummary.vault.asset}</Badge>
+                  <div key={vaultSummary.vault.id} className="space-y-6">
+                    {/* Vault Summary Card */}
+                    <Card className={borderColor}>
+                      <CardHeader>
+                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                          <div>
+                            <div className="flex items-center gap-3">
+                              <CardTitle className="text-2xl">{vaultSummary.vault.name}</CardTitle>
+                              <Badge variant="outline">{vaultSummary.vault.asset}</Badge>
+                            </div>
+                            <CardDescription className="mt-2">
+                              {vaultSummary.vault.description}
+                            </CardDescription>
                           </div>
-                          <CardDescription className="mt-2">
-                            {vaultSummary.vault.description}
-                          </CardDescription>
+                          {vaultSummary.avgRating && (
+                            <RatingBadge rating={vaultSummary.avgRating} className="text-sm px-3 py-1.5" />
+                          )}
                         </div>
-                        {vaultSummary.avgRating && (
-                          <RatingBadge rating={vaultSummary.avgRating} className="text-sm px-3 py-1.5" />
-                        )}
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                        <StatCard
-                          label="Total Supplied"
-                          value={formatCompactUSD(vaultSummary.totalSupplied)}
-                        />
-                        <StatCard
-                          label="Avg Utilization"
-                          value={formatPercentage(vaultSummary.avgUtilization * 100, 2)}
-                        />
-                        <StatCard
-                          label="Reward APR"
-                          value={formatPercentage(vaultSummary.totalRewardApr, 2)}
-                          className="text-green-600 dark:text-green-400"
-                        />
-                        <StatCard
-                          label="Markets"
-                          value={vaultSummary.markets.length.toString()}
-                        />
-                      </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                          <StatCard
+                            label="Total Supplied"
+                            value={formatCompactUSD(vaultSummary.totalSupplied)}
+                          />
+                          <StatCard
+                            label="Avg Utilization"
+                            value={formatPercentage(vaultSummary.avgUtilization * 100, 2)}
+                          />
+                          <StatCard
+                            label="Reward APR"
+                            value={formatPercentage(vaultSummary.totalRewardApr, 2)}
+                            className="text-green-600 dark:text-green-400"
+                          />
+                          <StatCard
+                            label="Markets"
+                            value={vaultSummary.markets.length.toString()}
+                          />
+                        </div>
+                      </CardContent>
+                    </Card>
 
-                      <div className="flex flex-wrap gap-2">
+                    {/* Markets Table for this Vault */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>{vaultSummary.vault.asset} Vault Markets</CardTitle>
+                        <CardDescription>
+                          Markets where the {vaultSummary.vault.name} is actively supplying capital
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="p-0">
                         {vaultSummary.markets.length > 0 ? (
-                          vaultSummary.markets.map((m) => (
-                            <Badge key={m.uniqueKey} variant="outline" className="px-3 py-1.5">
-                              {m.collateralAsset?.symbol} / {m.loanAsset?.symbol}
-                            </Badge>
-                          ))
+                          <div className="overflow-x-auto">
+                            <Table>
+                              <TableHeader>
+                                <TableRow className="text-xs uppercase tracking-wide">
+                                  <TableHead className="min-w-[180px]">Market Pair</TableHead>
+                                  <TableHead className="min-w-[100px]">LLTV</TableHead>
+                                  <TableHead className="min-w-[120px]">Supplied USD</TableHead>
+                                  <TableHead className="min-w-[110px]">Utilization</TableHead>
+                                  <TableHead className="min-w-[110px]">Reward APR</TableHead>
+                                  <TableHead className="min-w-[140px]">Curator Rating</TableHead>
+                                  <TableHead className="min-w-[200px]">Borrowing</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {vaultSummary.markets.map((market) => {
+                                  const totalRewardApr = market.state?.rewards?.reduce(
+                                    (sum, r) => sum + (r.supplyApr ?? 0),
+                                    0
+                                  ) ?? 0;
+
+                                  return (
+                                    <TableRow key={market.uniqueKey} className="hover:bg-muted/40">
+                                      <TableCell className="font-medium">
+                                        <div className="flex items-center gap-2">
+                                          <span>{market.collateralAsset?.symbol}</span>
+                                          <span className="text-muted-foreground">/</span>
+                                          <span>{market.loanAsset?.symbol}</span>
+                                        </div>
+                                      </TableCell>
+                                      <TableCell>
+                                        {market.lltv ? formatPercentage(market.lltv * 100, 2) : '—'}
+                                      </TableCell>
+                                      <TableCell>
+                                        {formatCompactUSD(market.state?.supplyAssetsUsd ?? 0)}
+                                      </TableCell>
+                                      <TableCell>
+                                        {formatPercentage((market.state?.utilization ?? 0) * 100, 2)}
+                                      </TableCell>
+                                      <TableCell className="text-green-600 dark:text-green-400">
+                                        {totalRewardApr > 0 ? formatPercentage(totalRewardApr, 2) : '—'}
+                                      </TableCell>
+                                      <TableCell>
+                                        {market.rating ? (
+                                          <RatingBadge rating={market.rating} />
+                                        ) : (
+                                          <span className="text-xs text-muted-foreground">N/A</span>
+                                        )}
+                                      </TableCell>
+                                      <TableCell className="text-xs text-muted-foreground">
+                                        {market.collateralAsset?.symbol} → {market.loanAsset?.symbol} borrow
+                                      </TableCell>
+                                    </TableRow>
+                                  );
+                                })}
+                              </TableBody>
+                            </Table>
+                          </div>
                         ) : (
-                          <p className="text-sm text-muted-foreground">No active markets</p>
+                          <div className="p-8 text-center text-muted-foreground">
+                            No active markets for this vault
+                          </div>
                         )}
-                      </div>
-                    </CardContent>
-                  </Card>
+                      </CardContent>
+                    </Card>
+                  </div>
                 );
               })}
             </div>
 
-            {/* Section 2: Analysis of Supplied Markets */}
-          <Card>
-            <CardHeader>
-                <CardTitle>Supplied Markets Analysis</CardTitle>
-              <CardDescription>
-                  Detailed view of all markets where vaults are actively allocating capital
-              </CardDescription>
-            </CardHeader>
-              <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="text-xs uppercase tracking-wide">
-                        <TableHead className="min-w-[180px]">Market Pair</TableHead>
-                        <TableHead className="min-w-[100px]">LLTV</TableHead>
-                        <TableHead className="min-w-[120px]">Supplied USD</TableHead>
-                        <TableHead className="min-w-[110px]">Utilization</TableHead>
-                        <TableHead className="min-w-[110px]">Reward APR</TableHead>
-                        <TableHead className="min-w-[140px]">Curator Rating</TableHead>
-                        <TableHead className="min-w-[200px]">Borrowing</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {mergedMarkets.map((market) => {
-                        const totalRewardApr = market.state?.rewards?.reduce(
-                          (sum, r) => sum + (r.supplyApr ?? 0),
-                          0
-                        ) ?? 0;
-
-                        return (
-                          <TableRow key={market.uniqueKey} className="hover:bg-muted/40">
-                            <TableCell className="font-medium">
-                              <div className="flex items-center gap-2">
-                                <span>{market.collateralAsset?.symbol}</span>
-                                <span className="text-muted-foreground">/</span>
-                                <span>{market.loanAsset?.symbol}</span>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              {market.lltv ? formatPercentage(market.lltv * 100, 2) : '—'}
-                            </TableCell>
-                            <TableCell>
-                              {formatCompactUSD(market.state?.supplyAssetsUsd ?? 0)}
-                            </TableCell>
-                            <TableCell>
-                              {formatPercentage((market.state?.utilization ?? 0) * 100, 2)}
-                            </TableCell>
-                            <TableCell className="text-green-600 dark:text-green-400">
-                              {totalRewardApr > 0 ? formatPercentage(totalRewardApr, 2) : '—'}
-                            </TableCell>
-                            <TableCell>
-                              {market.rating ? (
-                                <RatingBadge rating={market.rating} />
-                              ) : (
-                                <span className="text-xs text-muted-foreground">N/A</span>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-xs text-muted-foreground">
-                              {market.collateralAsset?.symbol} → {market.loanAsset?.symbol} borrow
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-            </CardContent>
-          </Card>
-
-            {/* Section 3: Dedicated cbBTC and WETH Summaries */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* cbBTC Markets */}
-              <Card>
-            <CardHeader>
-                  <CardTitle>cbBTC Collateral Markets</CardTitle>
-              <CardDescription>
-                    Markets using cbBTC as collateral
-              </CardDescription>
-            </CardHeader>
-                <CardContent>
-                  {cbBTCMarkets.length > 0 ? (
-                    <>
-                      <div className="grid grid-cols-3 gap-4 mb-6">
-                        <StatCard
-                          label="Markets"
-                          value={getCollateralStats(cbBTCMarkets).count.toString()}
-                        />
-                        <StatCard
-                          label="Avg Rating"
-                value={
-                            getCollateralStats(cbBTCMarkets).avgRating?.toFixed(0) ?? 'N/A'
-                          }
-                        />
-                        <StatCard
-                          label="Total Supplied"
-                          value={formatCompactUSD(
-                            getCollateralStats(cbBTCMarkets).totalSupplied
-                          )}
-                        />
-                      </div>
-                      <div className="space-y-3">
-                        {cbBTCMarkets.map((m) => (
-                          <div
-                            key={m.uniqueKey}
-                            className="flex items-center justify-between p-3 rounded-lg border bg-muted/40"
-                          >
-                            <div>
-                              <div className="font-medium text-sm">
-                                {m.collateralAsset?.symbol} / {m.loanAsset?.symbol}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {formatCompactUSD(m.state?.supplyAssetsUsd ?? 0)} · Util{' '}
-                                {formatPercentage((m.state?.utilization ?? 0) * 100, 1)}
-                              </div>
-                            </div>
-                            {m.rating && <RatingBadge rating={m.rating} />}
-                          </div>
-                        ))}
-                      </div>
-                    </>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">No cbBTC markets found</p>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* WETH Markets */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>WETH Collateral Markets</CardTitle>
-                  <CardDescription>
-                    Markets using WETH as collateral
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {wethMarkets.length > 0 ? (
-                    <>
-                      <div className="grid grid-cols-3 gap-4 mb-6">
-                        <StatCard
-                          label="Markets"
-                          value={getCollateralStats(wethMarkets).count.toString()}
-                        />
-                        <StatCard
-                          label="Avg Rating"
-                value={
-                            getCollateralStats(wethMarkets).avgRating?.toFixed(0) ?? 'N/A'
-                          }
-                        />
-                        <StatCard
-                          label="Total Supplied"
-                          value={formatCompactUSD(
-                            getCollateralStats(wethMarkets).totalSupplied
-                          )}
-                        />
-                      </div>
-                      <div className="space-y-3">
-                        {wethMarkets.map((m) => (
-                          <div
-                            key={m.uniqueKey}
-                            className="flex items-center justify-between p-3 rounded-lg border bg-muted/40"
-                          >
-                            <div>
-                              <div className="font-medium text-sm">
-                                {m.collateralAsset?.symbol} / {m.loanAsset?.symbol}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {formatCompactUSD(m.state?.supplyAssetsUsd ?? 0)} · Util{' '}
-                                {formatPercentage((m.state?.utilization ?? 0) * 100, 1)}
-                              </div>
-                            </div>
-                            {m.rating && <RatingBadge rating={m.rating} />}
-                          </div>
-                        ))}
-                      </div>
-                    </>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">No WETH markets found</p>
-                  )}
-            </CardContent>
-          </Card>
-            </div>
-
-            {/* Section 4: Ratings Digest */}
+            {/* Ratings Digest */}
             <Card>
             <CardHeader>
                 <CardTitle>Ratings Digest</CardTitle>
