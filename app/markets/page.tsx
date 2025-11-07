@@ -4,7 +4,9 @@ import Link from 'next/link';
 import { ArrowLeft, ExternalLink } from 'lucide-react';
 import { useMemo } from 'react';
 import { useMorphoMarkets } from '@/lib/hooks/useMorphoMarkets';
+import { useMarketsSupplied } from '@/lib/hooks/useMarkets';
 import type { MorphoMarketMetrics } from '@/lib/morpho/types';
+import type { SuppliedMarket } from '@/lib/hooks/useMarkets';
 import {
   Card,
   CardContent,
@@ -23,52 +25,110 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { RatingBadge } from '@/components/morpho/RatingBadge';
 import { formatCompactUSD, formatPercentage } from '@/lib/format/number';
+import { vaults } from '@/lib/config/vaults';
 
-export default function MorphoMarketsPage() {
-  const { data, isLoading, error } = useMorphoMarkets();
-  const markets = useMemo(() => data?.markets ?? [], [data?.markets]);
+type MergedMarket = SuppliedMarket & {
+  rating?: number;
+  morphoMetrics?: MorphoMarketMetrics;
+};
 
-  const { grouped, totals } = useMemo(() => {
-    const initial = {
-      grouped: new Map<string, MorphoMarketMetrics[]>(),
-      totals: { markets: markets.length, avgRating: 0 },
-    };
+export default function MarketsPage() {
+  const morpho = useMorphoMarkets();
+  const supplied = useMarketsSupplied();
 
-    if (!markets.length) {
+  const isLoading = morpho.isLoading || supplied.isLoading;
+  const error = morpho.error || supplied.error;
+
+  const mergedMarkets = useMemo(() => {
+    if (!supplied.data?.markets || !morpho.data?.markets) return [];
+
+    const morphoById = new Map(morpho.data.markets.map((m) => [m.id, m]));
+
+    return supplied.data.markets.map((market) => {
+      const morphoData = morphoById.get(market.uniqueKey);
       return {
-        grouped: initial.grouped,
-        totals: { markets: 0, avgRating: 0 },
-      };
-    }
-
-    const map = new Map<string, MorphoMarketMetrics[]>();
-    let ratingSum = 0;
-
-    markets.forEach((market) => {
-      const symbol = market.symbol?.toUpperCase() ?? 'UNKNOWN';
-      const key =
-        symbol === 'USDC'
-          ? 'USDC'
-          : symbol === 'WETH'
-          ? 'WETH'
-          : symbol === 'CBBTC'
-          ? 'cbBTC'
-          : 'Other';
-
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)?.push(market);
-      ratingSum += market.rating;
+        ...market,
+        rating: morphoData?.rating,
+        morphoMetrics: morphoData,
+      } as MergedMarket;
     });
+  }, [supplied.data?.markets, morpho.data?.markets]);
 
-    const avgRating = ratingSum / markets.length;
+  const usdcVault = useMemo(() => {
+    const vault = vaults.find((v) => v.asset === 'USDC');
+    if (!vault || !supplied.data?.vaultAllocations) return null;
+
+    const allocation = supplied.data.vaultAllocations.find(
+      (va) => va.address.toLowerCase() === vault.address.toLowerCase()
+    );
+
+    const totalSupplied = allocation?.allocations.reduce(
+      (sum, a) => sum + a.supplyAssetsUsd,
+      0
+    ) ?? 0;
+
+    const vaultMarkets = mergedMarkets.filter((m) =>
+      allocation?.allocations.some((a) => a.marketKey === m.uniqueKey)
+    );
+
+    const avgUtilization =
+      vaultMarkets.length > 0
+        ? vaultMarkets.reduce((sum, m) => sum + (m.state?.utilization ?? 0), 0) / vaultMarkets.length
+        : 0;
+
+    const totalRewardApr = vaultMarkets.reduce((sum, m) => {
+      const rewards = m.state?.rewards ?? [];
+      const rewardApr = rewards.reduce((s, r) => s + (r.supplyApr ?? 0), 0);
+      return sum + rewardApr;
+    }, 0);
+
+    const avgRating =
+      vaultMarkets.filter((m) => m.rating).length > 0
+        ? vaultMarkets.filter((m) => m.rating).reduce((sum, m) => sum + (m.rating ?? 0), 0) /
+          vaultMarkets.filter((m) => m.rating).length
+        : null;
 
     return {
-      grouped: map,
-      totals: { markets: markets.length, avgRating },
+      vault,
+      totalSupplied,
+      avgUtilization,
+      totalRewardApr,
+      avgRating,
+      markets: vaultMarkets,
     };
-  }, [markets]);
+  }, [supplied.data, mergedMarkets]);
+
+  const { cbBTCMarkets, wethMarkets } = useMemo(() => {
+    const cbBTC = mergedMarkets.filter(
+      (m) => m.collateralAsset?.symbol?.toUpperCase() === 'CBBTC'
+    );
+    const weth = mergedMarkets.filter(
+      (m) => m.collateralAsset?.symbol?.toUpperCase() === 'WETH'
+    );
+
+    return {
+      cbBTCMarkets: cbBTC,
+      wethMarkets: weth,
+    };
+  }, [mergedMarkets]);
+
+  const getCollateralStats = (markets: MergedMarket[]) => {
+    const count = markets.length;
+    const avgRating =
+      markets.filter((m) => m.rating).length > 0
+        ? markets.filter((m) => m.rating).reduce((sum, m) => sum + (m.rating ?? 0), 0) /
+          markets.filter((m) => m.rating).length
+        : null;
+    const totalSupplied = markets.reduce(
+      (sum, m) => sum + (m.state?.supplyAssetsUsd ?? 0),
+      0
+    );
+
+    return { count, avgRating, totalSupplied };
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -83,13 +143,18 @@ export default function MorphoMarketsPage() {
                 </Link>
               </Button>
               <div>
-                <h1 className="text-3xl font-bold">Morpho Markets</h1>
+                <h1 className="text-3xl font-bold">Markets Overview</h1>
                 <p className="text-muted-foreground mt-1">
-                  Curated risk scoring across live Morpho markets
+                  Vault allocations with curator risk ratings
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <Button variant="outline" asChild>
+                <Link href="/fees" className="gap-2">
+                  Fee Splitter
+                </Link>
+              </Button>
               <Button variant="outline" asChild>
                 <Link
                   href="https://vaultbook.gauntlet.xyz/vaults/morpho-vaults/vault-curation-considerations-a-deeper-dive"
@@ -101,109 +166,307 @@ export default function MorphoMarketsPage() {
                   <ExternalLink className="h-4 w-4" />
                 </Link>
               </Button>
-              <Button variant="outline" asChild>
-                <Link
-                  href="https://www.steakhouse.financial/docs/risk-management"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="gap-2"
-                >
-                  Steakhouse Risk Playbook
-                  <ExternalLink className="h-4 w-4" />
-                </Link>
-              </Button>
             </div>
           </div>
         </div>
       </header>
 
       <main className="container mx-auto px-4 py-8 space-y-8">
-        <section className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <Card>
-            <CardHeader>
-              <CardTitle>Curator Risk Rating</CardTitle>
-              <CardDescription>
-                0–100 blended score combining utilization, rate alignment, stress
-                exposure, withdrawal liquidity, and liquidation depth.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm text-muted-foreground">
-              <p>
-                Inspired by Gauntlet’s vault curation diagnostics and Steakhouse’s
-                collateral risk playbook, this score monitors upstream credit risk,
-                downstream liquidity, and automated guardrails.
-              </p>
-              <p className="text-xs">
-                Weights and stress parameters are configurable in the backend and
-                default to Gauntlet tail-event drawdowns (30% price / 40% liquidity)
-                with a Prime bias toward liquid collateral.
-              </p>
-              <Badge variant="outline" className="font-medium">
-                Avg rating: {isLoading ? '—' : totals.avgRating.toFixed(1)}
-              </Badge>
-            </CardContent>
-          </Card>
-
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle>At a Glance</CardTitle>
-              <CardDescription>
-                Snapshot of current coverage and how markets compare.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <OverviewStat
-                label="Tracked Markets"
-                value={isLoading ? '—' : totals.markets.toString()}
-              />
-              <OverviewStat
-                label="Top Rating"
-                value={
-                  isLoading || !markets.length
-                    ? '—'
-                    : Math.max(...markets.map((m) => m.rating)).toFixed(0)
-                }
-              />
-              <OverviewStat
-                label="Lowest Rating"
-                value={
-                  isLoading || !markets.length
-                    ? '—'
-                    : Math.min(...markets.map((m) => m.rating)).toFixed(0)
-                }
-              />
-            </CardContent>
-          </Card>
-        </section>
-
         {error ? (
-          <Card className="border-destructive/40 bg-destructive/5 text-destructive">
-            <CardHeader>
-              <CardTitle>Error Loading Markets</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p>{error.message}</p>
-            </CardContent>
-          </Card>
+          <Alert variant="destructive">
+            <AlertTitle>Error Loading Data</AlertTitle>
+            <AlertDescription>
+              {morpho.error?.message || supplied.error?.message || 'Failed to load market data'}
+            </AlertDescription>
+          </Alert>
         ) : null}
 
         {isLoading ? (
           <LoadingState />
         ) : (
-          <MarketsGroups grouped={grouped} />
+          <>
+            {/* Section 1: Muscadine USDC Vault Overview */}
+            {usdcVault && (
+              <Card className="border-emerald-500/20">
+                <CardHeader>
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div>
+                      <CardTitle className="text-2xl">{usdcVault.vault.name}</CardTitle>
+                      <CardDescription className="mt-2">
+                        {usdcVault.vault.description}
+                      </CardDescription>
+                    </div>
+                    {usdcVault.avgRating && (
+                      <RatingBadge rating={usdcVault.avgRating} className="text-sm px-3 py-1.5" />
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <StatCard
+                      label="Total Supplied"
+                      value={formatCompactUSD(usdcVault.totalSupplied)}
+                    />
+                    <StatCard
+                      label="Avg Utilization"
+                      value={formatPercentage(usdcVault.avgUtilization * 100, 2)}
+                    />
+                    <StatCard
+                      label="Reward APR"
+                      value={formatPercentage(usdcVault.totalRewardApr, 2)}
+                      className="text-green-600 dark:text-green-400"
+                    />
+                    <StatCard
+                      label="Markets"
+                      value={usdcVault.markets.length.toString()}
+                    />
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {usdcVault.markets.map((m) => (
+                      <Badge key={m.uniqueKey} variant="outline" className="px-3 py-1.5">
+                        {m.collateralAsset?.symbol} / {m.loanAsset?.symbol}
+                      </Badge>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Section 2: Analysis of Supplied Markets */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Supplied Markets Analysis</CardTitle>
+                <CardDescription>
+                  Detailed view of all markets where vaults are actively allocating capital
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="text-xs uppercase tracking-wide">
+                        <TableHead className="min-w-[180px]">Market Pair</TableHead>
+                        <TableHead className="min-w-[100px]">LLTV</TableHead>
+                        <TableHead className="min-w-[120px]">Supplied USD</TableHead>
+                        <TableHead className="min-w-[110px]">Utilization</TableHead>
+                        <TableHead className="min-w-[110px]">Reward APR</TableHead>
+                        <TableHead className="min-w-[140px]">Curator Rating</TableHead>
+                        <TableHead className="min-w-[200px]">Borrowing</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {mergedMarkets.map((market) => {
+                        const totalRewardApr = market.state?.rewards?.reduce(
+                          (sum, r) => sum + (r.supplyApr ?? 0),
+                          0
+                        ) ?? 0;
+
+                        return (
+                          <TableRow key={market.uniqueKey} className="hover:bg-muted/40">
+                            <TableCell className="font-medium">
+                              <div className="flex items-center gap-2">
+                                <span>{market.collateralAsset?.symbol}</span>
+                                <span className="text-muted-foreground">/</span>
+                                <span>{market.loanAsset?.symbol}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {market.lltv ? formatPercentage(market.lltv * 100, 1) : '—'}
+                            </TableCell>
+                            <TableCell>
+                              {formatCompactUSD(market.state?.supplyAssetsUsd ?? 0)}
+                            </TableCell>
+                            <TableCell>
+                              {formatPercentage((market.state?.utilization ?? 0) * 100, 2)}
+                            </TableCell>
+                            <TableCell className="text-green-600 dark:text-green-400">
+                              {totalRewardApr > 0 ? formatPercentage(totalRewardApr, 2) : '—'}
+                            </TableCell>
+                            <TableCell>
+                              {market.rating ? (
+                                <RatingBadge rating={market.rating} />
+                              ) : (
+                                <span className="text-xs text-muted-foreground">N/A</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-xs text-muted-foreground">
+                              {market.collateralAsset?.symbol} → {market.loanAsset?.symbol} borrow
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Section 3: Dedicated cbBTC and WETH Summaries */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* cbBTC Markets */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>cbBTC Collateral Markets</CardTitle>
+                  <CardDescription>
+                    Markets using cbBTC as collateral
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {cbBTCMarkets.length > 0 ? (
+                    <>
+                      <div className="grid grid-cols-3 gap-4 mb-6">
+                        <StatCard
+                          label="Markets"
+                          value={getCollateralStats(cbBTCMarkets).count.toString()}
+                        />
+                        <StatCard
+                          label="Avg Rating"
+                          value={
+                            getCollateralStats(cbBTCMarkets).avgRating?.toFixed(0) ?? 'N/A'
+                          }
+                        />
+                        <StatCard
+                          label="Total Supplied"
+                          value={formatCompactUSD(
+                            getCollateralStats(cbBTCMarkets).totalSupplied
+                          )}
+                        />
+                      </div>
+                      <div className="space-y-3">
+                        {cbBTCMarkets.map((m) => (
+                          <div
+                            key={m.uniqueKey}
+                            className="flex items-center justify-between p-3 rounded-lg border bg-muted/40"
+                          >
+                            <div>
+                              <div className="font-medium text-sm">
+                                {m.collateralAsset?.symbol} / {m.loanAsset?.symbol}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {formatCompactUSD(m.state?.supplyAssetsUsd ?? 0)} · Util{' '}
+                                {formatPercentage((m.state?.utilization ?? 0) * 100, 1)}
+                              </div>
+                            </div>
+                            {m.rating && <RatingBadge rating={m.rating} />}
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No cbBTC markets found</p>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* WETH Markets */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>WETH Collateral Markets</CardTitle>
+                  <CardDescription>
+                    Markets using WETH as collateral
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {wethMarkets.length > 0 ? (
+                    <>
+                      <div className="grid grid-cols-3 gap-4 mb-6">
+                        <StatCard
+                          label="Markets"
+                          value={getCollateralStats(wethMarkets).count.toString()}
+                        />
+                        <StatCard
+                          label="Avg Rating"
+                          value={
+                            getCollateralStats(wethMarkets).avgRating?.toFixed(0) ?? 'N/A'
+                          }
+                        />
+                        <StatCard
+                          label="Total Supplied"
+                          value={formatCompactUSD(
+                            getCollateralStats(wethMarkets).totalSupplied
+                          )}
+                        />
+                      </div>
+                      <div className="space-y-3">
+                        {wethMarkets.map((m) => (
+                          <div
+                            key={m.uniqueKey}
+                            className="flex items-center justify-between p-3 rounded-lg border bg-muted/40"
+                          >
+                            <div>
+                              <div className="font-medium text-sm">
+                                {m.collateralAsset?.symbol} / {m.loanAsset?.symbol}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {formatCompactUSD(m.state?.supplyAssetsUsd ?? 0)} · Util{' '}
+                                {formatPercentage((m.state?.utilization ?? 0) * 100, 1)}
+                              </div>
+                            </div>
+                            {m.rating && <RatingBadge rating={m.rating} />}
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No WETH markets found</p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Section 4: Ratings Digest */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Ratings Digest</CardTitle>
+                <CardDescription>
+                  Quick overview of all market ratings
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {mergedMarkets
+                    .filter((m) => m.rating)
+                    .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
+                    .map((market) => (
+                      <div
+                        key={market.uniqueKey}
+                        className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/40 transition-colors"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-sm truncate">
+                            {market.collateralAsset?.symbol} / {market.loanAsset?.symbol}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {market.collateralAsset?.symbol} / {market.loanAsset?.symbol}
+                          </div>
+                        </div>
+                        {market.rating && <RatingBadge rating={market.rating} className="ml-2" />}
+                      </div>
+                    ))}
+                </div>
+              </CardContent>
+            </Card>
+          </>
         )}
       </main>
     </div>
   );
 }
 
-function OverviewStat({ label, value }: { label: string; value: string }) {
+function StatCard({
+  label,
+  value,
+  className,
+}: {
+  label: string;
+  value: string;
+  className?: string;
+}) {
   return (
     <div className="rounded-lg border border-dashed border-border/50 bg-muted/40 px-4 py-3">
-      <div className="text-xs font-medium uppercase text-muted-foreground">
-        {label}
-      </div>
-      <div className="text-2xl font-semibold text-foreground">{value}</div>
+      <div className="text-xs font-medium uppercase text-muted-foreground">{label}</div>
+      <div className={`text-2xl font-semibold ${className ?? 'text-foreground'}`}>{value}</div>
     </div>
   );
 }
@@ -211,102 +474,21 @@ function OverviewStat({ label, value }: { label: string; value: string }) {
 function LoadingState() {
   return (
     <div className="grid gap-6">
-      {[...Array(3)].map((_, idx) => (
+      {[...Array(4)].map((_, idx) => (
         <Card key={idx}>
           <CardHeader>
-            <Skeleton className="h-5 w-40" />
+            <Skeleton className="h-6 w-48" />
+            <Skeleton className="h-4 w-64 mt-2" />
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              {[...Array(4)].map((__, rowIdx) => (
-                <Skeleton key={rowIdx} className="h-10 w-full" />
+            <div className="space-y-3">
+              {[...Array(3)].map((__, rowIdx) => (
+                <Skeleton key={rowIdx} className="h-12 w-full" />
               ))}
             </div>
           </CardContent>
         </Card>
       ))}
-    </div>
-  );
-}
-
-type GroupedMarkets = Map<string, MorphoMarketMetrics[]>;
-
-function MarketsGroups({ grouped }: { grouped: GroupedMarkets }) {
-  const categories = ['USDC', 'WETH', 'cbBTC', 'Other'];
-
-  return (
-    <div className="space-y-8">
-      {categories
-        .filter((category) => (grouped.get(category) ?? []).length > 0)
-        .map((category) => {
-          const items = grouped.get(category) ?? [];
-          return (
-            <Card key={category} className="overflow-hidden">
-              <CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <CardTitle>{category} Markets</CardTitle>
-                  <CardDescription>
-                    {category === 'Other'
-                      ? 'Long-tail assets that pass configurability thresholds.'
-                      : `Markets collateralized by ${category}.`}
-                  </CardDescription>
-                </div>
-                <Badge variant="outline">
-                  {items.length} {items.length === 1 ? 'market' : 'markets'}
-                </Badge>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="text-xs uppercase tracking-wide text-muted-foreground">
-                        <TableHead className="min-w-[200px]">Market</TableHead>
-                        <TableHead className="min-w-[140px]">Curator Rating</TableHead>
-                        <TableHead className="min-w-[120px]">Utilization</TableHead>
-                        <TableHead className="min-w-[140px]">Supply Rate</TableHead>
-                        <TableHead className="min-w-[140px]">Borrow Rate</TableHead>
-                        <TableHead className="min-w-[160px]">Liquidity Buffer</TableHead>
-                        <TableHead className="min-w-[140px]" />
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {items.map((market) => (
-                        <TableRow key={market.id} className="hover:bg-muted/40">
-                          <TableCell className="font-mono text-xs">
-                            {market.id}
-                          </TableCell>
-                          <TableCell>
-                            <RatingBadge rating={market.rating} />
-                          </TableCell>
-                          <TableCell>
-                            {formatPercentage(market.utilization * 100, 2)}
-                          </TableCell>
-                          <TableCell>
-                            {formatPercentage((market.supplyRate ?? 0) * 100, 2)}
-                          </TableCell>
-                          <TableCell>
-                            {formatPercentage((market.borrowRate ?? 0) * 100, 2)}
-                          </TableCell>
-                          <TableCell>
-                            {formatCompactUSD(market.availableLiquidity)}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Button variant="ghost" size="sm" asChild>
-                              <Link href={`/markets/${market.id}`}>
-                                View details
-                                <ExternalLink className="ml-1 h-3.5 w-3.5" />
-                              </Link>
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
     </div>
   );
 }

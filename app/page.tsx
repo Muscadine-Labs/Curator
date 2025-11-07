@@ -33,7 +33,7 @@ export default function Home() {
               <Button variant="outline" asChild>
                 <Link href="/markets-supplied">Markets Supplied</Link>
               </Button>
-              <Button asChild>
+              <Button variant="outline" asChild>
                 <Link href="/fees">Fee Splitter</Link>
               </Button>
               <WalletConnect />
