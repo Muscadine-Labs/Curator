@@ -24,7 +24,8 @@ export default function MarketsPage() {
     const matchesSearch = 
       market.raw?.loanAsset?.symbol?.toLowerCase().includes(searchLower) ||
       market.raw?.collateralAsset?.symbol?.toLowerCase().includes(searchLower) ||
-      market.id.toLowerCase().includes(searchLower);
+      market.id.toLowerCase().includes(searchLower) ||
+      market.raw?.uniqueKey?.toLowerCase().includes(searchLower);
     
     return matchesSearch && (!filterWhitelisted || market.raw?.uniqueKey);
   }) || [];
@@ -140,16 +141,17 @@ export default function MarketsPage() {
                       const supplyApy = (market.raw?.state?.supplyApy ?? 0) * 100;
                       const borrowApy = (market.raw?.state?.borrowApy ?? 0) * 100;
                       const utilization = (market.raw?.state?.utilization ?? 0) * 100;
+                      const marketLink = market.raw?.uniqueKey || market.id;
 
                       return (
                         <TableRow
                           key={market.id}
                           className="hover:bg-muted/40 cursor-pointer"
-                          onClick={() => window.location.href = `/markets/${market.raw?.uniqueKey || market.id}`}
+                          onClick={() => window.location.href = `/markets/${marketLink}`}
                         >
                           <TableCell className="font-medium">
                             <Link
-                              href={`/markets/${market.raw?.uniqueKey || market.id}`}
+                              href={`/markets/${marketLink}`}
                               className="flex items-center gap-2 hover:underline"
                               onClick={(e) => e.stopPropagation()}
                             >

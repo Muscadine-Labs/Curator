@@ -412,37 +412,40 @@ export default function VaultDetailPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {vault.allocation.map((a, i) => (
-                    <TableRow key={i}>
-                      <TableCell className="font-mono text-xs">
-                        <Link 
-                          href={`/markets/${a.marketKey}`}
-                          className="hover:underline text-primary"
-                        >
-                          {a.marketKey.slice(0, 8)}...{a.marketKey.slice(-6)}
-                        </Link>
-                      </TableCell>
-                      <TableCell>{a.loanAssetName} / {a.collateralAssetName}</TableCell>
-                      <TableCell>{a.lltv ? formatPercentage(a.lltv * 100, 0) : '-'}</TableCell>
-                      <TableCell>{formatCompactUSD(a.supplyAssetsUsd || 0)}</TableCell>
-                      <TableCell>
-                        {a.marketRewards && a.marketRewards.length > 0
-                          ? a.marketRewards.map((mr, idx) => (
-                              <span key={idx} className="block text-green-600">
-                                {formatPercentage(mr.supplyApr)}
-                              </span>
-                            ))
-                          : '-'}
-                      </TableCell>
-                      <TableCell>
-                        <Button variant="outline" size="sm" asChild>
-                          <Link href={`/markets/${a.marketKey}`}>
-                            View Market
+                  {vault.allocation.map((a, i) => {
+                    const marketLink = a.marketKey || '';
+                    return (
+                      <TableRow key={i}>
+                        <TableCell className="font-mono text-xs">
+                          <Link 
+                            href={`/markets/${marketLink}`}
+                            className="hover:underline text-primary"
+                          >
+                            {marketLink.slice(0, 8)}...{marketLink.slice(-6)}
                           </Link>
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                        </TableCell>
+                        <TableCell>{a.loanAssetName} / {a.collateralAssetName}</TableCell>
+                        <TableCell>{a.lltv ? formatPercentage(a.lltv * 100, 0) : '-'}</TableCell>
+                        <TableCell>{formatCompactUSD(a.supplyAssetsUsd || 0)}</TableCell>
+                        <TableCell>
+                          {a.marketRewards && a.marketRewards.length > 0
+                            ? a.marketRewards.map((mr, idx) => (
+                                <span key={idx} className="block text-green-600">
+                                  {formatPercentage(mr.supplyApr)}
+                                </span>
+                              ))
+                            : '-'}
+                        </TableCell>
+                        <TableCell>
+                          <Button variant="outline" size="sm" asChild>
+                            <Link href={`/markets/${marketLink}`}>
+                              View Market
+                            </Link>
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </CardContent>

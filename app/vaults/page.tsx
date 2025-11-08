@@ -250,15 +250,17 @@ export default function VaultsPage() {
                                   // Use supplyApy from market state (already in percentage form from Morpho)
                                   const supplyApy = (market.state?.supplyApy ?? 0) * 100;
 
+                                  const marketLink = market.uniqueKey;
+                                  
                                   return (
                                     <TableRow 
                                       key={market.uniqueKey} 
                                       className="hover:bg-muted/40 cursor-pointer"
-                                      onClick={() => window.location.href = `/markets/${market.uniqueKey}`}
+                                      onClick={() => window.location.href = `/markets/${marketLink}`}
                                     >
                                       <TableCell className="font-medium">
                                         <Link 
-                                          href={`/markets/${market.uniqueKey}`}
+                                          href={`/markets/${marketLink}`}
                                           className="flex items-center gap-2 hover:underline"
                                           onClick={(e) => e.stopPropagation()}
                                         >

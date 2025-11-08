@@ -5,7 +5,6 @@ import { mergeConfig } from '@/lib/morpho/config';
 import { getMorphoMarketRatings } from '@/lib/morpho/service';
 import { RatingBadge } from '@/components/morpho/RatingBadge';
 import { MetricCard } from '@/components/morpho/MetricCard';
-import { MarketComprehensiveData } from '@/components/MarketComprehensiveData';
 import {
   Card,
   CardContent,
@@ -271,12 +270,6 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
               />
             </CardContent>
           </Card>
-        </section>
-
-        {/* Comprehensive Market Data */}
-        <section>
-          <h2 className="text-2xl font-semibold tracking-tight mb-6">Comprehensive Market Data</h2>
-          <MarketComprehensiveData marketId={id} />
         </section>
       </main>
     </div>
