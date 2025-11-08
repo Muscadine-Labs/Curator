@@ -104,6 +104,12 @@ export interface VaultDetail extends VaultWithData {
     maxWithdrawal: number | null;
     strategyNotes: string;
   };
+  historicalData?: {
+    apy?: Array<{ x: number; y: number }>;
+    netApy?: Array<{ x: number; y: number }>;
+    totalAssets?: Array<{ x: number; y: number }>;
+    totalAssetsUsd?: Array<{ x: number; y: number }>;
+  };
 }
 
 export interface FeesData {

@@ -96,16 +96,16 @@ export interface MarketDetail {
   
   loanAsset: MarketAsset;
   collateralAsset: MarketAsset;
-  oracle: any;
-  oracleInfo: any;
+  oracle: Record<string, unknown>;
+  oracleInfo: Record<string, unknown>;
   
   state: MarketState;
   warnings: MarketWarning[];
   
   apyMetrics: {
-    daily: any;
-    weekly: any;
-    monthly: any;
+    daily: Record<string, unknown>;
+    weekly: Record<string, unknown>;
+    monthly: Record<string, unknown>;
   };
   
   supplyingVaults: SupplyingVault[];

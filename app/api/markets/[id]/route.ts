@@ -281,7 +281,14 @@ export async function GET(
       
       state: {
         ...market.state,
-        rewards: (market.state?.rewards || []).map((r: any) => ({
+        rewards: (market.state?.rewards || []).map((r: {
+          asset?: { address?: string; symbol?: string; name?: string; chain?: { id?: number } };
+          supplyApr?: number;
+          borrowApr?: number;
+          amountPerYear?: number;
+          yearlySupplyTokens?: number;
+          yearlyBorrowTokens?: number;
+        }) => ({
           asset: r.asset,
           supplyApr: (r.supplyApr || 0) * 100,
           borrowApr: (r.borrowApr || 0) * 100,
@@ -308,12 +315,18 @@ export async function GET(
         borrowAssetsUsd: market.historicalState?.borrowAssetsUsd || [],
       },
       
-      positions: positions.map((p: any) => ({
+      positions: positions.map((p: { user?: { address?: string }; state?: Record<string, unknown> }) => ({
         userAddress: p.user?.address,
         ...p.state
       })),
       
-      liquidations: liquidations.map((l: any) => ({
+      liquidations: liquidations.map((l: { 
+        blockNumber?: number; 
+        hash?: string; 
+        timestamp?: number; 
+        user?: { address?: string }; 
+        data?: Record<string, unknown> 
+      }) => ({
         blockNumber: l.blockNumber,
         hash: l.hash,
         timestamp: l.timestamp,

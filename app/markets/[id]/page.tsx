@@ -5,6 +5,7 @@ import { mergeConfig } from '@/lib/morpho/config';
 import { getMorphoMarketRatings } from '@/lib/morpho/service';
 import { RatingBadge } from '@/components/morpho/RatingBadge';
 import { MetricCard } from '@/components/morpho/MetricCard';
+import { MarketComprehensiveData } from '@/components/MarketComprehensiveData';
 import {
   Card,
   CardContent,
@@ -16,12 +17,13 @@ import { Badge } from '@/components/ui/badge';
 import { formatCompactUSD, formatPercentage } from '@/lib/format/number';
 
 type MarketDetailPageProps = {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 };
 
 export async function generateMetadata({ params }: MarketDetailPageProps) {
   const config = mergeConfig();
-  const [market] = await getMorphoMarketRatings({ marketId: params.id });
+  const { id } = await params;
+  const [market] = await getMorphoMarketRatings({ marketId: id });
   if (!market) {
     return {
       title: 'Market Not Found | Muscadine Curator',
@@ -39,7 +41,7 @@ export async function generateMetadata({ params }: MarketDetailPageProps) {
       )}. Stress coverage ${
         market.stressExposureScore >= 0.8 ? 'robust' : 'needs review'
       }.`,
-      url: `/markets/${market.id}`,
+      url: `/markets/${id}`,
     },
     other: {
       'muscadine:curator:utilizationCeiling': config.utilizationCeiling.toString(),
@@ -49,7 +51,8 @@ export async function generateMetadata({ params }: MarketDetailPageProps) {
 
 export default async function MarketDetailPage({ params }: MarketDetailPageProps) {
   const config = mergeConfig();
-  const [market] = await getMorphoMarketRatings({ marketId: params.id });
+  const { id } = await params;
+  const [market] = await getMorphoMarketRatings({ marketId: id });
 
   if (!market) {
     notFound();
@@ -248,15 +251,15 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-3 text-sm">
-              <SnapshotRow label="Total Supply (USD)" value={formatCompactUSD(market.raw.totalSupplyUsd ?? 0)} />
-              <SnapshotRow label="Total Borrow (USD)" value={formatCompactUSD(market.raw.totalBorrowUsd ?? 0)} />
+              <SnapshotRow label="Total Supply (USD)" value={formatCompactUSD(market.raw.state?.supplyAssetsUsd ?? 0)} />
+              <SnapshotRow label="Total Borrow (USD)" value={formatCompactUSD(market.raw.state?.borrowAssetsUsd ?? 0)} />
               <SnapshotRow
                 label="Available Liquidity"
                 value={formatCompactUSD(market.availableLiquidity)}
               />
               <SnapshotRow
                 label="TVL"
-                value={formatCompactUSD(market.raw.tvlUsd ?? market.availableLiquidity + market.potentialInsolvencyUsd)}
+                value={formatCompactUSD(market.raw.state?.sizeUsd ?? (market.availableLiquidity + market.potentialInsolvencyUsd))}
               />
               <SnapshotRow
                 label="Underlying Asset"
@@ -268,6 +271,12 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
               />
             </CardContent>
           </Card>
+        </section>
+
+        {/* Comprehensive Market Data */}
+        <section>
+          <h2 className="text-2xl font-semibold tracking-tight mb-6">Comprehensive Market Data</h2>
+          <MarketComprehensiveData marketId={id} />
         </section>
       </main>
     </div>

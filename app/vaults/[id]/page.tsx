@@ -259,7 +259,7 @@ export default function VaultDetailPage() {
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
                     <LineChart 
-                      data={vault.historicalData.apy.map((d: any) => ({
+                      data={vault.historicalData.apy.map((d: { x: number; y: number }) => ({
                         date: new Date(d.x * 1000).toLocaleDateString(),
                         apy: d.y * 100,
                       }))}
@@ -306,7 +306,7 @@ export default function VaultDetailPage() {
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
                     <LineChart 
-                      data={vault.historicalData.netApy.map((d: any) => ({
+                      data={vault.historicalData.netApy.map((d: { x: number; y: number }) => ({
                         date: new Date(d.x * 1000).toLocaleDateString(),
                         netApy: d.y * 100,
                       }))}
@@ -353,7 +353,7 @@ export default function VaultDetailPage() {
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
                     <LineChart 
-                      data={vault.historicalData.totalAssetsUsd.map((d: any) => ({
+                      data={vault.historicalData.totalAssetsUsd.map((d: { x: number; y: number }) => ({
                         date: new Date(d.x * 1000).toLocaleDateString(),
                         tvl: d.y,
                       }))}
@@ -460,12 +460,13 @@ export default function VaultDetailPage() {
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Curators</label>
                   <div className="flex flex-wrap gap-3 mt-2">
-                    {vault.metadata.curators.map((curator: any, i: number) => (
+                    {vault.metadata.curators.map((curator: { image?: string | null; name?: string | null; url?: string | null }, i: number) => (
                       <div key={i} className="flex items-center gap-2 p-2 rounded-lg border">
                         {curator.image && (
+                          // eslint-disable-next-line @next/next/no-img-element
                           <img 
                             src={curator.image} 
-                            alt={curator.name} 
+                            alt={curator.name || 'Curator'} 
                             className="w-8 h-8 rounded-full"
                           />
                         )}
