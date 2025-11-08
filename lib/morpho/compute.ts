@@ -12,7 +12,7 @@ export function normalize01(value: number): number {
 export function computeMetricsForMarket(
   market: MorphoMarketRaw,
   config: CuratorConfig,
-  benchmarkSupplyRate = config.fallbackBenchmarkRate
+  benchmarkSupplyRate?: number
 ): MorphoMarketMetrics {
   const state = market.state ?? null;
 
@@ -33,8 +33,9 @@ export function computeMetricsForMarket(
   }
   utilizationScore = normalize01(utilizationScore);
 
+  const resolvedBenchmark = benchmarkSupplyRate ?? config.fallbackBenchmarkRate;
   const supplyRate = state?.supplyApy ?? 0;
-  const diff = Math.abs(supplyRate - benchmarkSupplyRate);
+  const diff = Math.abs(supplyRate - resolvedBenchmark);
   let rateAlignmentScore = Math.exp(-diff / config.rateAlignmentEps);
   rateAlignmentScore = normalize01(rateAlignmentScore);
 
@@ -83,6 +84,7 @@ export function computeMetricsForMarket(
     utilizationScore,
     supplyRate: state?.supplyApy ?? null,
     borrowRate: state?.borrowApy ?? null,
+    benchmarkSupplyRate: resolvedBenchmark,
     rateAlignmentScore,
     potentialInsolvencyUsd,
     insolvencyPctOfTvl,

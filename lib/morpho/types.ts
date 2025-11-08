@@ -48,6 +48,7 @@ export type MorphoMarketMetrics = {
   utilizationScore: number;
   supplyRate: number | null;
   borrowRate: number | null;
+  benchmarkSupplyRate: number | null;
   rateAlignmentScore: number;
   potentialInsolvencyUsd: number;
   insolvencyPctOfTvl: number;

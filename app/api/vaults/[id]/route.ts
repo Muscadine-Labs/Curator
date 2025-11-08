@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getVaultById } from '@/lib/config/vaults';
+import { getVaultByAddress, getVaultById } from '@/lib/config/vaults';
 
 const MORPHO_GRAPHQL_ENDPOINT = 'https://api.morpho.org/graphql';
 
@@ -9,7 +9,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const cfg = getVaultById(id);
+    const cfg = getVaultById(id) ?? getVaultByAddress(id);
     if (!cfg) {
       return NextResponse.json({ error: 'Vault not found' }, { status: 404 });
     }
@@ -221,10 +221,10 @@ export async function GET(
       warnings: mv?.state?.warnings || [],
       metadata: mv?.metadata || {},
       historicalData: {
-        apy: mv?.state?.historicalState?.apy || [],
-        netApy: mv?.state?.historicalState?.netApy || [],
-        totalAssets: mv?.state?.historicalState?.totalAssets || [],
-        totalAssetsUsd: mv?.state?.historicalState?.totalAssetsUsd || [],
+        apy: mv?.historicalState?.apy || [],
+        netApy: mv?.historicalState?.netApy || [],
+        totalAssets: mv?.historicalState?.totalAssets || [],
+        totalAssetsUsd: mv?.historicalState?.totalAssetsUsd || [],
       },
       roles: {
         owner: mv?.state?.owner ?? null,

@@ -15,18 +15,19 @@ export interface PendingTokenData {
   payee2Pending: bigint | null;
 }
 
+const DEFAULT_FEE_SPLITTER = '0x194DeC45D34040488f355823e1F94C0434304188' as Address;
+
+function getFeeSplitterAddress(): Address {
+  const envAddress = process.env.NEXT_PUBLIC_FEE_SPLITTER;
+  return (envAddress ? envAddress : DEFAULT_FEE_SPLITTER) as Address;
+}
+
 // Revenue split hook
 export const useRevenueSplit = () => {
   return useQuery<RevenueSplitData>({
     queryKey: ['revenue-split'],
     queryFn: async () => {
-      const splitterAddress = (process.env.NEXT_PUBLIC_FEE_SPLITTER as Address) || (
-        '0x194DeC45D34040488f355823e1F94C0434304188' as Address
-      );
-      if (!splitterAddress) {
-        throw new Error('Fee splitter address not configured');
-      }
-      
+      const splitterAddress = getFeeSplitterAddress();
       return readFeeSplitterData(splitterAddress);
     },
     enabled: true,
@@ -43,12 +44,10 @@ export const usePendingToken = (
   return useQuery<PendingTokenData>({
     queryKey: ['pending-token', tokenAddress, payeeAddress],
     queryFn: async () => {
-      const splitterAddress = (process.env.NEXT_PUBLIC_FEE_SPLITTER as Address) || (
-        '0x194DeC45D34040488f355823e1F94C0434304188' as Address
-      );
-      if (!splitterAddress || !tokenAddress) {
-        throw new Error('Splitter or token address not configured');
+      if (!tokenAddress) {
+        throw new Error('Token address not configured');
       }
+      const splitterAddress = getFeeSplitterAddress();
       
       // If specific payee is provided, only get that payee's pending amount
       if (payeeAddress) {
@@ -95,12 +94,10 @@ export const useTotalReleased = (tokenAddress: Address | null) => {
   return useQuery<bigint | null>({
     queryKey: ['total-released', tokenAddress],
     queryFn: async () => {
-      const splitterAddress = (process.env.NEXT_PUBLIC_FEE_SPLITTER as Address) || (
-        '0x194DeC45D34040488f355823e1F94C0434304188' as Address
-      );
-      if (!splitterAddress || !tokenAddress) {
-        throw new Error('Splitter or token address not configured');
+      if (!tokenAddress) {
+        throw new Error('Token address not configured');
       }
+      const splitterAddress = getFeeSplitterAddress();
       return readTotalReleased(splitterAddress, tokenAddress);
     },
     enabled: !!tokenAddress,
@@ -117,12 +114,10 @@ export const useReleased = (
   return useQuery<bigint | null>({
     queryKey: ['released', tokenAddress, accountAddress],
     queryFn: async () => {
-      const splitterAddress = (process.env.NEXT_PUBLIC_FEE_SPLITTER as Address) || (
-        '0x194DeC45D34040488f355823e1F94C0434304188' as Address
-      );
-      if (!splitterAddress || !tokenAddress || !accountAddress) {
-        throw new Error('Splitter, token, or account address not configured');
+      if (!tokenAddress || !accountAddress) {
+        throw new Error('Token or account address not configured');
       }
+      const splitterAddress = getFeeSplitterAddress();
       return readReleased(splitterAddress, tokenAddress, accountAddress);
     },
     enabled: !!tokenAddress && !!accountAddress,

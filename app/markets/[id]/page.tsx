@@ -59,7 +59,10 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
 
   const utilizationPct = market.utilization * 100;
   const utilizationCeilingPct = config.utilizationCeiling * 100;
-  const rateDiffPct = Math.abs((market.supplyRate ?? 0) - config.fallbackBenchmarkRate) * 100;
+  const benchmarkRate = market.benchmarkSupplyRate ?? config.fallbackBenchmarkRate;
+  const tolerancePct = config.rateAlignmentEps * 100;
+  const rateDiffPct = Math.abs((market.supplyRate ?? 0) - benchmarkRate) * 100;
+  const benchmarkRateLabel = (benchmarkRate * 100).toFixed(2);
   const insolvencyPct = market.insolvencyPctOfTvl * 100;
 
   const utilizationTone =
@@ -150,7 +153,7 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
             <MetricCard
               title="Rate Alignment Δ"
               value={`${rateDiffPct.toFixed(2)}%`}
-              description={`Benchmark: ${(config.fallbackBenchmarkRate * 100).toFixed(2)}%. Alignment tolerance: ${(config.rateAlignmentEps * 100).toFixed(2)}%.`}
+              description={`Benchmark: ${(benchmarkRate * 100).toFixed(2)}%. Alignment tolerance: ${tolerancePct.toFixed(2)}%.`}
               helper="Deviation highlights liquidity migration risk vs. peer markets (per Gauntlet market-rate diagnostics)."
               tone={rateTone}
             />
@@ -266,7 +269,7 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
               />
               <SnapshotRow
                 label="Benchmark Supply Rate"
-                value={`${(config.fallbackBenchmarkRate * 100).toFixed(2)}% (fallback)`}
+                value={`${benchmarkRateLabel}%`}
               />
             </CardContent>
           </Card>
