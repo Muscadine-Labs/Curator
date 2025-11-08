@@ -4,13 +4,12 @@ Modern Next.js dashboard for Muscadine vaults on Morpho. Live data is sourced fr
 
 ## Features
 
-- **Protocol Overview**: KPI dashboard with TVL, fees, and user metrics
-- **Vault Explorer**: Comprehensive list of all Muscadine vaults with filtering and search
+- **Protocol Overview**: KPI dashboard with TVL, total interest generated, and user metrics
+- **Vaults Explorer**: Comprehensive view of all 3 Muscadine vaults with their market allocations and curator risk ratings (0-100)
 - **Vault Details**: Individual vault pages with performance charts and role information
-- **Fee Splitter**: Integration with immutable ERC20FeeSplitter contract
-- **Wallet Integration**: Coinbase OnchainKit + wagmi + viem
-- **On-chain Data**: Real-time data from Base chain via Alchemy
-- **Mock Mode**: Development mode with mock API routes
+- **Fee Splitter**: Integration with immutable ERC20FeeSplitter contract for fee claims
+- **Wallet Integration**: Coinbase OnchainKit + wagmi + viem for Base network
+- **On-chain Data**: Real-time data from Base chain via Alchemy and Morpho GraphQL API
 
 ## Tech Stack
 

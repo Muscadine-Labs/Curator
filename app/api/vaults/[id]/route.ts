@@ -17,10 +17,15 @@ export async function GET(
     const variables = {
       address: cfg.address,
       chainId: cfg.chainId,
+      options: {
+        startTimestamp: Math.floor(Date.now() / 1000) - 30 * 24 * 60 * 60, // 30 days ago
+        endTimestamp: Math.floor(Date.now() / 1000),
+        interval: 'DAY'
+      }
     };
 
     const query = `
-      query VaultDetail($address: String!, $chainId: Int!) {
+      query VaultDetail($address: String!, $chainId: Int!, $options: TimeseriesOptions) {
         vault: vaultByAddress(address: $address, chainId: $chainId) {
           address
           name
@@ -41,6 +46,10 @@ export async function GET(
             totalAssets
             totalAssetsUsd
             totalSupply
+            totalSupplyShares
+            supplyQueue
+            withdrawQueue
+            lastUpdate
             apy
             netApy
             netApyWithoutRewards
@@ -52,6 +61,7 @@ export async function GET(
             weeklyNetApy
             monthlyApy
             monthlyNetApy
+            fee
             warnings { type level }
             rewards {
               asset { address chain { id } }
@@ -83,6 +93,24 @@ export async function GET(
               supplyQueueIndex
               withdrawQueueIndex
               market { uniqueKey }
+            }
+          }
+          historicalState {
+            apy(options: $options) {
+              x
+              y
+            }
+            netApy(options: $options) {
+              x
+              y
+            }
+            totalAssets(options: $options) {
+              x
+              y
+            }
+            totalAssetsUsd(options: $options) {
+              x
+              y
             }
           }
         }
@@ -187,9 +215,17 @@ export async function GET(
       queues: {
         supplyQueueIndex: mv?.state?.allocationQueues?.supplyQueueIndex ?? null,
         withdrawQueueIndex: mv?.state?.allocationQueues?.withdrawQueueIndex ?? null,
+        supplyQueue: mv?.state?.supplyQueue || [],
+        withdrawQueue: mv?.state?.withdrawQueue || [],
       },
       warnings: mv?.state?.warnings || [],
       metadata: mv?.metadata || {},
+      historicalData: {
+        apy: mv?.state?.historicalState?.apy || [],
+        netApy: mv?.state?.historicalState?.netApy || [],
+        totalAssets: mv?.state?.historicalState?.totalAssets || [],
+        totalAssetsUsd: mv?.state?.historicalState?.totalAssetsUsd || [],
+      },
       roles: {
         owner: mv?.state?.owner ?? null,
         curator: mv?.state?.curator ?? null,

@@ -14,6 +14,7 @@ import Link from 'next/link';
 import { formatCompactUSD, formatPercentage, formatRelativeTime } from '@/lib/format/number';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { WalletConnect } from '@/components/WalletConnect';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 export default function VaultDetailPage() {
   const params = useParams();
@@ -94,6 +95,9 @@ export default function VaultDetailPage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/markets">All Markets</Link>
+              </Button>
               <Button variant="outline" size="sm" disabled>
                 Deposit (Coming Soon)
               </Button>
@@ -206,48 +210,6 @@ export default function VaultDetailPage() {
           </Card>
         )}
 
-        {/* Allocation */}
-        {vault.allocation && vault.allocation.length > 0 && (
-          <Card className="mb-8">
-            <CardHeader>
-              <CardTitle>Market Allocation</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Market</TableHead>
-                    <TableHead>Loan / Collateral</TableHead>
-                    <TableHead>LLTV</TableHead>
-                    <TableHead>Supply (USD)</TableHead>
-                    <TableHead>Rewards APR</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {vault.allocation.map((a, i) => (
-                    <TableRow key={i}>
-                      <TableCell className="font-mono text-xs">{a.marketKey}</TableCell>
-                      <TableCell>{a.loanAssetName} / {a.collateralAssetName}</TableCell>
-                      <TableCell>{a.lltv ?? '-'}
-                      </TableCell>
-                      <TableCell>{formatCompactUSD(a.supplyAssetsUsd || 0)}</TableCell>
-                      <TableCell>
-                        {a.marketRewards && a.marketRewards.length > 0
-                          ? a.marketRewards.map((mr, idx) => (
-                              <span key={idx} className="block text-green-600">
-                                {formatPercentage(mr.supplyApr)}
-                              </span>
-                            ))
-                          : '-'}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        )}
-
         {/* Queues & Warnings */}
         {(vault.queues || (vault.warnings && vault.warnings.length > 0)) && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -283,6 +245,269 @@ export default function VaultDetailPage() {
               </Card>
             )}
           </div>
+        )}
+
+        {/* Historical Performance Charts */}
+        {vault.historicalData && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            {/* APY History Chart */}
+            {vault.historicalData.apy && vault.historicalData.apy.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>APY History (30 Days)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart 
+                      data={vault.historicalData.apy.map((d: any) => ({
+                        date: new Date(d.x * 1000).toLocaleDateString(),
+                        apy: d.y * 100,
+                      }))}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis 
+                        dataKey="date" 
+                        className="text-xs"
+                        tick={{ fontSize: 10 }}
+                      />
+                      <YAxis 
+                        className="text-xs"
+                        tick={{ fontSize: 10 }}
+                        tickFormatter={(value) => `${value.toFixed(1)}%`}
+                      />
+                      <Tooltip 
+                        formatter={(value: number) => `${value.toFixed(2)}%`}
+                        contentStyle={{ 
+                          backgroundColor: 'hsl(var(--background))', 
+                          border: '1px solid hsl(var(--border))' 
+                        }}
+                      />
+                      <Legend />
+                      <Line 
+                        type="monotone" 
+                        dataKey="apy" 
+                        name="Base APY"
+                        stroke="hsl(var(--primary))" 
+                        strokeWidth={2}
+                        dot={false}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Net APY History Chart */}
+            {vault.historicalData.netApy && vault.historicalData.netApy.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Net APY History (30 Days)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart 
+                      data={vault.historicalData.netApy.map((d: any) => ({
+                        date: new Date(d.x * 1000).toLocaleDateString(),
+                        netApy: d.y * 100,
+                      }))}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis 
+                        dataKey="date" 
+                        className="text-xs"
+                        tick={{ fontSize: 10 }}
+                      />
+                      <YAxis 
+                        className="text-xs"
+                        tick={{ fontSize: 10 }}
+                        tickFormatter={(value) => `${value.toFixed(1)}%`}
+                      />
+                      <Tooltip 
+                        formatter={(value: number) => `${value.toFixed(2)}%`}
+                        contentStyle={{ 
+                          backgroundColor: 'hsl(var(--background))', 
+                          border: '1px solid hsl(var(--border))' 
+                        }}
+                      />
+                      <Legend />
+                      <Line 
+                        type="monotone" 
+                        dataKey="netApy" 
+                        name="Net APY (w/ rewards)"
+                        stroke="hsl(var(--chart-2))" 
+                        strokeWidth={2}
+                        dot={false}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* TVL History Chart */}
+            {vault.historicalData.totalAssetsUsd && vault.historicalData.totalAssetsUsd.length > 0 && (
+              <Card className="lg:col-span-2">
+                <CardHeader>
+                  <CardTitle>Total Value Locked History (30 Days)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart 
+                      data={vault.historicalData.totalAssetsUsd.map((d: any) => ({
+                        date: new Date(d.x * 1000).toLocaleDateString(),
+                        tvl: d.y,
+                      }))}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis 
+                        dataKey="date" 
+                        className="text-xs"
+                        tick={{ fontSize: 10 }}
+                      />
+                      <YAxis 
+                        className="text-xs"
+                        tick={{ fontSize: 10 }}
+                        tickFormatter={(value) => formatCompactUSD(value)}
+                      />
+                      <Tooltip 
+                        formatter={(value: number) => formatCompactUSD(value)}
+                        contentStyle={{ 
+                          backgroundColor: 'hsl(var(--background))', 
+                          border: '1px solid hsl(var(--border))' 
+                        }}
+                      />
+                      <Legend />
+                      <Line 
+                        type="monotone" 
+                        dataKey="tvl" 
+                        name="Total Value Locked"
+                        stroke="hsl(var(--chart-1))" 
+                        strokeWidth={2}
+                        dot={false}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
+
+        {/* Allocation with clickable market links */}
+        {vault.allocation && vault.allocation.length > 0 && (
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle>Market Allocation</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Market</TableHead>
+                    <TableHead>Loan / Collateral</TableHead>
+                    <TableHead>LLTV</TableHead>
+                    <TableHead>Supply (USD)</TableHead>
+                    <TableHead>Rewards APR</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {vault.allocation.map((a, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="font-mono text-xs">
+                        <Link 
+                          href={`/markets/${a.marketKey}`}
+                          className="hover:underline text-primary"
+                        >
+                          {a.marketKey.slice(0, 8)}...{a.marketKey.slice(-6)}
+                        </Link>
+                      </TableCell>
+                      <TableCell>{a.loanAssetName} / {a.collateralAssetName}</TableCell>
+                      <TableCell>{a.lltv ? formatPercentage(a.lltv * 100, 0) : '-'}</TableCell>
+                      <TableCell>{formatCompactUSD(a.supplyAssetsUsd || 0)}</TableCell>
+                      <TableCell>
+                        {a.marketRewards && a.marketRewards.length > 0
+                          ? a.marketRewards.map((mr, idx) => (
+                              <span key={idx} className="block text-green-600">
+                                {formatPercentage(mr.supplyApr)}
+                              </span>
+                            ))
+                          : '-'}
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="outline" size="sm" asChild>
+                          <Link href={`/markets/${a.marketKey}`}>
+                            View Market
+                          </Link>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Vault Metadata */}
+        {vault.metadata && (vault.metadata.curators || vault.metadata.forumLink) && (
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle>Vault Metadata</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {vault.metadata.curators && vault.metadata.curators.length > 0 && (
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Curators</label>
+                  <div className="flex flex-wrap gap-3 mt-2">
+                    {vault.metadata.curators.map((curator: any, i: number) => (
+                      <div key={i} className="flex items-center gap-2 p-2 rounded-lg border">
+                        {curator.image && (
+                          <img 
+                            src={curator.image} 
+                            alt={curator.name} 
+                            className="w-8 h-8 rounded-full"
+                          />
+                        )}
+                        <div>
+                          <div className="font-medium text-sm">{curator.name}</div>
+                          {curator.url && (
+                            <a 
+                              href={curator.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-primary hover:underline"
+                            >
+                              Visit
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {vault.metadata.forumLink && (
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Forum Discussion</label>
+                  <div className="mt-1">
+                    <Button variant="outline" size="sm" asChild>
+                      <a 
+                        href={vault.metadata.forumLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2"
+                      >
+                        View Forum Post
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         )}
 
         {/* Transactions */}

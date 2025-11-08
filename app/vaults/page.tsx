@@ -133,6 +133,9 @@ export default function VaultsPage() {
             </div>
             <div className="flex items-center gap-2">
               <Button variant="outline" asChild>
+                <Link href="/markets">All Markets</Link>
+              </Button>
+              <Button variant="outline" asChild>
                 <Link href="/fees">Fee Splitter</Link>
               </Button>
               <Button variant="outline" asChild>
@@ -177,45 +180,47 @@ export default function VaultsPage() {
                 return (
                   <div key={vaultSummary.vault.id} className="space-y-6">
                     {/* Vault Summary Card */}
-                    <Card className={borderColor}>
-                      <CardHeader>
-                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                          <div>
-                            <div className="flex items-center gap-3">
-                              <CardTitle className="text-2xl">{vaultSummary.vault.name}</CardTitle>
-                              <Badge variant="outline">{vaultSummary.vault.asset}</Badge>
+                    <Link href={`/vaults/${vaultSummary.vault.address}`}>
+                      <Card className={`${borderColor} cursor-pointer hover:shadow-lg transition-all duration-200`}>
+                        <CardHeader>
+                          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                            <div>
+                              <div className="flex items-center gap-3">
+                                <CardTitle className="text-2xl">{vaultSummary.vault.name}</CardTitle>
+                                <Badge variant="outline">{vaultSummary.vault.asset}</Badge>
+                              </div>
+                              <CardDescription className="mt-2">
+                                {vaultSummary.vault.description}
+                              </CardDescription>
                             </div>
-                            <CardDescription className="mt-2">
-                              {vaultSummary.vault.description}
-                            </CardDescription>
+                            {vaultSummary.avgRating && (
+                              <RatingBadge rating={vaultSummary.avgRating} className="text-sm px-3 py-1.5" />
+                            )}
                           </div>
-                          {vaultSummary.avgRating && (
-                            <RatingBadge rating={vaultSummary.avgRating} className="text-sm px-3 py-1.5" />
-                          )}
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                          <StatCard
-                            label="Total Supplied"
-                            value={formatCompactUSD(vaultSummary.totalSupplied)}
-                          />
-                          <StatCard
-                            label="Avg Utilization"
-                            value={formatPercentage(vaultSummary.avgUtilization * 100, 2)}
-                          />
-                          <StatCard
-                            label="Reward APR"
-                            value={formatPercentage(vaultSummary.totalRewardApr, 2)}
-                            className="text-green-600 dark:text-green-400"
-                          />
-                          <StatCard
-                            label="Markets"
-                            value={vaultSummary.markets.length.toString()}
-                          />
-                        </div>
-                      </CardContent>
-                    </Card>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <StatCard
+                              label="Total Supplied"
+                              value={formatCompactUSD(vaultSummary.totalSupplied)}
+                            />
+                            <StatCard
+                              label="Avg Utilization"
+                              value={formatPercentage(vaultSummary.avgUtilization * 100, 2)}
+                            />
+                            <StatCard
+                              label="Reward APR"
+                              value={formatPercentage(vaultSummary.totalRewardApr, 2)}
+                              className="text-green-600 dark:text-green-400"
+                            />
+                            <StatCard
+                              label="Markets"
+                              value={vaultSummary.markets.length.toString()}
+                            />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </Link>
 
                     {/* Markets Table for this Vault */}
                     <Card>
@@ -246,13 +251,21 @@ export default function VaultsPage() {
                                   const supplyApy = (market.state?.supplyApy ?? 0) * 100;
 
                                   return (
-                                    <TableRow key={market.uniqueKey} className="hover:bg-muted/40">
+                                    <TableRow 
+                                      key={market.uniqueKey} 
+                                      className="hover:bg-muted/40 cursor-pointer"
+                                      onClick={() => window.location.href = `/markets/${market.uniqueKey}`}
+                                    >
                                       <TableCell className="font-medium">
-                                        <div className="flex items-center gap-2">
+                                        <Link 
+                                          href={`/markets/${market.uniqueKey}`}
+                                          className="flex items-center gap-2 hover:underline"
+                                          onClick={(e) => e.stopPropagation()}
+                                        >
                                           <span>{market.collateralAsset?.symbol}</span>
                                           <span className="text-muted-foreground">/</span>
                                           <span>{market.loanAsset?.symbol}</span>
-                                        </div>
+                                        </Link>
                                       </TableCell>
                                       <TableCell>
                                         {market.lltv ? formatPercentage(market.lltv * 100, 0) : '—'}
