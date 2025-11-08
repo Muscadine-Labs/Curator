@@ -40,8 +40,8 @@ export default function FeesPage() {
               <Button variant="outline" asChild>
                 <Link href="/markets">Markets</Link>
               </Button>
-              <Button asChild>
-                <Link href="/vaults">View Vaults</Link>
+              <Button variant="outline" asChild>
+                <Link href="/vaults">Vaults</Link>
               </Button>
               <WalletConnect />
             </div>

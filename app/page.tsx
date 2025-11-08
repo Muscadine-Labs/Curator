@@ -28,7 +28,7 @@ export default function Home() {
                 <Link href="/markets">Markets</Link>
               </Button>
               <Button variant="outline" asChild>
-                <Link href="/vaults">View All Vaults</Link>
+                <Link href="/vaults">Vaults</Link>
               </Button>
               <Button variant="outline" asChild>
                 <Link href="/fees">Fee Splitter</Link>
