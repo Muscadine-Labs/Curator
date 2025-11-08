@@ -5,6 +5,7 @@ import { ArrowLeft, ExternalLink } from 'lucide-react';
 import { useMemo } from 'react';
 import { useMorphoMarkets } from '@/lib/hooks/useMorphoMarkets';
 import { useMarketsSupplied } from '@/lib/hooks/useMarkets';
+import { WalletConnect } from '@/components/WalletConnect';
 import type { MorphoMarketMetrics } from '@/lib/morpho/types';
 import type { SuppliedMarket } from '@/lib/hooks/useMarkets';
 import {
