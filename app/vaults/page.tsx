@@ -133,9 +133,6 @@ export default function VaultsPage() {
             </div>
             <div className="flex items-center gap-2">
               <Button variant="outline" asChild>
-                <Link href="/markets">All Markets</Link>
-              </Button>
-              <Button variant="outline" asChild>
                 <Link href="/fees">Fee Splitter</Link>
               </Button>
               <Button variant="outline" asChild>
@@ -237,20 +234,44 @@ export default function VaultsPage() {
                               <TableHeader>
                                 <TableRow className="text-xs uppercase tracking-wide">
                                   <TableHead className="min-w-[180px]">Market Pair</TableHead>
-                                  <TableHead className="min-w-[100px]">LLTV</TableHead>
-                                  <TableHead className="min-w-[120px]">Supplied USD</TableHead>
-                                  <TableHead className="min-w-[110px]">Utilization</TableHead>
-                                  <TableHead className="min-w-[110px]">Reward APR</TableHead>
+                                  <TableHead className="min-w-[140px]">Total Supply</TableHead>
+                                  <TableHead className="min-w-[140px]">Total Borrow</TableHead>
+                                  <TableHead className="min-w-[120px]">Supply APY</TableHead>
+                                  <TableHead className="min-w-[120px]">Borrow APY</TableHead>
+                                  <TableHead className="min-w-[120px]">Utilization</TableHead>
                                   <TableHead className="min-w-[140px]">Curator Rating</TableHead>
-                                  <TableHead className="min-w-[200px]">Borrowing</TableHead>
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
                                 {vaultSummary.markets.map((market) => {
-                                  // Use supplyApy from market state (already in percentage form from Morpho)
-                                  const supplyApy = (market.state?.supplyApy ?? 0) * 100;
-
                                   const marketLink = market.uniqueKey;
+                                  const morphoState = market.morphoMetrics?.raw.state;
+                                  const totalSupplyUsd =
+                                    morphoState?.supplyAssetsUsd ??
+                                    market.state?.supplyAssetsUsd ??
+                                    null;
+                                  const totalBorrowUsd =
+                                    morphoState?.borrowAssetsUsd ??
+                                    market.state?.borrowAssetsUsd ??
+                                    null;
+                                  const supplyApyValue =
+                                    morphoState?.supplyApy ??
+                                    market.state?.supplyApy ??
+                                    null;
+                                  const borrowApyValue =
+                                    morphoState?.borrowApy ??
+                                    market.state?.borrowApy ??
+                                    null;
+                                  const utilizationValue =
+                                    morphoState?.utilization ??
+                                    market.state?.utilization ??
+                                    null;
+                                  const supplyApyPercent =
+                                    supplyApyValue !== null ? supplyApyValue * 100 : null;
+                                  const borrowApyPercent =
+                                    borrowApyValue !== null ? borrowApyValue * 100 : null;
+                                  const utilizationPercent =
+                                    utilizationValue !== null ? utilizationValue * 100 : null;
                                   
                                   return (
                                     <TableRow 
@@ -264,22 +285,35 @@ export default function VaultsPage() {
                                           className="flex items-center gap-2 hover:underline"
                                           onClick={(e) => e.stopPropagation()}
                                         >
-                                          <span>{market.collateralAsset?.symbol}</span>
+                                          <span>{market.collateralAsset?.symbol ?? 'Unknown'}</span>
                                           <span className="text-muted-foreground">/</span>
-                                          <span>{market.loanAsset?.symbol}</span>
+                                          <span>{market.loanAsset?.symbol ?? 'Unknown'}</span>
                                         </Link>
                                       </TableCell>
                                       <TableCell>
-                                        {market.lltv ? formatPercentage(market.lltv * 100, 0) : '—'}
+                                        {totalSupplyUsd !== null
+                                          ? formatCompactUSD(totalSupplyUsd)
+                                          : '—'}
                                       </TableCell>
                                       <TableCell>
-                                        {formatCompactUSD(market.state?.supplyAssetsUsd ?? 0)}
-                                      </TableCell>
-                                      <TableCell>
-                                        {formatPercentage((market.state?.utilization ?? 0) * 100, 2)}
+                                        {totalBorrowUsd !== null
+                                          ? formatCompactUSD(totalBorrowUsd)
+                                          : '—'}
                                       </TableCell>
                                       <TableCell className="text-green-600 dark:text-green-400">
-                                        {supplyApy > 0 ? formatPercentage(supplyApy, 2) : '—'}
+                                        {supplyApyPercent !== null
+                                          ? formatPercentage(supplyApyPercent, 2)
+                                          : '—'}
+                                      </TableCell>
+                                      <TableCell className="text-orange-600 dark:text-orange-400">
+                                        {borrowApyPercent !== null
+                                          ? formatPercentage(borrowApyPercent, 2)
+                                          : '—'}
+                                      </TableCell>
+                                      <TableCell>
+                                        {utilizationPercent !== null
+                                          ? formatPercentage(utilizationPercent, 2)
+                                          : '—'}
                                       </TableCell>
                                       <TableCell>
                                         {market.rating ? (
@@ -287,9 +321,6 @@ export default function VaultsPage() {
                                         ) : (
                                           <span className="text-xs text-muted-foreground">N/A</span>
                                         )}
-                                      </TableCell>
-                                      <TableCell className="text-xs text-muted-foreground">
-                                        {market.collateralAsset?.symbol} → {market.loanAsset?.symbol} borrow
                                       </TableCell>
                                     </TableRow>
                                   );

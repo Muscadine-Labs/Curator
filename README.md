@@ -39,13 +39,9 @@ If your wallet is on a different network, the app will prompt you to switch to B
 ### Critical Fixes
 1. **🔴 Fixed Morpho Markets Query** - Added `chainId_in: [8453]` filter to prevent pulling markets from other chains (Ethereum, etc.). Previously, the query was fetching ALL chains which caused incorrect data display.
 
-2. **Enhanced Markets Page** - Completely redesigned `/markets` page to merge Morpho risk ratings with supplied market data:
-   - Section 1: All 3 Vaults overview (USDC, cbBTC, WETH) with aggregate stats and curator ratings (0-100 scale)
-   - Section 2: Detailed table of all supplied markets with LLTV (2 decimals), utilization, rewards, and ratings
-   - Section 3: Dedicated cbBTC and WETH collateral market summaries
-   - Section 4: Quick ratings digest for all markets sorted by rating
+2. **Integrated Market Metrics** - Morpho risk ratings and liquidity metrics are now surfaced directly within each vault overview and detail page, consolidating market supply/borrow stats under their parent vault.
 
-3. **Improved Data Merging** - Markets page now intelligently merges:
+3. **Improved Data Merging** - Vault market tables now intelligently merge:
    - Morpho market metrics (risk ratings 0-100, scores)
    - Supplied market data (allocations, rewards, utilization)
    - Proper error and loading state handling for both data sources
@@ -119,10 +115,9 @@ References:
 ```
 /app
   /page.tsx                 # Overview page
-  /vaults/page.tsx         # All vaults list
-  /vaults/[id]/page.tsx    # Vault detail page
+  /vaults/page.tsx         # All vaults list with market metrics per vault
+  /vaults/[id]/page.tsx    # Vault detail page with embedded market metrics
   /fees/page.tsx           # Fees page
-  /markets/page.tsx        # Markets page with all vaults and ratings
 /api/markets-supplied    # Markets data endpoint (Morpho GraphQL)
 /api/vaults              # Live vault list (Morpho GraphQL)
 /api/vaults/[id]         # Live vault detail (Morpho GraphQL)

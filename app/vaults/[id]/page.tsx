@@ -1,7 +1,9 @@
 'use client';
 
 import { useParams } from 'next/navigation';
+import { useMemo } from 'react';
 import { useVault } from '@/lib/hooks/useProtocolStats';
+import { useMorphoMarkets } from '@/lib/hooks/useMorphoMarkets';
 import { KpiCard } from '@/components/KpiCard';
 import { RoleList } from '@/components/RoleList';
 import { AllocatorList } from '@/components/AllocatorList';
@@ -14,12 +16,66 @@ import Link from 'next/link';
 import { formatCompactUSD, formatPercentage, formatRelativeTime } from '@/lib/format/number';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { WalletConnect } from '@/components/WalletConnect';
+import { RatingBadge } from '@/components/morpho/RatingBadge';
+import type { MorphoMarketMetrics } from '@/lib/morpho/types';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 export default function VaultDetailPage() {
   const params = useParams();
   const vaultId = params.id as string;
   const { data: vault, isLoading } = useVault(vaultId);
+  const { data: morpho } = useMorphoMarkets();
+
+  const vaultMarkets = useMemo(() => {
+    if (!vault?.allocation) return [];
+    const metricsByKey = new Map<string, MorphoMarketMetrics>();
+
+    morpho?.markets?.forEach((market) => {
+      metricsByKey.set(market.id, market);
+      if (market.raw?.uniqueKey) {
+        metricsByKey.set(market.raw.uniqueKey, market);
+      }
+    });
+
+    return vault.allocation.map((allocation) => {
+      const metrics = metricsByKey.get(allocation.marketKey);
+      const morphoState = metrics?.raw.state;
+
+      const totalSupplyUsd = morphoState?.supplyAssetsUsd ?? allocation.supplyAssetsUsd ?? null;
+      const totalBorrowUsd = morphoState?.borrowAssetsUsd ?? null;
+
+      const supplyApyValue =
+        morphoState?.supplyApy ??
+        metrics?.supplyRate ??
+        null;
+
+      const borrowApyValue =
+        morphoState?.borrowApy ??
+        metrics?.borrowRate ??
+        null;
+
+      const utilizationValue =
+        morphoState?.utilization ??
+        metrics?.utilization ??
+        null;
+
+      const supplyApyPercent = supplyApyValue !== null ? supplyApyValue * 100 : null;
+      const borrowApyPercent = borrowApyValue !== null ? borrowApyValue * 100 : null;
+      const utilizationPercent = utilizationValue !== null ? utilizationValue * 100 : null;
+
+      return {
+        marketKey: allocation.marketKey,
+        collateralSymbol: metrics?.raw.collateralAsset?.symbol ?? allocation.collateralAssetName ?? 'Unknown',
+        loanSymbol: metrics?.raw.loanAsset?.symbol ?? allocation.loanAssetName ?? 'Unknown',
+        totalSupplyUsd,
+        totalBorrowUsd,
+        supplyApyPercent,
+        borrowApyPercent,
+        utilizationPercent,
+        rating: metrics?.rating ?? null,
+      };
+    });
+  }, [vault?.allocation, morpho?.markets]);
 
   if (isLoading) {
     return (
@@ -95,9 +151,6 @@ export default function VaultDetailPage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" asChild>
-                <Link href="/markets">All Markets</Link>
-              </Button>
               <Button variant="outline" size="sm" disabled>
                 Deposit (Coming Soon)
               </Button>
@@ -394,7 +447,7 @@ export default function VaultDetailPage() {
         )}
 
         {/* Allocation with clickable market links */}
-        {vault.allocation && vault.allocation.length > 0 && (
+        {vaultMarkets.length > 0 && (
           <Card className="mb-8">
             <CardHeader>
               <CardTitle>Market Allocation</CardTitle>
@@ -403,49 +456,62 @@ export default function VaultDetailPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Market</TableHead>
-                    <TableHead>Loan / Collateral</TableHead>
-                    <TableHead>LLTV</TableHead>
-                    <TableHead>Supply (USD)</TableHead>
-                    <TableHead>Rewards APR</TableHead>
-                    <TableHead>Actions</TableHead>
+                    <TableHead className="min-w-[180px]">Market Pair</TableHead>
+                    <TableHead className="min-w-[140px]">Total Supply</TableHead>
+                    <TableHead className="min-w-[140px]">Total Borrow</TableHead>
+                    <TableHead className="min-w-[120px]">Supply APY</TableHead>
+                    <TableHead className="min-w-[120px]">Borrow APY</TableHead>
+                    <TableHead className="min-w-[120px]">Utilization</TableHead>
+                    <TableHead className="min-w-[140px]">Curator Rating</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {vault.allocation.map((a, i) => {
-                    const marketLink = a.marketKey || '';
-                    return (
-                      <TableRow key={i}>
-                        <TableCell className="font-mono text-xs">
-                          <Link 
-                            href={`/markets/${marketLink}`}
-                            className="hover:underline text-primary"
-                          >
-                            {marketLink.slice(0, 8)}...{marketLink.slice(-6)}
-                          </Link>
-                        </TableCell>
-                        <TableCell>{a.loanAssetName} / {a.collateralAssetName}</TableCell>
-                        <TableCell>{a.lltv ? formatPercentage(a.lltv * 100, 0) : '-'}</TableCell>
-                        <TableCell>{formatCompactUSD(a.supplyAssetsUsd || 0)}</TableCell>
-                        <TableCell>
-                          {a.marketRewards && a.marketRewards.length > 0
-                            ? a.marketRewards.map((mr, idx) => (
-                                <span key={idx} className="block text-green-600">
-                                  {formatPercentage(mr.supplyApr)}
-                                </span>
-                              ))
-                            : '-'}
-                        </TableCell>
-                        <TableCell>
-                          <Button variant="outline" size="sm" asChild>
-                            <Link href={`/markets/${marketLink}`}>
-                              View Market
-                            </Link>
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
+                  {vaultMarkets.map((market) => (
+                    <TableRow key={market.marketKey}>
+                      <TableCell className="font-medium">
+                        <Link
+                          href={`/markets/${market.marketKey}`}
+                          className="flex items-center gap-2 hover:underline"
+                        >
+                          <span>{market.collateralSymbol}</span>
+                          <span className="text-muted-foreground">/</span>
+                          <span>{market.loanSymbol}</span>
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        {market.totalSupplyUsd !== null
+                          ? formatCompactUSD(market.totalSupplyUsd)
+                          : '—'}
+                      </TableCell>
+                      <TableCell>
+                        {market.totalBorrowUsd !== null
+                          ? formatCompactUSD(market.totalBorrowUsd)
+                          : '—'}
+                      </TableCell>
+                      <TableCell className="text-green-600 dark:text-green-400">
+                        {market.supplyApyPercent !== null
+                          ? formatPercentage(market.supplyApyPercent, 2)
+                          : '—'}
+                      </TableCell>
+                      <TableCell className="text-orange-600 dark:text-orange-400">
+                        {market.borrowApyPercent !== null
+                          ? formatPercentage(market.borrowApyPercent, 2)
+                          : '—'}
+                      </TableCell>
+                      <TableCell>
+                        {market.utilizationPercent !== null
+                          ? formatPercentage(market.utilizationPercent, 2)
+                          : '—'}
+                      </TableCell>
+                      <TableCell>
+                        {market.rating !== null ? (
+                          <RatingBadge rating={market.rating} />
+                        ) : (
+                          <span className="text-xs text-muted-foreground">N/A</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
             </CardContent>
