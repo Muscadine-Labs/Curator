@@ -1,5 +1,6 @@
 export type MorphoMarketRaw = {
   id: string;
+  uniqueKey?: string;
   loanAsset: {
     symbol: string;
     decimals: number;

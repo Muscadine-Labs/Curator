@@ -25,9 +25,6 @@ export default function Home() {
             </div>
             <div className="flex items-center gap-4">
               <Button variant="outline" asChild>
-                <Link href="/markets">Markets</Link>
-              </Button>
-              <Button variant="outline" asChild>
                 <Link href="/vaults">Vaults</Link>
               </Button>
               <Button variant="outline" asChild>

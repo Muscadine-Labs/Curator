@@ -25,6 +25,7 @@ type MarketItem = {
     supplyAssetsUsd: number | null;
     liquidityAssetsUsd: number | null;
     utilization: number | null;
+    supplyApy: number | null;
     rewards: Array<{
       asset: { address: string; chain?: { id?: number } | null };
       supplyApr: number | null;
@@ -99,6 +100,7 @@ export async function GET() {
               supplyAssetsUsd
               liquidityAssetsUsd
               utilization
+              supplyApy
               rewards {
                 asset { address chain { id } }
                 supplyApr
@@ -133,7 +135,7 @@ export async function GET() {
     // 3) Shape response
     const markets = filteredMarkets.map((m) => ({
       uniqueKey: m.uniqueKey,
-      lltv: m.lltv,
+      lltv: m.lltv ? m.lltv / 1e18 : null, // Convert from wei to decimal (0.86 = 86%)
       oracleAddress: m.oracleAddress,
       irmAddress: m.irmAddress,
       loanAsset: m.loanAsset || null,
@@ -143,6 +145,7 @@ export async function GET() {
         borrowAssetsUsd: m.state?.borrowAssetsUsd ?? 0,
         liquidityAssetsUsd: m.state?.liquidityAssetsUsd ?? 0,
         utilization: m.state?.utilization ?? 0,
+        supplyApy: m.state?.supplyApy ?? 0,
         rewards: (m.state?.rewards || []).map(r => ({
           assetAddress: r.asset?.address,
           chainId: r.asset?.chain?.id ?? null,

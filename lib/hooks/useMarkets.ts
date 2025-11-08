@@ -21,9 +21,10 @@ export interface SuppliedMarket {
     borrowAssetsUsd: number;
     liquidityAssetsUsd: number;
     utilization: number;
+    supplyApy: number;
     rewards: MarketReward[];
   };
-  history: {
+  history?: {
     tvl: MarketHistoryPoint[];
     supplyApy: MarketHistoryPoint[];
     borrowApy: MarketHistoryPoint[];

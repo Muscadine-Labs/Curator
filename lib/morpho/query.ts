@@ -7,6 +7,7 @@ const MARKETS_QUERY = gql`
     markets(first: $first, where: { chainId_in: $chainIds }) {
       items {
         id
+        uniqueKey
         loanAsset {
           symbol
           decimals

@@ -45,7 +45,15 @@ export default function VaultsPage() {
   const mergedMarkets = useMemo(() => {
     if (!supplied.data?.markets || !morpho.data?.markets) return [];
 
-    const morphoById = new Map(morpho.data.markets.map((m) => [m.id, m]));
+    // Create map using both id and uniqueKey for matching
+    const morphoById = new Map<string, MorphoMarketMetrics>();
+    morpho.data.markets.forEach((m) => {
+      morphoById.set(m.id, m);
+      // Also add by uniqueKey if available in raw data
+      if (m.raw?.uniqueKey) {
+        morphoById.set(m.raw.uniqueKey, m);
+      }
+    });
 
     return supplied.data.markets.map((market) => {
       const morphoData = morphoById.get(market.uniqueKey);
@@ -124,9 +132,7 @@ export default function VaultsPage() {
             </div>
             <div className="flex items-center gap-2">
               <Button variant="outline" asChild>
-                <Link href="/fees" className="gap-2">
-                  Fee Splitter
-                </Link>
+                <Link href="/fees">Fee Splitter</Link>
               </Button>
               <Button variant="outline" asChild>
                 <Link
@@ -139,6 +145,7 @@ export default function VaultsPage() {
                   <ExternalLink className="h-4 w-4" />
                 </Link>
               </Button>
+              <WalletConnect />
             </div>
           </div>
         </div>
@@ -234,10 +241,8 @@ export default function VaultsPage() {
                               </TableHeader>
                               <TableBody>
                                 {vaultSummary.markets.map((market) => {
-                                  const totalRewardApr = market.state?.rewards?.reduce(
-                                    (sum, r) => sum + (r.supplyApr ?? 0),
-                                    0
-                                  ) ?? 0;
+                                  // Use supplyApy from market state (already in percentage form from Morpho)
+                                  const supplyApy = (market.state?.supplyApy ?? 0) * 100;
 
                                   return (
                                     <TableRow key={market.uniqueKey} className="hover:bg-muted/40">
@@ -249,7 +254,7 @@ export default function VaultsPage() {
                                         </div>
                                       </TableCell>
                                       <TableCell>
-                                        {market.lltv ? formatPercentage(market.lltv * 100, 2) : '—'}
+                                        {market.lltv ? formatPercentage(market.lltv * 100, 0) : '—'}
                                       </TableCell>
                                       <TableCell>
                                         {formatCompactUSD(market.state?.supplyAssetsUsd ?? 0)}
@@ -258,7 +263,7 @@ export default function VaultsPage() {
                                         {formatPercentage((market.state?.utilization ?? 0) * 100, 2)}
                                       </TableCell>
                                       <TableCell className="text-green-600 dark:text-green-400">
-                                        {totalRewardApr > 0 ? formatPercentage(totalRewardApr, 2) : '—'}
+                                        {supplyApy > 0 ? formatPercentage(supplyApy, 2) : '—'}
                                       </TableCell>
                                       <TableCell>
                                         {market.rating ? (
