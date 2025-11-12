@@ -11,6 +11,7 @@ export interface VaultConfig {
   riskTier: 'low' | 'medium' | 'high';
   createdAt: string;
   description?: string;
+  version?: 'v1' | 'v2';
 }
 
 export interface RoleConfig {
@@ -45,7 +46,8 @@ export const vaults: VaultConfig[] = [
     status: 'active',
     riskTier: 'low',
     createdAt: '2024-01-15T00:00:00Z',
-    description: 'USDC yield vault with low risk strategy'
+    description: 'USDC yield vault with low risk strategy',
+    version: 'v1'
   },
   {
     id: 'cbbtc-vault',
@@ -59,7 +61,8 @@ export const vaults: VaultConfig[] = [
     status: 'active',
     riskTier: 'medium',
     createdAt: '2024-02-01T00:00:00Z',
-    description: 'cbBTC yield vault with medium risk strategy'
+    description: 'cbBTC yield vault with medium risk strategy',
+    version: 'v1'
   },
   {
     id: 'weth-vault',
@@ -73,7 +76,53 @@ export const vaults: VaultConfig[] = [
     status: 'active',
     riskTier: 'medium',
     createdAt: '2024-02-15T00:00:00Z',
-    description: 'WETH yield vault with medium risk strategy'
+    description: 'WETH yield vault with medium risk strategy',
+    version: 'v1'
+  },
+  {
+    id: 'usdc-vault-v2',
+    name: 'Muscadine USDC Prime',
+    symbol: 'mUSDCv2',
+    asset: 'USDC',
+    address: process.env.NEXT_PUBLIC_VAULT_USDC_V2 || '0x89712980cb434ef5ae4ab29349419eb976b0b496',
+    chainId: 8453,
+    scanUrl: 'https://basescan.org/address/0x89712980cb434ef5ae4ab29349419eb976b0b496',
+    performanceFeeBps: 200,
+    status: 'active',
+    riskTier: 'low',
+    createdAt: '2024-11-01T00:00:00Z',
+    description: 'USDC Prime vault with Morpho V2 allocator flexibility',
+    version: 'v2'
+  },
+  {
+    id: 'weth-vault-v2',
+    name: 'Muscadine WETH Prime',
+    symbol: 'mWETHv2',
+    asset: 'WETH',
+    address: process.env.NEXT_PUBLIC_VAULT_WETH_V2 || '0xd6dcad2f7da91fbb27bda471540d9770c97a5a43',
+    chainId: 8453,
+    scanUrl: 'https://basescan.org/address/0xd6dcad2f7da91fbb27bda471540d9770c97a5a43',
+    performanceFeeBps: 200,
+    status: 'active',
+    riskTier: 'medium',
+    createdAt: '2024-11-01T00:00:00Z',
+    description: 'WETH Prime vault with Morpho V2 allocator flexibility',
+    version: 'v2'
+  },
+  {
+    id: 'cbbtc-vault-v2',
+    name: 'Muscadine cbBTC Prime',
+    symbol: 'mcbBTCv2',
+    asset: 'cbBTC',
+    address: process.env.NEXT_PUBLIC_VAULT_CBBTC_V2 || '0x99dcd0d75822ba398f13b2a8852b07c7e137ec70',
+    chainId: 8453,
+    scanUrl: 'https://basescan.org/address/0x99dcd0d75822ba398f13b2a8852b07c7e137ec70',
+    performanceFeeBps: 200,
+    status: 'active',
+    riskTier: 'medium',
+    createdAt: '2024-11-01T00:00:00Z',
+    description: 'cbBTC Prime vault with Morpho V2 allocator flexibility',
+    version: 'v2'
   }
 ];
 

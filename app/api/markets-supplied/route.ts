@@ -37,6 +37,9 @@ type MarketItem = {
 export async function GET() {
   try {
     const vaultAddresses = configuredVaults.map(v => v.address.toLowerCase());
+    const configByAddress = new Map(
+      configuredVaults.map((v) => [v.address.toLowerCase(), v])
+    );
 
     // 1) Fetch vault allocations to discover markets we supply to
     const vaultsQuery = `
@@ -68,13 +71,26 @@ export async function GET() {
     if (vJson.errors) return NextResponse.json({ error: vJson.errors }, { status: 502 });
 
     const vaultItems: VaultAlloc[] = vJson?.data?.vaults?.items ?? [];
-    const vaultAllocations = vaultItems.map(v => ({
-      address: v.address,
-      allocations: (v.state?.allocation || []).map(a => ({
+    const vaultAllocations = vaultItems.map((v) => {
+      const allocations = (v.state?.allocation || []).map((a) => ({
         marketKey: a.market.uniqueKey,
         supplyAssetsUsd: a.supplyAssetsUsd ?? 0,
-      })),
-    }));
+      }));
+      const totalSupplyUsd = allocations.reduce((sum, a) => sum + (a.supplyAssetsUsd ?? 0), 0);
+      const config = configByAddress.get(v.address.toLowerCase());
+
+      return {
+        address: v.address,
+        version: config?.version ?? 'v1',
+        name: config?.name ?? v.address,
+        symbol: config?.symbol ?? '',
+        totalSupplyUsd,
+        allocations: allocations.map((a) => ({
+          ...a,
+          sharePct: totalSupplyUsd > 0 ? (a.supplyAssetsUsd ?? 0) / totalSupplyUsd : 0,
+        })),
+      };
+    });
 
     const uniqueMarketKeys = Array.from(new Set(
       vaultAllocations.flatMap(v => v.allocations.map(a => a.marketKey))
@@ -155,7 +171,31 @@ export async function GET() {
       },
     }));
 
-    return NextResponse.json({ markets, vaultAllocations });
+    return NextResponse.json({
+      markets,
+      vaultAllocations,
+      availableMarkets: allMarkets.map((m) => ({
+        uniqueKey: m.uniqueKey,
+        lltv: m.lltv ? m.lltv / 1e18 : null,
+        oracleAddress: m.oracleAddress,
+        irmAddress: m.irmAddress,
+        loanAsset: m.loanAsset || null,
+        collateralAsset: m.collateralAsset || null,
+        state: {
+          supplyAssetsUsd: m.state?.supplyAssetsUsd ?? 0,
+          borrowAssetsUsd: m.state?.borrowAssetsUsd ?? 0,
+          liquidityAssetsUsd: m.state?.liquidityAssetsUsd ?? 0,
+          utilization: m.state?.utilization ?? 0,
+          supplyApy: m.state?.supplyApy ?? 0,
+          rewards: (m.state?.rewards || []).map((r) => ({
+            assetAddress: r.asset?.address,
+            chainId: r.asset?.chain?.id ?? null,
+            supplyApr: (r.supplyApr ?? 0) * 100,
+            borrowApr: (r.borrowApr ?? 0) * 100,
+          })),
+        },
+      })),
+    });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }

@@ -74,10 +74,7 @@ export default function VaultsPage() {
         (va) => va.address.toLowerCase() === vault.address.toLowerCase()
       );
 
-      const totalSupplied = allocation?.allocations.reduce(
-        (sum, a) => sum + a.supplyAssetsUsd,
-        0
-      ) ?? 0;
+      const totalSupplied = allocation?.totalSupplyUsd ?? 0;
 
       const vaultMarkets = mergedMarkets.filter((m) =>
         allocation?.allocations.some((a) => a.marketKey === m.uniqueKey)
@@ -103,6 +100,7 @@ export default function VaultsPage() {
       return {
         vault,
         totalSupplied,
+        allocationShare: allocation?.allocations ?? [],
         avgUtilization,
         totalRewardApr,
         avgRating,
@@ -134,6 +132,9 @@ export default function VaultsPage() {
             <div className="flex items-center gap-2">
               <Button variant="outline" asChild>
                 <Link href="/fees">Fee Splitter</Link>
+              </Button>
+              <Button variant="outline" asChild>
+                <Link href="/allocations">Allocations</Link>
               </Button>
               <Button variant="outline" asChild>
                 <Link

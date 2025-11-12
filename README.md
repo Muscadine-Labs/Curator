@@ -7,6 +7,7 @@ Modern Next.js dashboard for Muscadine vaults on Morpho. Live data is sourced fr
 - **Protocol Overview**: KPI dashboard with TVL, total interest generated, and user metrics
 - **Vaults Explorer**: Comprehensive view of all 3 Muscadine vaults with their market allocations and curator risk ratings (0-100)
 - **Vault Details**: Individual vault pages with performance charts and role information
+- **Allocation Console**: Interactive allocator workflow to record liquidity allocation and deallocation intents across Morpho markets
 - **Fee Splitter**: Integration with immutable ERC20FeeSplitter contract for fee claims
 - **Wallet Integration**: Coinbase OnchainKit + wagmi + viem for Base network
 - **On-chain Data**: Real-time data from Base chain via Alchemy and Morpho GraphQL API
@@ -41,7 +42,9 @@ If your wallet is on a different network, the app will prompt you to switch to B
 
 2. **Integrated Market Metrics** - Morpho risk ratings and liquidity metrics are now surfaced directly within each vault overview and detail page, consolidating market supply/borrow stats under their parent vault.
 
-3. **Improved Data Merging** - Vault market tables now intelligently merge:
+3. **Allocator Command Center** - New `/allocations` page aggregates V1 + V2 vaults, displays live market exposures, and captures allocation/deallocation intents for ops review.
+
+4. **Improved Data Merging** - Vault market tables now intelligently merge:
    - Morpho market metrics (risk ratings 0-100, scores)
    - Supplied market data (allocations, rewards, utilization)
    - Proper error and loading state handling for both data sources
@@ -78,7 +81,10 @@ If your wallet is on a different network, the app will prompt you to switch to B
    Required environment variables:
    - Server: `ALCHEMY_API_KEY`
    - Client: `NEXT_PUBLIC_ALCHEMY_API_KEY`, `NEXT_PUBLIC_ONCHAINKIT_API_KEY`
-   - Addresses: `NEXT_PUBLIC_VAULT_USDC`, `NEXT_PUBLIC_VAULT_CBBTC`, `NEXT_PUBLIC_VAULT_WETH`, `NEXT_PUBLIC_FEE_SPLITTER`
+   - Addresses:
+     - V1: `NEXT_PUBLIC_VAULT_USDC`, `NEXT_PUBLIC_VAULT_CBBTC`, `NEXT_PUBLIC_VAULT_WETH`
+     - V2 Prime: `NEXT_PUBLIC_VAULT_USDC_V2`, `NEXT_PUBLIC_VAULT_WETH_V2`, `NEXT_PUBLIC_VAULT_CBBTC_V2`
+     - Fee splitter: `NEXT_PUBLIC_FEE_SPLITTER`
    - Optional: `NEXT_PUBLIC_DEFAULT_PERF_FEE_BPS`, `NEXT_PUBLIC_ROLE_OWNER`, `NEXT_PUBLIC_ROLE_GUARDIAN`, `NEXT_PUBLIC_ROLE_CURATOR`, `NEXT_PUBLIC_ALLOCATOR_HOT`, `NEXT_PUBLIC_ALLOCATOR_IGNAS`
 
 3. **Run development server**:
@@ -117,12 +123,14 @@ References:
   /page.tsx                 # Overview page
   /vaults/page.tsx         # All vaults list with market metrics per vault
   /vaults/[id]/page.tsx    # Vault detail page with embedded market metrics
+  /allocations/page.tsx    # Allocate/deallocate interface for Morpho markets
   /fees/page.tsx           # Fees page
 /api/markets-supplied    # Markets data endpoint (Morpho GraphQL)
 /api/vaults              # Live vault list (Morpho GraphQL)
 /api/vaults/[id]         # Live vault detail (Morpho GraphQL)
 /api/protocol-stats      # Protocol aggregates (Morpho GraphQL)
 /api/morpho-markets      # Morpho risk ratings (0-100 scale)
+  /api/allocations/intents # Mock endpoint for recording allocation intents
   /layout.tsx              # Root layout
   /providers.tsx           # App providers
 

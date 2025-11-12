@@ -30,6 +30,9 @@ export default function Home() {
               <Button variant="outline" asChild>
                 <Link href="/fees">Fee Splitter</Link>
               </Button>
+              <Button variant="outline" asChild>
+                <Link href="/allocations">Allocations</Link>
+              </Button>
               <WalletConnect />
             </div>
           </div>

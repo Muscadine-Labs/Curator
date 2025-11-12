@@ -34,12 +34,17 @@ export interface SuppliedMarket {
 
 export interface VaultAllocationSummary {
   address: string;
-  allocations: Array<{ marketKey: string; supplyAssetsUsd: number }>;
+  name?: string;
+  symbol?: string;
+  version?: 'v1' | 'v2';
+  totalSupplyUsd: number;
+  allocations: Array<{ marketKey: string; supplyAssetsUsd: number; sharePct: number }>;
 }
 
 export interface MarketsSuppliedResponse {
   markets: SuppliedMarket[];
   vaultAllocations: VaultAllocationSummary[];
+  availableMarkets: SuppliedMarket[];
 }
 
 export const useMarketsSupplied = () => {
