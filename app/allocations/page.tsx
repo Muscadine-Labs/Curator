@@ -266,20 +266,30 @@ export default function AllocationsPage() {
         // In Morpho Blue, markets are identified by uniqueKey (bytes32 hash), not by contract address
         // The uniqueKey is a 66-character hex string (0x + 64 hex chars)
         // We need to convert it to an address format (0x + 40 hex chars) by taking the first 20 bytes
-        let marketAddress: Address;
         
-        if (market.uniqueKey && market.uniqueKey.startsWith('0x') && market.uniqueKey.length === 66) {
-          // uniqueKey is bytes32 (0x + 64 hex chars), convert to address (0x + 40 hex chars)
-          // Take the first 20 bytes (40 hex characters) after 0x
-          marketAddress = (`0x${market.uniqueKey.slice(2, 42)}` as Address).toLowerCase() as Address;
-        } else if (market.id && /^0x[a-fA-F0-9]{40}$/.test(market.id)) {
-          // Fallback: if market.id is already a valid address, use it
-          marketAddress = market.id.toLowerCase() as Address;
-        } else {
+        if (!market.uniqueKey) {
           throw new Error(
-            `Cannot derive market address from uniqueKey: ${alloc.marketKey}. ` +
-            `uniqueKey format: ${market.uniqueKey}, id: ${market.id}. ` +
-            'In Morpho Blue, markets are identified by uniqueKey (bytes32), which must be converted to address format.'
+            `Market uniqueKey is missing for ${alloc.marketKey}. ` +
+            'Please ensure the market has a valid uniqueKey.'
+          );
+        }
+
+        if (!market.uniqueKey.startsWith('0x') || market.uniqueKey.length !== 66) {
+          throw new Error(
+            `Invalid uniqueKey format for ${alloc.marketKey}: ${market.uniqueKey}. ` +
+            'Expected a 66-character hex string starting with 0x (bytes32 format).'
+          );
+        }
+
+        // uniqueKey is bytes32 (0x + 64 hex chars), convert to address (0x + 40 hex chars)
+        // Take the first 20 bytes (40 hex characters) after 0x
+        const marketAddress = (`0x${market.uniqueKey.slice(2, 42)}` as Address).toLowerCase() as Address;
+        
+        // Validate the converted address format
+        if (!/^0x[a-fA-F0-9]{40}$/.test(marketAddress)) {
+          throw new Error(
+            `Failed to convert uniqueKey to valid address format for ${alloc.marketKey}. ` +
+            `uniqueKey: ${market.uniqueKey}, converted: ${marketAddress}`
           );
         }
 
