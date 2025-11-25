@@ -12,9 +12,12 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 export function Providers({ children }: { children: ReactNode }) {
   const onchainApiKey = process.env.NEXT_PUBLIC_ONCHAINKIT_API_KEY;
   
-  // Always wrap with WagmiProvider and QueryClientProvider first
-  // Then conditionally add OnchainKitProvider if API key is available
-  const innerContent = (
+  // Provider order:
+  // 1. WagmiProvider (required for all wallet functionality)
+  // 2. OnchainKitProvider (optional, enhances wallet UX if API key is available)
+  // 3. QueryClientProvider (required for React Query hooks)
+  // This ensures wagmi works even without OnchainKit API key
+  const appContent = (
     <QueryClientProvider client={queryClient}>
       <ErrorBoundary>
         {children}
@@ -27,10 +30,10 @@ export function Providers({ children }: { children: ReactNode }) {
     <WagmiProvider config={config}>
       {onchainApiKey ? (
         <OnchainKitProvider apiKey={onchainApiKey} chain={base}>
-          {innerContent}
+          {appContent}
         </OnchainKitProvider>
       ) : (
-        innerContent
+        appContent
       )}
     </WagmiProvider>
   );

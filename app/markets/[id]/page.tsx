@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, ExternalLink } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { mergeConfig } from '@/lib/morpho/config';
 import { getMorphoMarketRatings } from '@/lib/morpho/service';
 import { RatingBadge } from '@/components/morpho/RatingBadge';
@@ -93,17 +94,16 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
     <div className="min-h-screen bg-background">
       <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 py-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <Link
-                href="/vaults"
-                className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Back to vaults
-              </Link>
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/vaults" className="flex items-center gap-2">
+                  <ArrowLeft className="h-4 w-4" />
+                  Back to Vaults
+                </Link>
+              </Button>
               <div>
-                <h1 className="text-3xl font-semibold tracking-tight">
+                <h1 className="text-3xl font-bold">
                   {market.symbol} · Morpho Market
                 </h1>
                 <p className="text-muted-foreground mt-1 font-mono text-xs">
@@ -129,20 +129,20 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
             </div>
             <RatingBadge rating={market.rating} className="text-base" />
           </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            <Badge variant="outline" className="justify-center">
+          <CardContent className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5" role="list" aria-label="Risk factor scores">
+            <Badge variant="outline" className="justify-center" role="listitem" aria-label={`Utilization Score: ${(market.utilizationScore * 100).toFixed(0)} out of 100`}>
               Utilization Score · {(market.utilizationScore * 100).toFixed(0)}
             </Badge>
-            <Badge variant="outline" className="justify-center">
+            <Badge variant="outline" className="justify-center" role="listitem" aria-label={`Rate Alignment Score: ${(market.rateAlignmentScore * 100).toFixed(0)} out of 100`}>
               Rate Alignment Score · {(market.rateAlignmentScore * 100).toFixed(0)}
             </Badge>
-            <Badge variant="outline" className="justify-center">
+            <Badge variant="outline" className="justify-center" role="listitem" aria-label={`Stress Coverage Score: ${(market.stressExposureScore * 100).toFixed(0)} out of 100`}>
               Stress Coverage Score · {(market.stressExposureScore * 100).toFixed(0)}
             </Badge>
-            <Badge variant="outline" className="justify-center">
+            <Badge variant="outline" className="justify-center" role="listitem" aria-label={`Withdrawal Liquidity Score: ${(market.withdrawalLiquidityScore * 100).toFixed(0)} out of 100`}>
               Withdrawal Liquidity Score · {(market.withdrawalLiquidityScore * 100).toFixed(0)}
             </Badge>
-            <Badge variant="outline" className="justify-center">
+            <Badge variant="outline" className="justify-center" role="listitem" aria-label={`Liquidation Capacity Score: ${(market.liquidationCapacityScore * 100).toFixed(0)} out of 100`}>
               Liquidation Capacity Score · {(market.liquidationCapacityScore * 100).toFixed(0)}
             </Badge>
           </CardContent>
@@ -282,6 +282,35 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
           </Card>
         </section>
       </main>
+
+      {/* Footer */}
+      <footer className="border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 mt-16">
+        <div className="container mx-auto px-4 py-8">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="text-sm text-muted-foreground">
+              © 2024 Muscadine. Built on Base.
+            </div>
+            <div className="flex items-center gap-6 text-sm">
+              <a 
+                href="https://basescan.org" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Base Explorer
+              </a>
+              <a 
+                href="https://app.safe.global" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Safe
+              </a>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

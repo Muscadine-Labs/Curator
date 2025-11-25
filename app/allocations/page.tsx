@@ -343,7 +343,7 @@ export default function AllocationsPage() {
     <div className="min-h-screen bg-background">
       <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 py-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <Button variant="ghost" size="sm" asChild>
                 <Link href="/vaults" className="flex items-center gap-2">
@@ -757,6 +757,35 @@ export default function AllocationsPage() {
           </CardContent>
         </Card>
       </main>
+
+      {/* Footer */}
+      <footer className="border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 mt-16">
+        <div className="container mx-auto px-4 py-8">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="text-sm text-muted-foreground">
+              © 2024 Muscadine. Built on Base.
+            </div>
+            <div className="flex items-center gap-6 text-sm">
+              <a 
+                href="https://basescan.org" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Base Explorer
+              </a>
+              <a 
+                href="https://app.safe.global" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Safe
+              </a>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

@@ -49,6 +49,7 @@ export function RatingBadge({ rating, className }: RatingBadgeProps) {
           'px-2.5 py-1 text-xs font-semibold border-gray-500/30 bg-gray-500/15 text-gray-600 dark:border-gray-400/20 dark:bg-gray-500/10 dark:text-gray-300',
           className
         )}
+        aria-label="Risk rating: Insufficient TVL - market has less than minimum required TVL"
       >
         Insufficient TVL
       </Badge>
@@ -59,6 +60,7 @@ export function RatingBadge({ rating, className }: RatingBadgeProps) {
     <Badge
       variant="outline"
       className={cn('px-2.5 py-1 text-xs font-semibold', tier.className, className)}
+      aria-label={`Risk rating: ${tier.label}, score ${rating.toFixed(0)} out of 100`}
     >
       {tier.label} · {rating.toFixed(0)}
     </Badge>
