@@ -24,10 +24,10 @@ export function PendingTokenPanel() {
   
   // Determine which fee splitter to use based on selected vault
   const vaultAddress = selectedVault ? (selectedVault as Address) : undefined;
-  const splitterAddress = vaultAddress ? getFeeSplitterForVault(vaultAddress) : undefined;
+  const splitterAddress = vaultAddress ? getFeeSplitterForVault(vaultAddress) ?? undefined : undefined;
   
   const { data: revenueSplit, isLoading: splitLoading, error: splitError } = useRevenueSplit(
-    splitterAddress,
+    splitterAddress ?? undefined,
     vaultAddress
   );
   const { data: pendingData, isLoading: pendingLoading } = usePendingToken(
@@ -329,11 +329,6 @@ export function PendingTokenPanel() {
                       return;
                     }
                     try {
-                      console.log('Calling claimAll:', {
-                        address: splitterAddress,
-                        functionName: 'claimAll',
-                        args: [selectedVault],
-                      });
                       const hash = await writeContractAsync({
                         address: splitterAddress,
                         abi: ERC20_FEE_SPLITTER_ABI,
@@ -341,10 +336,8 @@ export function PendingTokenPanel() {
                         args: [selectedVault as Address],
                         chainId: base.id, // Explicitly use Base chain
                       });
-                      console.log('Transaction hash:', hash);
                       setTxHash(hash);
                     } catch (e: unknown) {
-                      console.error('claimAll error:', e);
                       type WagmiTxError = { shortMessage?: string; message?: string; cause?: unknown };
                       const err = (typeof e === 'object' && e !== null) ? (e as Partial<WagmiTxError>) : {};
                       const msg = typeof err.message === 'string' ? err.message : 'Transaction failed';

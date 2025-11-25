@@ -16,6 +16,10 @@ export interface DuneQueryResult {
   execution_ended_at?: string;
 }
 
+export interface DuneRow {
+  [key: string]: string | number | boolean | null | undefined;
+}
+
 export interface DuneExecutionResult {
   execution_id: string;
   state: string;
@@ -24,7 +28,7 @@ export interface DuneExecutionResult {
   execution_started_at?: string;
   execution_ended_at?: string;
   result?: {
-    rows: Array<Record<string, any>>;
+    rows: Array<DuneRow>;
     metadata: {
       column_names: string[];
       result_set_bytes: number;
@@ -53,7 +57,7 @@ export async function executeDuneQuery(
   }
 
   const url = `${DUNE_API_BASE}/query/${queryId}/execute`;
-  const body: any = {};
+  const body: { query_parameters?: DuneQueryParams } = {};
   
   if (parameters) {
     body.query_parameters = parameters;
@@ -181,7 +185,7 @@ export async function getLatestDuneQueryResults(
     }
 
     return response.json();
-  } catch (error) {
+  } catch {
     // If getting latest fails, return null to trigger execution
     return null;
   }

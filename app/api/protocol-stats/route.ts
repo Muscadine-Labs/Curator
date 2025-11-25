@@ -101,15 +101,13 @@ export async function GET() {
       if (process.env.DUNE_API_KEY) {
         // Fetch fees data for all active vaults
         const activeVaults = configuredVaults.filter(v => v.status === 'active');
-        const allRows: any[] = [];
+        const allRows: Array<Record<string, unknown>> = [];
         
         for (const vault of activeVaults) {
           try {
             const vaultParamValue = `${vault.name} - base - ${vault.address}`;
             const params: DuneQueryParams = {
               vault_name_e15077: vaultParamValue,
-              vault_name_e25e0d: vaultParamValue, // Alternative parameter name
-              vault_name: vaultParamValue, // Generic fallback
             };
             
             // Try to get latest results first
@@ -134,16 +132,16 @@ export async function GET() {
           // Calculate total fees
           duneTotalFees = allRows.reduce((sum, row) => {
             const feeAmount = row.total_fees || row.fees || row.amount || row.fee_amount || 0;
-            return sum + (typeof feeAmount === 'number' ? feeAmount : parseFloat(feeAmount) || 0);
+            return sum + (typeof feeAmount === 'number' ? feeAmount : parseFloat(String(feeAmount)) || 0);
           }, 0);
           
           // Create fees trend
-          const dailyFees = allRows.reduce((acc: Record<string, number>, row: any) => {
+          const dailyFees = allRows.reduce((acc: Record<string, number>, row: Record<string, unknown>) => {
             const date = row.date || row.timestamp || row.time || row.block_time;
             const amount = row.total_fees || row.fees || row.amount || row.fee_amount || 0;
             if (date) {
-              const dateKey = new Date(date).toISOString().split('T')[0];
-              acc[dateKey] = (acc[dateKey] || 0) + (typeof amount === 'number' ? amount : parseFloat(amount) || 0);
+              const dateKey = new Date(String(date)).toISOString().split('T')[0];
+              acc[dateKey] = (acc[dateKey] || 0) + (typeof amount === 'number' ? amount : parseFloat(String(amount)) || 0);
             }
             return acc;
           }, {});

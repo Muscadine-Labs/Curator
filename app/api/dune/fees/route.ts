@@ -2,9 +2,22 @@ import { NextResponse } from 'next/server';
 import { 
   executeDuneQueryAndWait, 
   getLatestDuneQueryResults,
-  type DuneQueryParams 
+  type DuneQueryParams,
+  type DuneRow
 } from '@/lib/dune/service';
 import { vaults } from '@/lib/config/vaults';
+
+interface FeeHistoryItem {
+  date: string;
+  amount: number;
+  token: string;
+  vault: string;
+}
+
+interface FeesTrendItem {
+  date: string;
+  value: number;
+}
 
 /**
  * Dune Query IDs for fee analytics
@@ -25,7 +38,7 @@ const DUNE_QUERY_IDS = {
  * 2. Update the fallback column names in the mappings below (e.g., row.total_fees, row.date, etc.)
  * 3. The function tries multiple column name variations for flexibility
  */
-function transformDuneResultsToFeeData(duneResults: any) {
+function transformDuneResultsToFeeData(duneResults: { result?: { rows?: DuneRow[] } }) {
   if (!duneResults?.result?.rows) {
     return {
       totalFeesGenerated: 0,
@@ -39,7 +52,7 @@ function transformDuneResultsToFeeData(duneResults: any) {
   // Calculate total fees (sum of all fees)
   // Adjust column names based on actual Dune query structure
   // Common column names: total_fees, fees, amount, fee_amount, cumulative_fees
-  const totalFeesGenerated = rows.reduce((sum: number, row: any) => {
+  const totalFeesGenerated = rows.reduce((sum: number, row: DuneRow) => {
     const feeAmount = row.total_fees || row.fees || row.amount || row.fee_amount || row.cumulative_fees || 0;
     return sum + (typeof feeAmount === 'number' ? feeAmount : parseFloat(String(feeAmount)) || 0);
   }, 0);
@@ -48,8 +61,8 @@ function transformDuneResultsToFeeData(duneResults: any) {
   // Adjust column names: date, timestamp, time, block_time for dates
   // Adjust column names: token, asset, symbol for token names
   // Adjust column names: vault_name, vault, vault_address for vault identifiers
-  const feeHistory = rows
-    .map((row: any) => {
+  const feeHistory: FeeHistoryItem[] = rows
+    .map((row: DuneRow) => {
       // Map Dune columns to our format - try multiple column name variations
       const date = row.date || row.timestamp || row.time || row.block_time || row.day;
       const amount = row.total_fees || row.fees || row.amount || row.fee_amount || row.daily_fees || 0;
@@ -57,24 +70,24 @@ function transformDuneResultsToFeeData(duneResults: any) {
       const vault = row.vault_name || row.vault || row.vault_address || 'Unknown Vault';
 
       return {
-        date: date ? new Date(date).toISOString() : new Date().toISOString(),
+        date: date ? new Date(String(date)).toISOString() : new Date().toISOString(),
         amount: typeof amount === 'number' ? amount : parseFloat(String(amount)) || 0,
         token: String(token),
         vault: String(vault),
       };
     })
-    .filter((fee: any) => fee.amount > 0)
-    .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    .filter((fee: FeeHistoryItem) => fee.amount > 0)
+    .sort((a: FeeHistoryItem, b: FeeHistoryItem) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   // Create fees trend for chart (daily aggregation)
   // This aggregates fees by date for the chart visualization
-  const dailyFees = feeHistory.reduce((acc: Record<string, number>, fee: any) => {
+  const dailyFees = feeHistory.reduce((acc: Record<string, number>, fee: FeeHistoryItem) => {
     const dateKey = new Date(fee.date).toISOString().split('T')[0];
     acc[dateKey] = (acc[dateKey] || 0) + fee.amount;
     return acc;
   }, {});
 
-  const feesTrend = Object.entries(dailyFees)
+  const feesTrend: FeesTrendItem[] = Object.entries(dailyFees)
     .map(([date, value]) => ({
       date,
       value: value as number,
@@ -92,7 +105,7 @@ function transformDuneResultsToFeeData(duneResults: any) {
  * Fetch fees data for all vaults or a specific vault
  */
 async function fetchFeesForVaults(vaultAddresses?: string[]) {
-  const results: any[] = [];
+  const results: DuneRow[] = [];
 
   // If no specific vaults, fetch for all active vaults
   const targetVaults = vaultAddresses 
@@ -103,12 +116,11 @@ async function fetchFeesForVaults(vaultAddresses?: string[]) {
   for (const vault of targetVaults) {
     try {
       // Build query parameters based on vault
-      // Try multiple parameter name variations (Dune uses different parameter names)
+      // Dune queries use specific parameter names - try the most common one first
+      // Based on the provided Dune links, the parameter appears to be vault_name_e15077
       const vaultParamValue = `${vault.name} - base - ${vault.address}`;
       const params: DuneQueryParams = {
         vault_name_e15077: vaultParamValue,
-        vault_name_e25e0d: vaultParamValue, // Alternative parameter name
-        vault_name: vaultParamValue, // Generic fallback
       };
 
       // Try to get latest results first (faster)
@@ -152,7 +164,8 @@ export async function GET(request: Request) {
 
     // Parse query parameters
     const { searchParams } = new URL(request.url);
-    const vaultAddresses = searchParams.get('vaults')?.split(',').map(a => a.toLowerCase());
+    const vaultsParam = searchParams.get('vaults');
+    const vaultAddresses = vaultsParam ? vaultsParam.split(',').map(a => a.toLowerCase()) : undefined;
 
     // Fetch fees data
     const feesData = await fetchFeesForVaults(vaultAddresses);

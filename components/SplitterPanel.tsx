@@ -5,12 +5,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AddressBadge } from './AddressBadge';
 import { useAllFeeSplitters, useRevenueSplit } from '@/lib/hooks/useRevenueSplit';
 import { calculateSharePercentage } from '@/lib/onchain/contracts';
-import { FEE_SPLITTER_V1, FEE_SPLITTER_V2 } from '@/lib/config/fee-splitters';
 import { Address } from 'viem';
 
 function SplitterCard({ 
-  splitterAddress, 
-  name 
+  splitterAddress
 }: { 
   splitterAddress: Address; 
   name: string;

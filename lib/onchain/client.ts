@@ -6,10 +6,10 @@ export const baseChain = {
   ...base,
   rpcUrls: {
     default: {
-      http: [`https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`],
+      http: [`https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY || 'demo'}`],
     },
     public: {
-      http: [`https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`],
+      http: [`https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY || 'demo'}`],
     },
   },
 };
