@@ -3,19 +3,23 @@
  * Uses graphql-request with SDK-generated types for type safety
  */
 import { request, type RequestDocument } from 'graphql-request';
-import type { 
-  Market, 
-  Vault, 
-  MarketState,
-  VaultState,
-  Maybe,
-  Scalars
-} from '@morpho-org/blue-api-sdk';
 import { MORPHO_GRAPHQL_ENDPOINT } from '@/lib/constants';
 
 export type GraphQLResponse<T> = {
   data?: T;
   errors?: Array<{ message: string; path?: string[] }>;
+};
+
+type GraphQLError = {
+  message: string;
+  path?: string[];
+};
+
+type GraphQLResponseError = {
+  response?: {
+    errors?: GraphQLError[];
+  };
+  message?: string;
 };
 
 /**
@@ -28,21 +32,25 @@ export class MorphoGraphQLClient {
     this.endpoint = endpoint;
   }
 
-  async request<T = any>(
+  async request<T = unknown>(
     document: RequestDocument,
-    variables?: Record<string, any>
+    variables?: Record<string, unknown>
   ): Promise<T> {
     try {
       const data = await request<T>(this.endpoint, document, variables);
       return data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Enhanced error handling
-      if (error.response) {
-        const errors = error.response.errors || [];
-        const errorMessages = errors.map((e: any) => e.message).join(', ');
+      const graphqlError = error as GraphQLResponseError;
+      if (graphqlError.response?.errors) {
+        const errors = graphqlError.response.errors;
+        const errorMessages = errors.map((e: GraphQLError) => e.message).join(', ');
         throw new Error(`GraphQL Error: ${errorMessages}`);
       }
-      throw error;
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error('Unknown GraphQL error occurred');
     }
   }
 }

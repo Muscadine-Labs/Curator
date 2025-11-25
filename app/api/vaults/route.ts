@@ -90,7 +90,7 @@ export async function GET(request: Request) {
     }
 
     // Map Morpho data by address for quick lookups
-    const morphoByAddress: Record<string, MorphoVaultItem> = {};
+    const morphoByAddress: Record<string, Vault> = {};
     for (const v of morphoVaults) {
       morphoByAddress[v.address.toLowerCase()] = v;
     }

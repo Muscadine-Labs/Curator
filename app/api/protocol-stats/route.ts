@@ -83,11 +83,11 @@ export async function GET(request: Request) {
     const morphoVaults = data.vaults?.items?.filter((v): v is Vault => v !== null) ?? [];
     const positions = data.vaultPositions?.items?.filter((p): p is VaultPosition => p !== null) ?? [];
 
-    const totalDeposited = morphoVaults.reduce((sum, v) => sum + (v.state.totalAssetsUsd ?? 0), 0);
+    const totalDeposited = morphoVaults.reduce((sum, v) => sum + (v.state?.totalAssetsUsd ?? 0), 0);
     const activeVaults = configuredVaults.length;
     
     // Calculate total fees from Morpho (fallback)
-    let totalFeesGenerated = morphoVaults.reduce((sum, v) => sum + (v.state.fee ?? 0), 0);
+    let totalFeesGenerated = morphoVaults.reduce((sum, v) => sum + (v.state?.fee ?? 0), 0);
     
     // Total interest generated is approximately the fees generated (in a MetaMorpho vault, fees = performance fees from interest)
     // For more accurate calculation, we'd need historical APY data

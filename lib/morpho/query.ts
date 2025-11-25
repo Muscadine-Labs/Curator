@@ -1,5 +1,4 @@
 import { gql } from 'graphql-request';
-import { mergeConfig } from './config';
 import type { CuratorConfig } from './types';
 import { BASE_CHAIN_ID } from '@/lib/constants';
 import { morphoGraphQLClient } from './graphql-client';
@@ -47,11 +46,9 @@ type MarketsQueryResponse = {
  */
 export async function fetchMorphoMarkets(
   limit = 200,
-  config?: CuratorConfig,
+  _config?: CuratorConfig, // Reserved for future endpoint override
   chainIds: number[] = [BASE_CHAIN_ID] // Default to Base chain
 ): Promise<Market[]> {
-  const effectiveConfig = config ?? mergeConfig();
-
   const data = await morphoGraphQLClient.request<MarketsQueryResponse>(
     MARKETS_QUERY,
     { first: limit, chainIds } as QueryMarketsArgs
