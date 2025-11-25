@@ -148,20 +148,22 @@ export default function AllocationsPage() {
 
   const morphoByKey = useMemo(() => {
     const map = new Map<string, { rating: number | null; supplyRate: number | null; utilization: number | null }>();
+    
     morpho.data?.markets.forEach((m) => {
-      if (m.raw?.uniqueKey) {
-        map.set(m.raw.uniqueKey, {
-          rating: m.rating ?? null,
-          supplyRate: m.supplyRate ?? null,
-          utilization: m.utilization ?? null,
-        });
-      }
-      map.set(m.id, {
+      const metrics = {
         rating: m.rating ?? null,
         supplyRate: m.supplyRate ?? null,
         utilization: m.utilization ?? null,
-      });
+      };
+      
+      // Primary: match by uniqueKey from raw Market object
+      if (m.raw?.uniqueKey) {
+        map.set(m.raw.uniqueKey, metrics);
+      }
+      // Also add by id as fallback
+      map.set(m.id, metrics);
     });
+    
     return map;
   }, [morpho.data?.markets]);
 
@@ -184,6 +186,7 @@ export default function AllocationsPage() {
             suppliedByKey.get(entry.marketKey) ||
             availableByKey.get(entry.marketKey) ||
             null;
+          // Try to match by uniqueKey first, then fallback to id
           const morphoMetrics = morphoByKey.get(entry.marketKey) ?? null;
           return {
             marketKey: entry.marketKey,

@@ -28,18 +28,32 @@ export default function VaultDetailPage() {
 
   const vaultMarkets = useMemo(() => {
     if (!vault?.allocation) return [];
-    const metricsByKey = new Map<string, MorphoMarketMetrics>();
+    
+    // Improved matching: use uniqueKey as primary, id as fallback
+    const metricsByUniqueKey = new Map<string, MorphoMarketMetrics>();
+    const metricsById = new Map<string, MorphoMarketMetrics>();
 
     morpho?.markets?.forEach((market) => {
-      metricsByKey.set(market.id, market);
+      // Primary: match by uniqueKey from raw Market object
       if (market.raw?.uniqueKey) {
-        metricsByKey.set(market.raw.uniqueKey, market);
+        metricsByUniqueKey.set(market.raw.uniqueKey, market);
       }
+      // Fallback: match by id
+      metricsById.set(market.id, market);
     });
 
-    return vault.allocation.map((allocation) => {
-      const metrics = metricsByKey.get(allocation.marketKey);
-      const morphoState = metrics?.raw.state;
+    return vault.allocation
+      .filter((allocation) => allocation.marketKey) // Filter out null/undefined marketKeys
+      .map((allocation) => {
+        // Try uniqueKey first (most reliable)
+        let metrics = metricsByUniqueKey.get(allocation.marketKey!);
+        
+        // Fallback to id if uniqueKey didn't match
+        if (!metrics && allocation.marketKey) {
+          metrics = metricsById.get(allocation.marketKey);
+        }
+        
+        const morphoState = metrics?.raw?.state;
 
       const totalSupplyUsd = morphoState?.supplyAssetsUsd ?? allocation.supplyAssetsUsd ?? null;
       const totalBorrowUsd = morphoState?.borrowAssetsUsd ?? null;
@@ -63,18 +77,18 @@ export default function VaultDetailPage() {
       const borrowApyPercent = borrowApyValue !== null ? borrowApyValue * 100 : null;
       const utilizationPercent = utilizationValue !== null ? utilizationValue * 100 : null;
 
-      return {
-        marketKey: allocation.marketKey,
-        collateralSymbol: metrics?.raw.collateralAsset?.symbol ?? allocation.collateralAssetName ?? 'Unknown',
-        loanSymbol: metrics?.raw.loanAsset?.symbol ?? allocation.loanAssetName ?? 'Unknown',
-        totalSupplyUsd,
-        totalBorrowUsd,
-        supplyApyPercent,
-        borrowApyPercent,
-        utilizationPercent,
-        rating: metrics?.rating ?? null,
-      };
-    });
+        return {
+          marketKey: allocation.marketKey!,
+          collateralSymbol: metrics?.raw?.collateralAsset?.symbol ?? allocation.collateralAssetName ?? 'Unknown',
+          loanSymbol: metrics?.raw?.loanAsset?.symbol ?? allocation.loanAssetName ?? 'Unknown',
+          totalSupplyUsd,
+          totalBorrowUsd,
+          supplyApyPercent,
+          borrowApyPercent,
+          utilizationPercent,
+          rating: metrics?.rating ?? null,
+        };
+      });
   }, [vault?.allocation, morpho?.markets]);
 
   if (isLoading) {

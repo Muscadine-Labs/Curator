@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getVaultByAddress, getVaultById } from '@/lib/config/vaults';
-import { MORPHO_GRAPHQL_ENDPOINT, GRAPHQL_FIRST_LIMIT, GRAPHQL_TRANSACTIONS_LIMIT, getDaysAgoTimestamp } from '@/lib/constants';
-import { fetchExternalApi } from '@/lib/utils/fetch-with-timeout';
+import { GRAPHQL_FIRST_LIMIT, GRAPHQL_TRANSACTIONS_LIMIT, getDaysAgoTimestamp } from '@/lib/constants';
 import { handleApiError, AppError } from '@/lib/utils/error-handler';
 import { createRateLimitMiddleware, RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS } from '@/lib/utils/rate-limit';
+import { morphoGraphQLClient } from '@/lib/morpho/graphql-client';
+import { gql } from 'graphql-request';
+import type { Vault, VaultPosition, Maybe } from '@morpho-org/blue-api-sdk';
 
 export async function GET(
   request: NextRequest,
@@ -43,7 +45,24 @@ export async function GET(
       }
     };
 
-    const query = `
+    // Response type - complex nested structure from GraphQL
+    // Using unknown for vault since it has deeply nested structure that matches our query
+    type VaultDetailQueryResponse = {
+      vault: unknown;
+      positions: {
+        items: Array<{ user: { address: string } } | null> | null;
+      } | null;
+      txs: {
+        items: Array<{
+          blockNumber: number;
+          hash: string;
+          type: string;
+          user?: { address?: string | null } | null;
+        } | null> | null;
+      } | null;
+    };
+
+    const query = gql`
       query VaultDetail($address: String!, $chainId: Int!, $options: TimeseriesOptions) {
         vault: vaultByAddress(address: $address, chainId: $chainId) {
           address
@@ -148,25 +167,109 @@ export async function GET(
       }
     `;
 
-    const resp = await fetchExternalApi(MORPHO_GRAPHQL_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query, variables }),
-    });
+    const data = await morphoGraphQLClient.request<VaultDetailQueryResponse>(
+      query,
+      variables
+    );
 
-    if (!resp.ok) {
-      const text = await resp.text();
-      return NextResponse.json({ error: `Morpho API error: ${text}` }, { status: 502 });
-    }
-    const json = await resp.json();
-    if (json.errors) {
-      return NextResponse.json({ error: json.errors }, { status: 502 });
-    }
-
-    const mv = json?.data?.vault;
-    const positions = (json?.data?.positions?.items || []) as Array<{ user: { address: string } }>;
-    const txs = (json?.data?.txs?.items || []) as Array<{ blockNumber: number; hash: string; type: string; user?: { address?: string } }>;
-    const depositors = new Set(positions.map((p) => p.user.address.toLowerCase())).size;
+    // Type assertion for vault data - structure matches our query
+    const mv = data.vault as {
+      address?: string;
+      name?: string | null;
+      whitelisted?: boolean | null;
+      metadata?: {
+        description?: string | null;
+        forumLink?: string | null;
+        image?: string | null;
+        curators?: Array<{ image?: string | null; name?: string | null; url?: string | null }>;
+      } | null;
+      allocators?: Array<{ address: string }>;
+      asset?: {
+        address?: string;
+        decimals?: number;
+        yield?: { apr?: number | null } | null;
+      } | null;
+      state?: {
+        owner?: string | null;
+        curator?: string | null;
+        guardian?: string | null;
+        timelock?: string | null;
+        totalAssets?: string | null;
+        totalAssetsUsd?: number | null;
+        totalSupply?: string | null;
+        totalSupplyShares?: string | null;
+        supplyQueue?: number[];
+        withdrawQueue?: number[];
+        lastUpdate?: number | null;
+        apy?: number | null;
+        netApy?: number | null;
+        netApyWithoutRewards?: number | null;
+        avgApy?: number | null;
+        avgNetApy?: number | null;
+        dailyApy?: number | null;
+        dailyNetApy?: number | null;
+        weeklyApy?: number | null;
+        weeklyNetApy?: number | null;
+        monthlyApy?: number | null;
+        monthlyNetApy?: number | null;
+        fee?: number | null;
+        warnings?: Array<{ type?: string; level?: string }>;
+        rewards?: Array<{
+          asset?: { address?: string; chain?: { id?: number } | null } | null;
+          supplyApr?: number | null;
+          yearlySupplyTokens?: number | null;
+        }>;
+        allocation?: Array<{
+          supplyAssets?: string | null;
+          supplyAssetsUsd?: number | null;
+          supplyCap?: string | null;
+          market?: {
+            uniqueKey?: string;
+            loanAsset?: { name?: string | null } | null;
+            collateralAsset?: { name?: string | null } | null;
+            oracleAddress?: string | null;
+            irmAddress?: string | null;
+            lltv?: string | null;
+            state?: {
+              rewards?: Array<{
+                asset?: { address?: string; chain?: { id?: number } | null } | null;
+                supplyApr?: number | null;
+                borrowApr?: number | null;
+              }>;
+            } | null;
+          } | null;
+        }>;
+        lastTotalAssets?: string | null;
+        allocationQueues?: {
+          supplyQueueIndex?: number | null;
+          withdrawQueueIndex?: number | null;
+          market?: { uniqueKey?: string } | null;
+        } | null;
+      } | null;
+      historicalState?: {
+        apy?: Array<{ x?: number; y?: number }>;
+        netApy?: Array<{ x?: number; y?: number }>;
+        totalAssets?: Array<{ x?: number; y?: number }>;
+        totalAssetsUsd?: Array<{ x?: number; y?: number }>;
+      } | null;
+    } | null;
+    const positions = (data.positions?.items || []).filter(
+      (p): p is { user: { address: string } } => p !== null && p.user !== null && p.user.address !== undefined
+    );
+    const txs = (data.txs?.items || []).filter(
+      (t): t is {
+        blockNumber: number;
+        hash: string;
+        type: string;
+        user?: { address?: string | null } | null;
+      } => t !== null
+    );
+    
+    const depositors = new Set(
+      positions
+        .map((p) => p.user.address.toLowerCase())
+        .filter((addr): addr is string => addr !== undefined && addr !== null)
+    ).size;
 
     const tvlUsd = mv?.state?.totalAssetsUsd ?? 0;
     const apyBasePct = (mv?.state?.avgApy ?? 0) * 100;
@@ -195,40 +298,27 @@ export async function GET(
         monthlyNetApy: (mv?.state?.monthlyNetApy ?? 0) * 100,
         underlyingYieldApr: (mv?.asset?.yield?.apr ?? 0) * 100,
       },
-      rewards: (mv?.state?.rewards || []).map((r: { asset?: { address?: string; chain?: { id?: number } | null } | null; supplyApr?: number | null; yearlySupplyTokens?: number | null }) => ({
-        assetAddress: r?.asset?.address ?? '',
-        chainId: r?.asset?.chain?.id ?? null,
-        supplyApr: ((r?.supplyApr ?? 0) as number) * 100,
-        yearlySupplyTokens: (r?.yearlySupplyTokens ?? 0) as number,
+      rewards: (mv?.state?.rewards || []).map((r) => ({
+        assetAddress: r.asset?.address ?? '',
+        chainId: r.asset?.chain?.id ?? null,
+        supplyApr: (r.supplyApr ?? 0) * 100,
+        yearlySupplyTokens: r.yearlySupplyTokens ? (typeof r.yearlySupplyTokens === 'bigint' ? Number(r.yearlySupplyTokens) : r.yearlySupplyTokens) : 0,
       })),
-      allocation: (mv?.state?.allocation || []).map((a: {
-        market?: {
-          uniqueKey?: string;
-          loanAsset?: { name?: string | null } | null;
-          collateralAsset?: { name?: string | null } | null;
-          oracleAddress?: string | null;
-          irmAddress?: string | null;
-          lltv?: number | null;
-          state?: { rewards?: Array<{ asset?: { address?: string; chain?: { id?: number } | null } | null; supplyApr?: number | null; borrowApr?: number | null }> } | null;
-        } | null;
-        supplyCap?: number | null;
-        supplyAssets?: number | null;
-        supplyAssetsUsd?: number | null;
-      }) => ({
-        marketKey: a.market?.uniqueKey,
+      allocation: (mv?.state?.allocation || []).map((a) => ({
+        marketKey: a.market?.uniqueKey ?? null,
         loanAssetName: a.market?.loanAsset?.name ?? null,
         collateralAssetName: a.market?.collateralAsset?.name ?? null,
         oracleAddress: a.market?.oracleAddress ?? null,
         irmAddress: a.market?.irmAddress ?? null,
-        lltv: a.market?.lltv ?? null,
-        supplyCap: a.supplyCap ?? null,
-        supplyAssets: a.supplyAssets ?? null,
+        lltv: a.market?.lltv ? (typeof a.market.lltv === 'bigint' ? Number(a.market.lltv) / 1e18 : typeof a.market.lltv === 'string' ? Number(a.market.lltv) / 1e18 : a.market.lltv / 1e18) : null,
+        supplyCap: a.supplyCap ? (typeof a.supplyCap === 'bigint' ? Number(a.supplyCap) : typeof a.supplyCap === 'string' ? Number(a.supplyCap) : a.supplyCap) : null,
+        supplyAssets: a.supplyAssets ? (typeof a.supplyAssets === 'bigint' ? Number(a.supplyAssets) : typeof a.supplyAssets === 'string' ? Number(a.supplyAssets) : a.supplyAssets) : null,
         supplyAssetsUsd: a.supplyAssetsUsd ?? null,
-        marketRewards: (a.market?.state?.rewards || []).map((mr: { asset?: { address?: string; chain?: { id?: number } | null } | null; supplyApr?: number | null; borrowApr?: number | null }) => ({
-          assetAddress: mr?.asset?.address ?? '',
-          chainId: mr?.asset?.chain?.id ?? null,
-          supplyApr: ((mr?.supplyApr ?? 0) as number) * 100,
-          borrowApr: mr?.borrowApr != null ? ((mr.borrowApr as number) * 100) : null,
+        marketRewards: (a.market?.state?.rewards || []).map((mr) => ({
+          assetAddress: mr.asset?.address ?? '',
+          chainId: mr.asset?.chain?.id ?? null,
+          supplyApr: (mr.supplyApr ?? 0) * 100,
+          borrowApr: mr.borrowApr != null ? (mr.borrowApr * 100) : null,
         })),
       })),
       queues: {
@@ -251,7 +341,7 @@ export async function GET(
         guardian: mv?.state?.guardian ?? null,
         timelock: mv?.state?.timelock ?? null,
       },
-      transactions: txs.map(t => ({
+      transactions: txs.map((t) => ({
         blockNumber: t.blockNumber,
         hash: t.hash,
         type: t.type,
