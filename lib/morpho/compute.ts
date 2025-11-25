@@ -9,7 +9,7 @@ import { logger } from '@/lib/utils/logger';
 // ability to handle larger absolute insolvency amounts
 // This prevents large, liquid markets from being unfairly penalized
 const LARGE_MARKET_THRESHOLD = 50_000_000; // $50M - markets above this get special handling
-const LARGE_MARKET_MAX_TOLERANCE = 0.35; // 35% for very large markets ($2B+)
+const LARGE_MARKET_MAX_TOLERANCE = 0.35; // 35% for very large markets ($1B+)
 const VERY_LARGE_MARKET_THRESHOLD = 100_000_000; // $100M
 const ULTRA_LARGE_MARKET_THRESHOLD = 500_000_000; // $500M - more aggressive scaling for very large markets
 
@@ -171,6 +171,7 @@ export function computeMetricsForMarket(
 
   // Liquidation capacity scoring with clamped config
   // For large markets ($50M+), use softer scoring as they have better liquidation infrastructure
+  // For very large markets ($500M+), be even more lenient as absolute dollar amounts matter more
   const liquidityStressPct = clamp01(config.liquidityStressPct);
   const liquidatorCapacityPostStress =
     availableLiquidity * (1 - liquidityStressPct);
@@ -178,8 +179,26 @@ export function computeMetricsForMarket(
   let liquidationCapacityScore: number;
   if (liquidatorCapacityPostStress >= debtToLiquidate) {
     liquidationCapacityScore = 1;
+  } else if (tvl >= ULTRA_LARGE_MARKET_THRESHOLD) {
+    // For very large markets ($500M+), use very lenient scoring
+    // These markets have substantial absolute liquidity ($61M+ is significant)
+    // and better liquidation infrastructure, so 30% coverage is acceptable
+    const coverageRatio = liquidatorCapacityPostStress / Math.max(debtToLiquidate, 1);
+    if (coverageRatio >= 0.5) {
+      // 50%+ coverage: score 0.7-1.0 (very lenient)
+      liquidationCapacityScore = 0.7 + (coverageRatio - 0.5) * 0.6; // Maps 0.5->0.7, 1.0->1.0
+    } else if (coverageRatio >= 0.3) {
+      // 30-50% coverage: score 0.5-0.7 (30% coverage is acceptable for very large markets)
+      liquidationCapacityScore = 0.5 + (coverageRatio - 0.3) * 1.0; // Maps 0.3->0.5, 0.5->0.7
+    } else if (coverageRatio >= 0.15) {
+      // 15-30% coverage: score 0.3-0.5
+      liquidationCapacityScore = 0.3 + (coverageRatio - 0.15) * 1.33; // Maps 0.15->0.3, 0.3->0.5
+    } else {
+      // <15% coverage: linear penalty
+      liquidationCapacityScore = coverageRatio * 2.0; // Maps 0->0, 0.15->0.3
+    }
   } else if (tvl >= LARGE_MARKET_THRESHOLD) {
-    // For $1B+ markets, use softer scoring curve
+    // For large markets ($50M-$500M), use softer scoring curve
     // Large markets have better liquidation infrastructure, so 30-50% coverage
     // should still score reasonably well
     const coverageRatio = liquidatorCapacityPostStress / Math.max(debtToLiquidate, 1);
@@ -193,10 +212,10 @@ export function computeMetricsForMarket(
       // <30% coverage: linear penalty
       liquidationCapacityScore = coverageRatio * 1.0; // Maps 0->0, 0.3->0.3
     }
-    } else {
-      // For small markets (<$50M), use linear scoring (original behavior)
-      liquidationCapacityScore = liquidatorCapacityPostStress / Math.max(debtToLiquidate, 1);
-    }
+  } else {
+    // For small markets (<$50M), use linear scoring (original behavior)
+    liquidationCapacityScore = liquidatorCapacityPostStress / Math.max(debtToLiquidate, 1);
+  }
   liquidationCapacityScore = normalize01(liquidationCapacityScore);
 
   // Aggregate rating (weights already normalized in mergeConfig)
