@@ -10,6 +10,7 @@ export interface MarketReward {
 export interface MarketHistoryPoint { date: string; value: number }
 
 export interface SuppliedMarket {
+  id: string | null; // Market contract address
   uniqueKey: string;
   lltv: number | null;
   oracleAddress: string | null;

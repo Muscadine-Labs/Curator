@@ -26,10 +26,13 @@ jest.mock('next/link', () => {
 const mockAddress = '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEbE';
 const mockUseAccount = jest.fn();
 
-jest.mock('wagmi', () => ({
-  useAccount: () => mockUseAccount(),
-  useDisconnect: () => ({ disconnect: jest.fn() }),
-}));
+jest.mock('wagmi', () => {
+  return {
+    useAccount: () => mockUseAccount(),
+    useDisconnect: () => ({ disconnect: jest.fn() }),
+    WagmiProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  };
+});
 
 // Mock React Query hooks
 const mockUseQuery = jest.fn();
@@ -60,7 +63,58 @@ jest.mock('@/lib/hooks/useMorphoMarkets', () => ({
 
 // Mock components that require providers
 jest.mock('@/components/WalletConnect', () => ({
-  WalletConnect: () => <div data-testid="wallet-connect">WalletConnect</div>,
+  WalletConnect: () => React.createElement('div', { 'data-testid': 'wallet-connect' }, 'WalletConnect'),
+}));
+
+// Mock all UI components to avoid complex dependencies
+jest.mock('@/components/ui/card', () => ({
+  Card: ({ children }: { children: React.ReactNode }) => React.createElement('div', { className: 'card' }, children),
+  CardContent: ({ children }: { children: React.ReactNode }) => React.createElement('div', { className: 'card-content' }, children),
+  CardDescription: ({ children }: { children: React.ReactNode }) => React.createElement('div', { className: 'card-description' }, children),
+  CardHeader: ({ children }: { children: React.ReactNode }) => React.createElement('div', { className: 'card-header' }, children),
+  CardTitle: ({ children }: { children: React.ReactNode }) => React.createElement('div', { className: 'card-title' }, children),
+}));
+
+jest.mock('@/components/ui/button', () => ({
+  Button: ({ children, onClick, disabled, ...props }: any) => 
+    React.createElement('button', { onClick, disabled, ...props }, children),
+}));
+
+jest.mock('@/components/ui/badge', () => ({
+  Badge: ({ children, ...props }: any) => React.createElement('span', props, children),
+}));
+
+jest.mock('@/components/ui/table', () => ({
+  Table: ({ children }: { children: React.ReactNode }) => React.createElement('table', {}, children),
+  TableBody: ({ children }: { children: React.ReactNode }) => React.createElement('tbody', {}, children),
+  TableCell: ({ children }: { children: React.ReactNode }) => React.createElement('td', {}, children),
+  TableHead: ({ children }: { children: React.ReactNode }) => React.createElement('th', {}, children),
+  TableHeader: ({ children }: { children: React.ReactNode }) => React.createElement('thead', {}, children),
+  TableRow: ({ children }: { children: React.ReactNode }) => React.createElement('tr', {}, children),
+}));
+
+jest.mock('@/components/ui/input', () => ({
+  Input: (props: any) => React.createElement('input', props),
+}));
+
+jest.mock('@/components/ui/tabs', () => ({
+  Tabs: ({ children, value, onValueChange }: any) => React.createElement('div', { 'data-value': value, 'data-onchange': onValueChange }, children),
+  TabsContent: ({ children, value }: any) => React.createElement('div', { 'data-tab': value }, children),
+  TabsList: ({ children }: { children: React.ReactNode }) => React.createElement('div', { className: 'tabs-list' }, children),
+  TabsTrigger: ({ children, value }: any) => React.createElement('button', { 'data-tab': value }, children),
+}));
+
+jest.mock('@/components/ui/alert', () => ({
+  Alert: ({ children }: { children: React.ReactNode }) => React.createElement('div', { className: 'alert' }, children),
+  AlertDescription: ({ children }: { children: React.ReactNode }) => React.createElement('div', {}, children),
+}));
+
+jest.mock('@/components/morpho/RatingBadge', () => ({
+  RatingBadge: ({ rating }: { rating: number | null }) => React.createElement('span', {}, `Rating: ${rating ?? 'N/A'}`),
+}));
+
+jest.mock('lucide-react', () => ({
+  ArrowLeft: () => React.createElement('span', {}, '←'),
 }));
 
 // Mock lucide-react icons

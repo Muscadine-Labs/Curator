@@ -338,16 +338,19 @@ describe('Allocation Reallocation Logic', () => {
         );
 
         // Simulate API call
-        const mockFetch = jest.fn().mockResolvedValue({
+        const mockResponse = {
           ok: true,
           json: async () => ({ intent: { id: 'test-intent-id' } }),
-        });
+        };
+        
+        // @ts-expect-error - jest.fn() typing issue with mockResolvedValue
+        const mockFetch = jest.fn().mockResolvedValue(mockResponse);
 
-        const response = await mockFetch('/api/allocations/intents', {
+        const response = (await mockFetch('/api/allocations/intents', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
-        });
+        })) as typeof mockResponse;
 
         expect(mockFetch).toHaveBeenCalledWith(
           '/api/allocations/intents',
@@ -357,7 +360,7 @@ describe('Allocation Reallocation Logic', () => {
           })
         );
 
-        const result = await response.json();
+        const result = await response.json() as { intent: { id: string } };
         expect(result.intent.id).toBe('test-intent-id');
       }
     });

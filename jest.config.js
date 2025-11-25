@@ -29,7 +29,7 @@ const customJestConfig = {
     }],
   },
   transformIgnorePatterns: [
-    'node_modules/(?!(wagmi|viem|@wagmi|@tanstack)/)',
+    'node_modules/(?!(wagmi|viem|@wagmi|@tanstack|@coinbase|@reown)/)',
   ],
 }
 

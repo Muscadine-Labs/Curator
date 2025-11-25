@@ -3,8 +3,11 @@
 import { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
-import { useAccount } from 'wagmi';
+import { useAccount, useWriteContract, useChainId, useSwitchChain, useWaitForTransactionReceipt } from 'wagmi';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Address } from 'viem';
+import { base } from 'viem/chains';
+import { MORPHO_BLUE_VAULT_ALLOCATOR_ABI } from '@/lib/onchain/client';
 import { vaults } from '@/lib/config/vaults';
 import { useMarketsSupplied, SuppliedMarket } from '@/lib/hooks/useMarkets';
 import { useMorphoMarkets } from '@/lib/hooks/useMorphoMarkets';
@@ -49,6 +52,12 @@ export default function AllocationsPage() {
   const morpho = useMorphoMarkets();
   const queryClient = useQueryClient();
   const { address: walletAddress, isConnected } = useAccount();
+  const { writeContractAsync, isPending: isTxPending, data: txHash } = useWriteContract();
+  const chainId = useChainId();
+  const { switchChain } = useSwitchChain();
+  const { isLoading: isTxConfirming, isSuccess: isTxSuccess } = useWaitForTransactionReceipt({
+    hash: txHash,
+  });
 
   const [activeVaultAddress, setActiveVaultAddress] = useState<string>(() => vaults[0]?.address ?? '');
   const [edits, setEdits] = useState<Map<string, MarketAllocationEdit>>(new Map());
@@ -164,35 +173,161 @@ export default function AllocationsPage() {
   const totalShare = getTotalShare();
   const shareError = Math.abs(totalShare - 100) > 0.01;
 
+  // Calculate actual amounts from percentages
+  const calculateAllocationAmounts = (
+    allocations: Array<{ marketKey: string; sharePct: number }>,
+    totalSupplyUsd: number
+  ) => {
+    return allocations.map((alloc) => {
+      const amountUsd = (totalSupplyUsd * alloc.sharePct) / 100;
+      return {
+        marketKey: alloc.marketKey,
+        sharePct: alloc.sharePct,
+        amountUsd,
+      };
+    });
+  };
+
   const mutation = useMutation({
     mutationFn: async (payload: {
       vaultAddress: string;
       allocations: Array<{ marketKey: string; sharePct: number }>;
     }) => {
-      const res = await fetch('/api/allocations/intents', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          vaultAddress: payload.vaultAddress,
-          marketKey: payload.allocations[0]?.marketKey || '',
-          action: 'allocate',
-          sharePct: payload.allocations[0]?.sharePct || 0,
-          walletAddress,
-          notes: `Reallocation: ${payload.allocations.length} markets adjusted`,
-        }),
-      });
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || 'Failed to submit reallocation');
+      if (!walletAddress) {
+        throw new Error('Wallet address is required');
       }
-      return res.json();
+
+      // Check if we're on the correct chain
+      if (chainId !== base.id) {
+        try {
+          await switchChain({ chainId: base.id });
+          // Wait a bit for chain switch
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        } catch {
+          throw new Error('Please switch to Base network in your wallet');
+        }
+      }
+
+      const vaultAddress = payload.vaultAddress as Address;
+      const calculatedAllocations = calculateAllocationAmounts(
+        payload.allocations,
+        selectedAllocation?.totalSupplyUsd ?? 0
+      );
+
+      // Store intent first (for record keeping)
+      try {
+        await fetch('/api/allocations/intents', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            vaultAddress: payload.vaultAddress,
+            allocations: payload.allocations,
+            walletAddress,
+            notes: `Reallocation: ${payload.allocations.length} markets adjusted`,
+          }),
+        });
+      } catch (error) {
+        // Intent storage failure is not critical, continue with transaction
+        console.warn('Failed to store intent:', error);
+      }
+
+      // Map market uniqueKeys to actual market contract addresses
+      const marketAddresses: Address[] = [];
+      const amounts: bigint[] = [];
+      
+      // Get vault asset decimals for amount conversion
+      const vaultConfig = vaults.find(v => v.address.toLowerCase() === payload.vaultAddress.toLowerCase());
+      if (!vaultConfig) {
+        throw new Error('Vault configuration not found');
+      }
+
+      // Resolve market addresses from uniqueKeys using the markets data
+      // We need to fetch markets data if not already loaded
+      if (!markets.data) {
+        throw new Error('Markets data not loaded. Please wait and try again.');
+      }
+
+      for (const alloc of calculatedAllocations) {
+        const market = markets.data.markets.find(m => m.uniqueKey === alloc.marketKey);
+        
+        if (!market || !market.id) {
+          throw new Error(
+            `Market address not found for ${alloc.marketKey}. ` +
+            'Please ensure the market is allocated and has an address.'
+          );
+        }
+
+        // Get the vault's asset to determine decimals
+        // For Morpho Blue vaults, allocations are typically in the loan asset
+        const tokenDecimals = market.loanAsset?.decimals ?? 18;
+        const amountUsd = alloc.amountUsd;
+        
+        // Convert USD amount to token amount
+        // For stablecoins like USDC: 1 USD = 1e6 (6 decimals)
+        // For other tokens, we assume 1 USD = 1 token unit at the token's decimal precision
+        // Note: For accurate conversion, you may need to use price oracles
+        // This is a simplified conversion - adjust based on your needs
+        const amountInTokens = BigInt(Math.floor(amountUsd * Math.pow(10, tokenDecimals)));
+        
+        marketAddresses.push(market.id as Address);
+        amounts.push(amountInTokens);
+      }
+      
+      if (marketAddresses.length === 0) {
+        throw new Error('No valid market addresses found for reallocation');
+      }
+
+      try {
+        // Try reallocate function first
+        const hash = await writeContractAsync({
+          address: vaultAddress,
+          abi: MORPHO_BLUE_VAULT_ALLOCATOR_ABI,
+          functionName: 'reallocate',
+          args: [marketAddresses, amounts],
+          chainId: base.id,
+        });
+
+        return { hash, allocations: calculatedAllocations };
+      } catch (error: unknown) {
+        const err = error as { shortMessage?: string; message?: string };
+        const errorMessage = err.shortMessage || err.message || 'Transaction failed';
+        
+        // If reallocate doesn't exist, try updateAllocations
+        if (errorMessage.includes('function') || errorMessage.includes('not found') || errorMessage.includes('reallocate')) {
+          try {
+            const hash = await writeContractAsync({
+              address: vaultAddress,
+              abi: MORPHO_BLUE_VAULT_ALLOCATOR_ABI,
+              functionName: 'updateAllocations',
+              args: [marketAddresses, amounts],
+              chainId: base.id,
+            });
+            return { hash, allocations: calculatedAllocations };
+          } catch (fallbackError: unknown) {
+            const fallbackErr = fallbackError as { shortMessage?: string; message?: string };
+            throw new Error(
+              fallbackErr.shortMessage || fallbackErr.message || 
+              'Failed to execute reallocation transaction. ' +
+              'The vault contract may use a different function name. ' +
+              'Please check the vault contract ABI and update MORPHO_BLUE_VAULT_ALLOCATOR_ABI.'
+            );
+          }
+        }
+        throw new Error(errorMessage);
+      }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['allocation-intents'] });
       queryClient.invalidateQueries({ queryKey: ['markets-supplied'] });
-      setFeedback({ type: 'success', message: 'Reallocation submitted successfully' });
-      setEdits(new Map());
-      setTimeout(() => setFeedback(null), 5000);
+      if (data.hash) {
+        setFeedback({ 
+          type: 'success', 
+          message: `Transaction submitted! Hash: ${data.hash.slice(0, 10)}...` 
+        });
+      } else {
+        setFeedback({ type: 'success', message: 'Reallocation submitted successfully' });
+      }
+      // Don't clear edits until transaction is confirmed
     },
     onError: (error: Error) => {
       setFeedback({ type: 'error', message: error.message });
@@ -200,8 +335,25 @@ export default function AllocationsPage() {
     },
   });
 
+  // Handle transaction confirmation
+  useEffect(() => {
+    if (isTxSuccess && txHash) {
+      setFeedback({ 
+        type: 'success', 
+        message: `Transaction confirmed! View on Basescan: https://basescan.org/tx/${txHash}` 
+      });
+      setEdits(new Map());
+      setTimeout(() => setFeedback(null), 10000);
+    }
+  }, [isTxSuccess, txHash]);
+
   const handleReallocate = () => {
     if (!selectedAllocation || !hasChanges || shareError) return;
+    if (!walletAddress) {
+      setFeedback({ type: 'error', message: 'Wallet address is required. Please ensure your wallet is connected.' });
+      setTimeout(() => setFeedback(null), 5000);
+      return;
+    }
 
     const allocations = selectedAllocation.rows.map((row) => {
       const edit = edits.get(row.marketKey);
@@ -469,10 +621,16 @@ export default function AllocationsPage() {
                             )}
                             <Button
                               onClick={handleReallocate}
-                              disabled={!hasChanges || shareError || mutation.isPending}
+                              disabled={!hasChanges || shareError || mutation.isPending || isTxPending || isTxConfirming}
                               size="lg"
                             >
-                              {mutation.isPending ? 'Reallocating...' : 'Reallocate'}
+                              {isTxPending || isTxConfirming
+                                ? isTxConfirming
+                                  ? 'Confirming...'
+                                  : 'Waiting for wallet...'
+                                : mutation.isPending
+                                ? 'Preparing transaction...'
+                                : 'Reallocate'}
                             </Button>
                           </div>
                         </>

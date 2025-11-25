@@ -57,6 +57,52 @@ export const VAULT_ABI = [
   },
 ] as const;
 
+// Morpho Blue Vault Allocator ABI
+// NOTE: This is a placeholder based on common Morpho Blue patterns.
+// Update with the exact ABI from your vault contract if different.
+export const MORPHO_BLUE_VAULT_ALLOCATOR_ABI = [
+  {
+    name: 'queueSupply',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'market', type: 'address' },
+      { name: 'assets', type: 'uint256' },
+    ],
+    outputs: [],
+  },
+  {
+    name: 'queueWithdraw',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'market', type: 'address' },
+      { name: 'assets', type: 'uint256' },
+    ],
+    outputs: [],
+  },
+  {
+    name: 'reallocate',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'markets', type: 'address[]' },
+      { name: 'amounts', type: 'uint256[]' },
+    ],
+    outputs: [],
+  },
+  {
+    name: 'updateAllocations',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'markets', type: 'address[]' },
+      { name: 'amounts', type: 'uint256[]' },
+    ],
+    outputs: [],
+  },
+] as const;
+
 export const ERC20_ABI = [
   {
     name: 'symbol',

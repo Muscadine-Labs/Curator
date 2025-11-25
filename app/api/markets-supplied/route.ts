@@ -150,16 +150,17 @@ export async function GET(request: Request) {
 
     // 3) Shape response - only include markets with valid data
     const markets = filteredMarkets
-      .filter((m) => m.collateralAsset && m.loanAsset && m.uniqueKey) // Filter out invalid markets
-      .map((m) => {
-        const lltv = m.lltv ? (typeof m.lltv === 'bigint' ? Number(m.lltv) / 1e18 : m.lltv / 1e18) : null;
-        return {
-          uniqueKey: m.uniqueKey!,
-          lltv, // Convert from wei to decimal (0.86 = 86%)
-          oracleAddress: m.oracleAddress ?? null,
-          irmAddress: m.irmAddress ?? null,
-          loanAsset: m.loanAsset!,
-          collateralAsset: m.collateralAsset!,
+        .filter((m) => m.collateralAsset && m.loanAsset && m.uniqueKey) // Filter out invalid markets
+        .map((m) => {
+          const lltv = m.lltv ? (typeof m.lltv === 'bigint' ? Number(m.lltv) / 1e18 : m.lltv / 1e18) : null;
+          return {
+            id: m.id ?? null, // Market contract address
+            uniqueKey: m.uniqueKey!,
+            lltv, // Convert from wei to decimal (0.86 = 86%)
+            oracleAddress: m.oracleAddress ?? null,
+            irmAddress: m.irmAddress ?? null,
+            loanAsset: m.loanAsset!,
+            collateralAsset: m.collateralAsset!,
           state: {
             supplyAssetsUsd: m.state?.supplyAssetsUsd ?? 0,
             borrowAssetsUsd: m.state?.borrowAssetsUsd ?? 0,
@@ -187,6 +188,7 @@ export async function GET(request: Request) {
           }
         ) {
           items {
+            id
             uniqueKey
             lltv
             oracleAddress
@@ -226,6 +228,7 @@ export async function GET(request: Request) {
       .map((m) => {
         const lltv = m.lltv ? (typeof m.lltv === 'bigint' ? Number(m.lltv) / 1e18 : m.lltv / 1e18) : null;
         return {
+          id: m.id ?? null, // Market contract address
           uniqueKey: m.uniqueKey!,
           lltv,
           oracleAddress: m.oracleAddress ?? null,

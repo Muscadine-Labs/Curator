@@ -30,6 +30,13 @@ type AllocationIntentPayload = {
   notes?: string;
 };
 
+type ReallocationPayload = {
+  vaultAddress: string;
+  allocations: Array<{ marketKey: string; sharePct: number }>;
+  walletAddress?: string;
+  notes?: string;
+};
+
 function validateAndSanitizePayload(value: unknown): AllocationIntentPayload {
   if (!value || typeof value !== 'object') {
     throw new AppError('Invalid payload', 400, 'INVALID_PAYLOAD');
@@ -57,6 +64,48 @@ function validateAndSanitizePayload(value: unknown): AllocationIntentPayload {
     action: sanitizeAction(payload.action),
     amountUsd: sanitizeNumber(payload.amountUsd, 0) ?? undefined,
     sharePct: sanitizeNumber(payload.sharePct, 0, 100) ?? undefined,
+    walletAddress: payload.walletAddress ? sanitizeAddress(String(payload.walletAddress)) ?? undefined : undefined,
+    notes: payload.notes ? sanitizeNotes(String(payload.notes)) : undefined,
+  };
+}
+
+function validateAndSanitizeReallocationPayload(value: unknown): ReallocationPayload {
+  if (!value || typeof value !== 'object') {
+    throw new AppError('Invalid payload', 400, 'INVALID_PAYLOAD');
+  }
+  
+  const payload = value as Record<string, unknown>;
+  
+  // Validate and sanitize required fields
+  if (!payload.vaultAddress || typeof payload.vaultAddress !== 'string') {
+    throw new AppError('vaultAddress is required', 400, 'MISSING_VAULT_ADDRESS');
+  }
+  
+  if (!payload.allocations || !Array.isArray(payload.allocations) || payload.allocations.length === 0) {
+    throw new AppError('allocations array is required and must not be empty', 400, 'MISSING_ALLOCATIONS');
+  }
+  
+  // Validate each allocation
+  const sanitizedAllocations = payload.allocations.map((alloc: unknown, index: number) => {
+    if (!alloc || typeof alloc !== 'object') {
+      throw new AppError(`Invalid allocation at index ${index}`, 400, 'INVALID_ALLOCATION');
+    }
+    const a = alloc as Record<string, unknown>;
+    if (!a.marketKey || typeof a.marketKey !== 'string') {
+      throw new AppError(`marketKey is required for allocation at index ${index}`, 400, 'MISSING_MARKET_KEY');
+    }
+    if (typeof a.sharePct !== 'number' || a.sharePct < 0 || a.sharePct > 100) {
+      throw new AppError(`sharePct must be a number between 0 and 100 for allocation at index ${index}`, 400, 'INVALID_SHARE_PCT');
+    }
+    return {
+      marketKey: sanitizeString(a.marketKey, 200),
+      sharePct: sanitizeNumber(a.sharePct, 0, 100) ?? 0,
+    };
+  });
+  
+  return {
+    vaultAddress: sanitizeAddress(payload.vaultAddress) || '',
+    allocations: sanitizedAllocations,
     walletAddress: payload.walletAddress ? sanitizeAddress(String(payload.walletAddress)) ?? undefined : undefined,
     notes: payload.notes ? sanitizeNotes(String(payload.notes)) : undefined,
   };
@@ -112,27 +161,59 @@ export async function POST(request: Request) {
 
   try {
     const payload = await request.json();
-    const sanitizedPayload = validateAndSanitizePayload(payload);
+    
+    // Check if this is a reallocation request (has allocations array)
+    if (payload.allocations && Array.isArray(payload.allocations)) {
+      const sanitizedPayload = validateAndSanitizeReallocationPayload(payload);
+      
+      // Create an intent for each allocation
+      const intents: AllocationIntent[] = sanitizedPayload.allocations.map((alloc) => ({
+        id: crypto.randomUUID(),
+        vaultAddress: sanitizedPayload.vaultAddress,
+        marketKey: alloc.marketKey,
+        action: 'allocate',
+        sharePct: alloc.sharePct,
+        walletAddress: sanitizedPayload.walletAddress ?? null,
+        notes: sanitizedPayload.notes ?? `Reallocation: ${sanitizedPayload.allocations.length} markets adjusted`,
+        createdAt: new Date().toISOString(),
+      }));
 
-    const intent: AllocationIntent = {
-      id: crypto.randomUUID(),
-      vaultAddress: sanitizedPayload.vaultAddress,
-      marketKey: sanitizedPayload.marketKey,
-      action: sanitizedPayload.action,
-      amountUsd: sanitizedPayload.amountUsd,
-      sharePct: sanitizedPayload.sharePct,
-      walletAddress: sanitizedPayload.walletAddress,
-      notes: sanitizedPayload.notes ?? null,
-      createdAt: new Date().toISOString(),
-    };
+      // Prevent memory issues by limiting store size
+      intents.forEach(intent => {
+        intentsStore.unshift(intent);
+      });
+      if (intentsStore.length > MAX_STORE_SIZE) {
+        intentsStore.splice(MAX_STORE_SIZE);
+      }
 
-    // Prevent memory issues by limiting store size
-    intentsStore.unshift(intent);
-    if (intentsStore.length > MAX_STORE_SIZE) {
-      intentsStore.splice(MAX_STORE_SIZE);
+      return NextResponse.json({ 
+        intents,
+        message: `Created ${intents.length} allocation intent(s) for reallocation`
+      }, { status: 201 });
+    } else {
+      // Single allocation intent (backward compatibility)
+      const sanitizedPayload = validateAndSanitizePayload(payload);
+
+      const intent: AllocationIntent = {
+        id: crypto.randomUUID(),
+        vaultAddress: sanitizedPayload.vaultAddress,
+        marketKey: sanitizedPayload.marketKey,
+        action: sanitizedPayload.action,
+        amountUsd: sanitizedPayload.amountUsd,
+        sharePct: sanitizedPayload.sharePct,
+        walletAddress: sanitizedPayload.walletAddress,
+        notes: sanitizedPayload.notes ?? null,
+        createdAt: new Date().toISOString(),
+      };
+
+      // Prevent memory issues by limiting store size
+      intentsStore.unshift(intent);
+      if (intentsStore.length > MAX_STORE_SIZE) {
+        intentsStore.splice(MAX_STORE_SIZE);
+      }
+
+      return NextResponse.json({ intent }, { status: 201 });
     }
-
-    return NextResponse.json({ intent }, { status: 201 });
   } catch (error) {
     const { error: apiError, statusCode } = handleApiError(error, 'Failed to create allocation intent');
     return NextResponse.json(apiError, { status: statusCode });

@@ -5,11 +5,12 @@ import { logger } from '@/lib/utils/logger';
 // Constants for TVL-based tolerance scaling
 // Larger markets can handle higher absolute insolvency due to better liquidity depth,
 // more liquidators, and better price discovery mechanisms
-// For very large markets ($2B+), we allow up to 35% tolerance to account for their
-// ability to handle larger absolute insolvency amounts
+// For very large markets ($2B+), we allow up to 40% tolerance to account for their
+// ability to handle larger absolute insolvency amounts and automated rebalancing systems
 // This prevents large, liquid markets from being unfairly penalized
+// Steakhouse upstream playbook emphasizes automated rebalancing, allowing for more lenient stress tolerance
 const LARGE_MARKET_THRESHOLD = 50_000_000; // $50M - markets above this get special handling
-const LARGE_MARKET_MAX_TOLERANCE = 0.35; // 35% for very large markets ($1B+)
+const LARGE_MARKET_MAX_TOLERANCE = 0.40; // 40% for very large markets ($2B+) - increased from 35%
 const VERY_LARGE_MARKET_THRESHOLD = 100_000_000; // $100M
 const ULTRA_LARGE_MARKET_THRESHOLD = 500_000_000; // $500M - more aggressive scaling for very large markets
 
@@ -105,53 +106,59 @@ export function computeMetricsForMarket(
   // Base tolerance for small markets (<$50M), scales up for large markets ($50M+)
   // Rationale: Large markets have better liquidity depth, more liquidators, and better price discovery
   // This prevents unfairly penalizing large, liquid markets
+  // Steakhouse upstream playbook emphasizes automated rebalancing, so we use more lenient tolerances
   const baseTolerance = clamp01(config.insolvencyTolerancePctTvl);
   let insolvencyTolerancePctTvl = baseTolerance;
   
   if (tvl >= LARGE_MARKET_THRESHOLD) {
     // Special handling for very large markets ($500M+)
-    // These markets can handle 20-30% insolvency exposure due to:
+    // These markets can handle 25-40% insolvency exposure due to:
     // - Deep liquidity pools
     // - Multiple liquidators
     // - Better price discovery
     // - Market infrastructure and stability
+    // - Automated rebalancing systems
     if (tvl >= ULTRA_LARGE_MARKET_THRESHOLD) {
       // For $500M+ markets, use a more lenient tolerance that scales with size
-      // Base tolerance of 20% for $500M, scaling to 35% for $2B+
-      // This allows large markets with 15-20% exposure to score reasonably
+      // Base tolerance of 25% for $500M, scaling to 40% for $2B+ (increased from 20-35%)
+      // This allows large markets with 20-25% exposure to score reasonably
       const ultraLargeScale = Math.min(1, (tvl - ULTRA_LARGE_MARKET_THRESHOLD) / (VERY_LARGE_MARKET_THRESHOLD - ULTRA_LARGE_MARKET_THRESHOLD));
-      const ultraLargeBaseTolerance = 0.20; // 20% base for $500M markets
-      insolvencyTolerancePctTvl = ultraLargeBaseTolerance + (LARGE_MARKET_MAX_TOLERANCE - ultraLargeBaseTolerance) * ultraLargeScale;
+      const ultraLargeBaseTolerance = 0.25; // 25% base for $500M markets (increased from 20%)
+      insolvencyTolerancePctTvl = ultraLargeBaseTolerance + (LARGE_MARKET_MAX_TOLERANCE - ultraLargeBaseTolerance) * ultraLargeScale; // Scale to 40% at $2B+ (increased from 35%)
       insolvencyTolerancePctTvl = clamp01(insolvencyTolerancePctTvl);
     } else {
       // For markets $50M-$500M, use square root scaling
-      // Scale from base tolerance to 20% at $500M
+      // Scale from base tolerance to 25% at $500M (increased from 20%)
       const linearScale = Math.min(1, (tvl - LARGE_MARKET_THRESHOLD) / (ULTRA_LARGE_MARKET_THRESHOLD - LARGE_MARKET_THRESHOLD));
       const sqrtScale = Math.sqrt(linearScale);
-      insolvencyTolerancePctTvl = baseTolerance + (0.20 - baseTolerance) * sqrtScale; // Scale to 20% at $500M
+      insolvencyTolerancePctTvl = baseTolerance + (0.25 - baseTolerance) * sqrtScale; // Scale to 25% at $500M (increased from 20%)
       insolvencyTolerancePctTvl = clamp01(insolvencyTolerancePctTvl);
     }
   }
   
   // Stress exposure scoring with softer curve for large markets
   // For large markets ($50M+), use a less punitive scoring curve that allows
-  // exposures up to 80% of tolerance with minimal penalty
+  // exposures up to 95% of tolerance with minimal penalty
+  // Steakhouse upstream playbook emphasizes automated rebalancing before insolvency crosses 5 bps of TVL,
+  // so we use a more lenient scoring approach that allows higher exposures before significant penalties
   let stressExposureScore: number;
   if (insolvencyPctOfTvl <= 0) {
     stressExposureScore = 1;
   } else if (tvl >= LARGE_MARKET_THRESHOLD) {
-    // For $1B+ markets, use a softer curve:
-    // - Exposures up to 80% of tolerance: minimal penalty (score stays high)
-    // - Exposures above 80%: quadratic penalty (less harsh than linear)
-    const toleranceThreshold = insolvencyTolerancePctTvl * 0.8; // 80% of tolerance
+    // For large markets ($50M+), use a much softer curve:
+    // - Exposures up to 95% of tolerance: minimal penalty (score stays very high)
+    // - Exposures above 95%: very gradual quadratic penalty (much less harsh)
+    const toleranceThreshold = insolvencyTolerancePctTvl * 0.95; // 95% of tolerance (more lenient)
     if (insolvencyPctOfTvl <= toleranceThreshold) {
-      // Minimal penalty for exposures within 80% of tolerance
+      // Minimal penalty for exposures within 95% of tolerance
       const ratio = insolvencyPctOfTvl / toleranceThreshold;
-      stressExposureScore = 1 - ratio * 0.1; // Max 10% penalty
+      stressExposureScore = 1 - ratio * 0.05; // Max 5% penalty (reduced from 10%)
     } else {
-      // Quadratic penalty for exposures above 80% of tolerance
+      // Very gradual quadratic penalty for exposures above 95% of tolerance
+      // Use a softer exponent (1.2 instead of 1.5) and allow higher scores
       const excessRatio = (insolvencyPctOfTvl - toleranceThreshold) / (insolvencyTolerancePctTvl - toleranceThreshold);
-      stressExposureScore = 0.9 - Math.pow(excessRatio, 1.5) * 0.9; // Quadratic curve
+      // Map excess ratio to score: 0.95 -> 0.95, 1.0 -> ~0.85 (more lenient)
+      stressExposureScore = 0.95 - Math.pow(excessRatio, 1.2) * 0.1; // Softer curve
     }
     } else {
       // For small markets (<$50M), use linear penalty (original behavior)
