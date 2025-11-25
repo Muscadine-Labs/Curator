@@ -45,7 +45,13 @@ export async function getMorphoMarketRatings(
     )
   );
 
-  return metrics.sort((a, b) => b.rating - a.rating);
+  return metrics.sort((a, b) => {
+    // Sort null ratings to the end
+    if (a.rating === null && b.rating === null) return 0;
+    if (a.rating === null) return 1;
+    if (b.rating === null) return -1;
+    return b.rating - a.rating;
+  });
 }
 
 export function groupMarketsByUnderlying(

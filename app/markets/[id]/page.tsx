@@ -35,7 +35,7 @@ export async function generateMetadata({ params }: MarketDetailPageProps) {
     description: `Curator risk breakdown for Morpho market ${market.id}. Weighted score derived from utilization, rate alignment, stress testing, withdrawal liquidity, and liquidation capacity.`,
     openGraph: {
       title: `${market.symbol} · Curator Risk Rating`,
-      description: `Score: ${market.rating}. Utilization ${formatPercentage(
+      description: `Score: ${market.rating ?? 'N/A (insufficient TVL)'}. Utilization ${formatPercentage(
         market.utilization * 100,
         2
       )}. Stress coverage ${

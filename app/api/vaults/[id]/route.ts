@@ -5,7 +5,8 @@ import { handleApiError, AppError } from '@/lib/utils/error-handler';
 import { createRateLimitMiddleware, RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS } from '@/lib/utils/rate-limit';
 import { morphoGraphQLClient } from '@/lib/morpho/graphql-client';
 import { gql } from 'graphql-request';
-import type { Vault, VaultPosition, Maybe } from '@morpho-org/blue-api-sdk';
+// Types imported from SDK but not directly used in this file
+// import type { Vault, VaultPosition, Maybe } from '@morpho-org/blue-api-sdk';
 
 export async function GET(
   request: NextRequest,

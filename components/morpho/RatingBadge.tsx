@@ -2,7 +2,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
 type RatingBadgeProps = {
-  rating: number;
+  rating: number | null;
   className?: string;
 };
 
@@ -41,6 +41,19 @@ function getRatingTier(rating: number): RatingTier {
 }
 
 export function RatingBadge({ rating, className }: RatingBadgeProps) {
+  if (rating === null) {
+    return (
+      <Badge
+        variant="outline"
+        className={cn(
+          'px-2.5 py-1 text-xs font-semibold border-gray-500/30 bg-gray-500/15 text-gray-600 dark:border-gray-400/20 dark:bg-gray-500/10 dark:text-gray-300',
+          className
+        )}
+      >
+        Insufficient TVL
+      </Badge>
+    );
+  }
   const tier = getRatingTier(rating);
   return (
     <Badge

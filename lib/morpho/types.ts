@@ -18,13 +18,18 @@ export type CuratorConfig = {
   morphoApiUrl: string;
   utilizationCeiling: number;
   utilizationBufferHours: number;
+  maxUtilizationBeyond?: number;
   rateAlignmentEps: number;
+  rateAlignmentHighYieldBuffer?: number;
+  rateAlignmentHighYieldEps?: number;
   fallbackBenchmarkRate: number;
   priceStressPct: number;
   liquidityStressPct: number;
   withdrawalLiquidityMinPct: number;
   insolvencyTolerancePctTvl: number;
+  minTvlUsd?: number;
   weights: CuratorWeights;
+  configVersion?: string;
 };
 
 export type MorphoMarketMetrics = {
@@ -44,7 +49,12 @@ export type MorphoMarketMetrics = {
   withdrawalLiquidityScore: number;
   liquidatorCapacityPostStress: number;
   liquidationCapacityScore: number;
-  rating: number;
+  tvlUsd: number;
+  minTvlThresholdHit: boolean;
+  insufficientTvl: boolean;
+  effectiveWeights: CuratorWeights;
+  rating: number | null;
+  configVersion?: string;
   raw: MorphoMarketRaw;
 };
 
