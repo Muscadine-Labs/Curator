@@ -232,9 +232,9 @@ export default function AllocationsPage() {
             notes: `Reallocation: ${payload.allocations.length} markets adjusted`,
           }),
         });
-      } catch (error) {
+      } catch {
         // Intent storage failure is not critical, continue with transaction
-        console.warn('Failed to store intent:', error);
+        // Silently continue - intent storage is for record keeping only
       }
 
       // Map market uniqueKeys to actual market contract addresses
@@ -263,19 +263,23 @@ export default function AllocationsPage() {
           );
         }
 
-        if (!market.id) {
+        // In Morpho Blue, markets are identified by uniqueKey (bytes32 hash), not by contract address
+        // The uniqueKey is a 66-character hex string (0x + 64 hex chars)
+        // We need to convert it to an address format (0x + 40 hex chars) by taking the first 20 bytes
+        let marketAddress: Address;
+        
+        if (market.uniqueKey && market.uniqueKey.startsWith('0x') && market.uniqueKey.length === 66) {
+          // uniqueKey is bytes32 (0x + 64 hex chars), convert to address (0x + 40 hex chars)
+          // Take the first 20 bytes (40 hex characters) after 0x
+          marketAddress = (`0x${market.uniqueKey.slice(2, 42)}` as Address).toLowerCase() as Address;
+        } else if (market.id && /^0x[a-fA-F0-9]{40}$/.test(market.id)) {
+          // Fallback: if market.id is already a valid address, use it
+          marketAddress = market.id.toLowerCase() as Address;
+        } else {
           throw new Error(
-            `Market address not found for ${alloc.marketKey}. ` +
-            'The market exists but does not have a contract address. ' +
-            'Please ensure the market is properly configured and has an address.'
-          );
-        }
-
-        // Validate that market.id is a valid address format
-        if (!/^0x[a-fA-F0-9]{40}$/.test(market.id)) {
-          throw new Error(
-            `Invalid market address format for ${alloc.marketKey}: ${market.id}. ` +
-            'Expected a valid Ethereum address.'
+            `Cannot derive market address from uniqueKey: ${alloc.marketKey}. ` +
+            `uniqueKey format: ${market.uniqueKey}, id: ${market.id}. ` +
+            'In Morpho Blue, markets are identified by uniqueKey (bytes32), which must be converted to address format.'
           );
         }
 
@@ -291,7 +295,7 @@ export default function AllocationsPage() {
         // This is a simplified conversion - adjust based on your needs
         const amountInTokens = BigInt(Math.floor(amountUsd * Math.pow(10, tokenDecimals)));
         
-        marketAddresses.push(market.id as Address);
+        marketAddresses.push(marketAddress);
         amounts.push(amountInTokens);
       }
       
@@ -313,24 +317,15 @@ export default function AllocationsPage() {
 
       try {
         // Try reallocate function first
-        console.log('Attempting reallocate transaction:', {
-          vaultAddress,
-          marketAddresses,
-          amounts: amounts.map(a => a.toString()),
-        });
-
         const hash = await writeContractAsync({
           ...txParams,
           functionName: 'reallocate',
         });
 
-        console.log('Transaction submitted:', hash);
         return { hash, allocations: calculatedAllocations };
       } catch (error: unknown) {
         const err = error as { shortMessage?: string; message?: string; cause?: unknown };
         const errorMessage = err.shortMessage || err.message || 'Transaction failed';
-        
-        console.error('Reallocate transaction failed:', error);
         
         // If reallocate doesn't exist, try updateAllocations
         if (
@@ -340,16 +335,13 @@ export default function AllocationsPage() {
           errorMessage.includes('does not exist')
         ) {
           try {
-            console.log('Trying updateAllocations as fallback...');
             const hash = await writeContractAsync({
               ...txParams,
               functionName: 'updateAllocations',
             });
-            console.log('UpdateAllocations transaction submitted:', hash);
             return { hash, allocations: calculatedAllocations };
           } catch (fallbackError: unknown) {
             const fallbackErr = fallbackError as { shortMessage?: string; message?: string };
-            console.error('UpdateAllocations also failed:', fallbackError);
             throw new Error(
               fallbackErr.shortMessage || fallbackErr.message || 
               'Failed to execute reallocation transaction. ' +

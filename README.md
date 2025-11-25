@@ -63,7 +63,23 @@ The Dune integration uses query ID `5930091` by default (from the provided Dune 
 1. Update `DUNE_QUERY_IDS` in `/lib/constants.ts`
 2. Adjust the parameter mapping in the `transformDuneResultsToFeeData` function to match your query's column names
 
-## Recent Improvements (Dec 2024)
+## Latest Updates (Dec 2024)
+
+### Critical Fixes
+1. **✅ Fixed Market Address Resolution** - Resolved issue where market addresses were incorrectly derived from Morpho API's `id` field (UUID). Now correctly converts `uniqueKey` (bytes32) to address format for vault allocator transactions.
+
+2. **✅ Removed Hardcoded Values** - All hardcoded values have been replaced with on-chain or API-sourced data:
+   - **Total Fees Generated**: Now sourced from Dune Analytics API (removed mock data fallback)
+   - **Performance Fee Rate**: Now fetched from on-chain vault contracts via `readVaultData()`
+   - Removed fallback to mock data in `useFeesData` hook
+
+3. **✅ Fixed Allocation Transaction Flow** - Improved transaction handling:
+   - Better error messages for wallet connection issues
+   - Proper validation of market addresses before transaction
+   - Enhanced error handling to distinguish user rejections from contract errors
+   - Removed debug console.log statements for production readiness
+
+4. **✅ Market Address Conversion** - Implemented proper conversion from Morpho Blue `uniqueKey` (bytes32 hash) to Ethereum address format by taking first 20 bytes, as required by vault allocator contracts.
 
 ### Security & Performance Enhancements
 1. **Rate Limiting**: All API routes now have rate limiting (60 requests/minute) to prevent abuse
@@ -78,11 +94,13 @@ The Dune integration uses query ID `5930091` by default (from the provided Dune 
 3. **Improved ErrorBoundary**: Enhanced error boundary with detailed error information in development
 4. **Logging Service**: Centralized logging utility (ready for production logging service integration)
 5. **Type Safety**: Improved TypeScript types throughout the codebase
+6. **Production Cleanup**: Removed all debug console.log statements, kept only essential console.warn/error for critical errors
 
 ### Infrastructure
 1. **Allocation Intents Storage**: Documented in-memory storage limitation (ready for database migration)
 2. **Cache Headers**: Added appropriate cache headers to API responses
 3. **Code Organization**: Extracted large functions and improved code structure
+4. **On-Chain Data Sourcing**: Performance fees and fee splitter addresses now read from contracts with config fallbacks
 
 ## Previous Optimizations (Nov 2024)
 
