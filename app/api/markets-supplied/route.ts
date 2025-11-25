@@ -96,10 +96,16 @@ export async function GET(request: Request) {
       return NextResponse.json({ markets: [], vaultAllocations });
     }
 
-    // 2) Fetch market details for these markets
+    // 2) Fetch market details for these specific markets
     const marketsQuery = gql`
-      query Markets($chainIds: [Int!]) {
-        markets(first: ${GRAPHQL_FIRST_LIMIT}, where: { chainId_in: $chainIds }) {
+      query Markets($chainIds: [Int!], $uniqueKeys: [String!]) {
+        markets(
+          first: ${GRAPHQL_FIRST_LIMIT}, 
+          where: { 
+            chainId_in: $chainIds,
+            uniqueKey_in: $uniqueKeys
+          }
+        ) {
           items {
             uniqueKey
             lltv
@@ -113,6 +119,7 @@ export async function GET(request: Request) {
               liquidityAssetsUsd
               utilization
               supplyApy
+              borrowApy
               rewards {
                 asset { address chain { id } }
                 supplyApr
@@ -126,7 +133,7 @@ export async function GET(request: Request) {
 
     const marketData = await morphoGraphQLClient.request<MarketsQueryResponse>(
       marketsQuery,
-      { chainIds: [BASE_CHAIN_ID] }
+      { chainIds: [BASE_CHAIN_ID], uniqueKeys: uniqueMarketKeys }
     );
 
     const allMarkets = marketData.markets?.items?.filter((m): m is Market => m !== null) ?? [];
@@ -141,61 +148,111 @@ export async function GET(request: Request) {
       .map(k => marketsByKey[k])
       .filter(Boolean);
 
-    // 3) Shape response
-    const markets = filteredMarkets.map((m) => {
-      const lltv = m.lltv ? (typeof m.lltv === 'bigint' ? Number(m.lltv) / 1e18 : m.lltv / 1e18) : null;
-      return {
-        uniqueKey: m.uniqueKey ?? '',
-        lltv, // Convert from wei to decimal (0.86 = 86%)
-        oracleAddress: m.oracleAddress ?? null,
-        irmAddress: m.irmAddress ?? null,
-        loanAsset: m.loanAsset || null,
-        collateralAsset: m.collateralAsset || null,
-        state: {
-          supplyAssetsUsd: m.state?.supplyAssetsUsd ?? 0,
-          borrowAssetsUsd: m.state?.borrowAssetsUsd ?? 0,
-          liquidityAssetsUsd: m.state?.liquidityAssetsUsd ?? 0,
-          utilization: m.state?.utilization ?? 0,
-          supplyApy: m.state?.supplyApy ?? 0,
-          rewards: (m.state?.rewards || []).map(r => ({
-            assetAddress: r.asset?.address,
-            chainId: r.asset?.chain?.id ?? null,
-            supplyApr: (r.supplyApr ?? 0) * 100,
-            borrowApr: (r.borrowApr ?? 0) * 100,
-          })),
-        },
-      };
-    });
+    // 3) Shape response - only include markets with valid data
+    const markets = filteredMarkets
+      .filter((m) => m.collateralAsset && m.loanAsset && m.uniqueKey) // Filter out invalid markets
+      .map((m) => {
+        const lltv = m.lltv ? (typeof m.lltv === 'bigint' ? Number(m.lltv) / 1e18 : m.lltv / 1e18) : null;
+        return {
+          uniqueKey: m.uniqueKey!,
+          lltv, // Convert from wei to decimal (0.86 = 86%)
+          oracleAddress: m.oracleAddress ?? null,
+          irmAddress: m.irmAddress ?? null,
+          loanAsset: m.loanAsset!,
+          collateralAsset: m.collateralAsset!,
+          state: {
+            supplyAssetsUsd: m.state?.supplyAssetsUsd ?? 0,
+            borrowAssetsUsd: m.state?.borrowAssetsUsd ?? 0,
+            liquidityAssetsUsd: m.state?.liquidityAssetsUsd ?? 0,
+            utilization: m.state?.utilization ?? 0,
+            supplyApy: m.state?.supplyApy ?? 0,
+            borrowApy: m.state?.borrowApy ?? null,
+            rewards: (m.state?.rewards || []).map(r => ({
+              assetAddress: r.asset?.address,
+              chainId: r.asset?.chain?.id ?? null,
+              supplyApr: (r.supplyApr ?? 0) * 100,
+              borrowApr: (r.borrowApr ?? 0) * 100,
+            })),
+          },
+        };
+      });
 
-    const mapMarket = (m: Market) => {
-      const lltv = m.lltv ? (typeof m.lltv === 'bigint' ? Number(m.lltv) / 1e18 : m.lltv / 1e18) : null;
-      return {
-        uniqueKey: m.uniqueKey ?? '',
-        lltv,
-        oracleAddress: m.oracleAddress ?? null,
-        irmAddress: m.irmAddress ?? null,
-        loanAsset: m.loanAsset || null,
-        collateralAsset: m.collateralAsset || null,
-        state: {
-          supplyAssetsUsd: m.state?.supplyAssetsUsd ?? 0,
-          borrowAssetsUsd: m.state?.borrowAssetsUsd ?? 0,
-          liquidityAssetsUsd: m.state?.liquidityAssetsUsd ?? 0,
-          utilization: m.state?.utilization ?? 0,
-          supplyApy: m.state?.supplyApy ?? 0,
-          rewards: (m.state?.rewards || []).map((r) => ({
-            assetAddress: r.asset?.address,
-            chainId: r.asset?.chain?.id ?? null,
-            supplyApr: (r.supplyApr ?? 0) * 100,
-            borrowApr: (r.borrowApr ?? 0) * 100,
-          })),
-        },
-      };
-    };
+    // 4) Fetch available markets (all markets on Base, excluding already allocated ones)
+    const availableMarketsQuery = gql`
+      query AvailableMarkets($chainIds: [Int!]) {
+        markets(
+          first: ${GRAPHQL_FIRST_LIMIT}, 
+          where: { 
+            chainId_in: $chainIds
+          }
+        ) {
+          items {
+            uniqueKey
+            lltv
+            oracleAddress
+            irmAddress
+            loanAsset { address symbol decimals }
+            collateralAsset { address symbol decimals }
+            state {
+              borrowAssetsUsd
+              supplyAssetsUsd
+              liquidityAssetsUsd
+              utilization
+              supplyApy
+              borrowApy
+              rewards {
+                asset { address chain { id } }
+                supplyApr
+                borrowApr
+              }
+            }
+          }
+        }
+      }
+    `;
+
+    const availableMarketsData = await morphoGraphQLClient.request<MarketsQueryResponse>(
+      availableMarketsQuery,
+      { chainIds: [BASE_CHAIN_ID] }
+    );
+
+    const allAvailableMarkets = availableMarketsData.markets?.items?.filter((m): m is Market => 
+      m !== null && m.collateralAsset !== null && m.loanAsset !== null && m.uniqueKey !== null
+    ) ?? [];
+
+    const allocatedKeysSet = new Set(uniqueMarketKeys);
+    const availableMarkets = allAvailableMarkets
+      .filter((m) => !allocatedKeysSet.has(m.uniqueKey!))
+      .map((m) => {
+        const lltv = m.lltv ? (typeof m.lltv === 'bigint' ? Number(m.lltv) / 1e18 : m.lltv / 1e18) : null;
+        return {
+          uniqueKey: m.uniqueKey!,
+          lltv,
+          oracleAddress: m.oracleAddress ?? null,
+          irmAddress: m.irmAddress ?? null,
+          loanAsset: m.loanAsset!,
+          collateralAsset: m.collateralAsset!,
+          state: {
+            supplyAssetsUsd: m.state?.supplyAssetsUsd ?? 0,
+            borrowAssetsUsd: m.state?.borrowAssetsUsd ?? 0,
+            liquidityAssetsUsd: m.state?.liquidityAssetsUsd ?? 0,
+            utilization: m.state?.utilization ?? 0,
+            supplyApy: m.state?.supplyApy ?? 0,
+            borrowApy: m.state?.borrowApy ?? null,
+            rewards: (m.state?.rewards || []).map((r) => ({
+              assetAddress: r.asset?.address,
+              chainId: r.asset?.chain?.id ?? null,
+              supplyApr: (r.supplyApr ?? 0) * 100,
+              borrowApr: (r.borrowApr ?? 0) * 100,
+            })),
+          },
+        };
+      });
 
     return NextResponse.json({
       markets,
       vaultAllocations,
-      availableMarkets: allMarkets.map(mapMarket),
+      availableMarkets,
     });
   } catch (err) {
     const { error, statusCode } = handleApiError(err, 'Failed to fetch markets data');

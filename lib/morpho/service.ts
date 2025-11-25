@@ -26,7 +26,8 @@ function applyBenchmark(
 export async function getMorphoMarketRatings(
   options: RatingOptions = {}
 ): Promise<MorphoMarketMetrics[]> {
-  const { limit = 500, marketId, configOverride, benchmarkRates } = options;
+  // Default to fetching all markets (up to GRAPHQL_FIRST_LIMIT) to ensure we get ratings for all
+  const { limit = 1000, marketId, configOverride, benchmarkRates } = options;
   const config = mergeConfig(configOverride);
   const rawMarkets = await fetchMorphoMarkets(limit, config);
 

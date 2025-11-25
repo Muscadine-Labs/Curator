@@ -46,22 +46,37 @@ export default function VaultsPage() {
   const mergedMarkets = useMemo(() => {
     if (!supplied.data?.markets || !morpho.data?.markets) return [];
 
-    // Create map using both id and uniqueKey for matching
+    // Create map using uniqueKey for matching (primary) and id as fallback
+    const morphoByUniqueKey = new Map<string, MorphoMarketMetrics>();
     const morphoById = new Map<string, MorphoMarketMetrics>();
+    
     morpho.data.markets.forEach((m) => {
-      morphoById.set(m.id, m);
-      // Also add by uniqueKey if available in raw data
+      // Primary: match by uniqueKey from raw Market object
       if (m.raw?.uniqueKey) {
-        morphoById.set(m.raw.uniqueKey, m);
+        morphoByUniqueKey.set(m.raw.uniqueKey, m);
+      }
+      // Also match by id as fallback
+      morphoById.set(m.id, m);
+      // Also try matching by raw.id if different
+      if (m.raw?.id && m.raw.id !== m.id) {
+        morphoById.set(m.raw.id, m);
       }
     });
 
     return supplied.data.markets.map((market) => {
-      const morphoData = morphoById.get(market.uniqueKey);
+      // Try to match by uniqueKey first (most reliable)
+      let morphoData = morphoByUniqueKey.get(market.uniqueKey);
+      
+      // Fallback: try matching by id if uniqueKey didn't match
+      if (!morphoData && market.uniqueKey) {
+        // Sometimes uniqueKey might be stored as id in morpho data
+        morphoData = morphoById.get(market.uniqueKey);
+      }
+      
       return {
         ...market,
-        rating: morphoData?.rating,
-        morphoMetrics: morphoData,
+        rating: morphoData?.rating ?? null,
+        morphoMetrics: morphoData ?? undefined,
       } as MergedMarket;
     });
   }, [supplied.data?.markets, morpho.data?.markets]);
