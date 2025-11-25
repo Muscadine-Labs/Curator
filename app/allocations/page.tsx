@@ -247,6 +247,25 @@ export default function AllocationsPage() {
         throw new Error('Vault configuration not found');
       }
 
+      // Determine vault asset decimals based on asset type
+      // Amounts must be in the vault's asset, not the market's loan asset
+      const getVaultAssetDecimals = (asset: string): number => {
+        switch (asset.toUpperCase()) {
+          case 'USDC':
+            return 6;
+          case 'WETH':
+          case 'ETH':
+            return 18;
+          case 'CBBTC':
+          case 'BTC':
+            return 8;
+          default:
+            return 18; // Default to 18 for unknown assets
+        }
+      };
+
+      const vaultAssetDecimals = getVaultAssetDecimals(vaultConfig.asset);
+
       // Resolve market addresses from uniqueKeys using the markets data
       // We need to fetch markets data if not already loaded
       if (!markets.data) {
@@ -254,9 +273,6 @@ export default function AllocationsPage() {
       }
 
       for (const alloc of calculatedAllocations) {
-        // Find market in markets data (if available)
-        const market = markets.data.markets.find(m => m.uniqueKey === alloc.marketKey);
-        
         // Use the uniqueKey from the allocation directly (it's the source of truth)
         // The marketKey in allocations IS the uniqueKey
         const uniqueKey = alloc.marketKey;
@@ -291,21 +307,15 @@ export default function AllocationsPage() {
           );
         }
 
-        // Get the vault's asset to determine decimals
-        // For Morpho Blue vaults, allocations are typically in the loan asset
-        // Use market data if available, otherwise default to 18 decimals
-        const tokenDecimals = market?.loanAsset?.decimals ?? 18;
+        // Convert USD amount to vault asset amount
+        // For stablecoins like USDC: 1 USD = 1 token, so $1000 = 1000 * 10^6 = 1,000,000,000 units
+        // For other assets, we assume 1 USD = 1 token (this may need price oracle for accuracy)
+        // IMPORTANT: Amounts must be in the vault's asset, not the market's loan asset
         const amountUsd = alloc.amountUsd;
-        
-        // Convert USD amount to token amount
-        // For stablecoins like USDC: 1 USD = 1e6 (6 decimals)
-        // For other tokens, we assume 1 USD = 1 token unit at the token's decimal precision
-        // Note: For accurate conversion, you may need to use price oracles
-        // This is a simplified conversion - adjust based on your needs
-        const amountInTokens = BigInt(Math.floor(amountUsd * Math.pow(10, tokenDecimals)));
+        const amountInVaultAsset = BigInt(Math.floor(amountUsd * Math.pow(10, vaultAssetDecimals)));
         
         marketAddresses.push(marketAddress);
-        amounts.push(amountInTokens);
+        amounts.push(amountInVaultAsset);
       }
       
       if (marketAddresses.length === 0) {
