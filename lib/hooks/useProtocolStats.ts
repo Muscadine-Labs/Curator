@@ -196,17 +196,15 @@ export const useFeesData = () => {
     queryFn: async () => {
       const response = await fetch('/api/dune/fees');
       if (!response.ok) {
-        // Fallback to mock data if Dune API fails
-        const fallbackResponse = await fetch('/api/mock/fees');
-        if (fallbackResponse.ok) {
-          return fallbackResponse.json();
-        }
-        throw new Error('Failed to fetch fees data');
+        // Don't fall back to mock data - return empty data structure instead
+        // This ensures we show real data or nothing, not hardcoded mock values
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to fetch fees data from Dune API');
       }
       return response.json();
     },
     staleTime: QUERY_STALE_TIME_MEDIUM,
     refetchInterval: QUERY_REFETCH_INTERVAL_MEDIUM,
-    retry: 1, // Retry once before falling back
+    retry: 1,
   });
 };

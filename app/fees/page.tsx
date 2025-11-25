@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-import { formatCompactUSD, formatDate } from '@/lib/format/number';
+import { formatCompactUSD, formatDate, formatBps } from '@/lib/format/number';
 import { WalletConnect } from '@/components/WalletConnect';
 
 export default function FeesPage() {
@@ -78,7 +78,13 @@ export default function FeesPage() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">
-                2.00%
+                {feesLoading ? (
+                  <Skeleton className="h-8 w-24" />
+                ) : feesData?.performanceFeeBps !== undefined ? (
+                  formatBps(feesData.performanceFeeBps)
+                ) : (
+                  '—'
+                )}
               </div>
               <p className="text-sm text-muted-foreground mt-1">
                 Applied to all Muscadine V1 vaults
