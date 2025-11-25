@@ -25,6 +25,8 @@ export interface RoleConfig {
   }[];
 }
 
+import { BASE_CHAIN_ID, BASE_CHAIN_NAME, DEFAULT_PERFORMANCE_FEE_BPS } from '@/lib/constants';
+
 export interface ProtocolConfig {
   chainId: number;
   chainName: string;
@@ -40,9 +42,9 @@ export const vaults: VaultConfig[] = [
     symbol: 'mUSDC',
     asset: 'USDC',
     address: process.env.NEXT_PUBLIC_VAULT_USDC || '0xf7e26Fa48A568b8b0038e104DfD8ABdf0f99074F',
-    chainId: 8453,
+    chainId: BASE_CHAIN_ID,
     scanUrl: 'https://basescan.org/address/0xf7e26Fa48A568b8b0038e104DfD8ABdf0f99074F',
-    performanceFeeBps: 200,
+    performanceFeeBps: DEFAULT_PERFORMANCE_FEE_BPS,
     status: 'active',
     riskTier: 'low',
     createdAt: '2024-01-15T00:00:00Z',
@@ -55,9 +57,9 @@ export const vaults: VaultConfig[] = [
     symbol: 'mcbBTC',
     asset: 'cbBTC',
     address: process.env.NEXT_PUBLIC_VAULT_CBBTC || '0xAeCc8113a7bD0CFAF7000EA7A31afFD4691ff3E9',
-    chainId: 8453,
+    chainId: BASE_CHAIN_ID,
     scanUrl: 'https://basescan.org/address/0xaecc8113a7bd0cfaf7000ea7a31affd4691ff3e9',
-    performanceFeeBps: 200,
+    performanceFeeBps: DEFAULT_PERFORMANCE_FEE_BPS,
     status: 'active',
     riskTier: 'medium',
     createdAt: '2024-02-01T00:00:00Z',
@@ -70,9 +72,9 @@ export const vaults: VaultConfig[] = [
     symbol: 'mWETH',
     asset: 'WETH',
     address: process.env.NEXT_PUBLIC_VAULT_WETH || '0x21e0d366272798da3A977FEBA699FCB91959d120',
-    chainId: 8453,
+    chainId: BASE_CHAIN_ID,
     scanUrl: 'https://basescan.org/address/0x21e0d366272798da3A977FEBA699FCB91959d120',
-    performanceFeeBps: 200,
+    performanceFeeBps: DEFAULT_PERFORMANCE_FEE_BPS,
     status: 'active',
     riskTier: 'medium',
     createdAt: '2024-02-15T00:00:00Z',
@@ -85,9 +87,9 @@ export const vaults: VaultConfig[] = [
     symbol: 'mUSDCv2',
     asset: 'USDC',
     address: process.env.NEXT_PUBLIC_VAULT_USDC_V2 || '0x89712980cb434ef5ae4ab29349419eb976b0b496',
-    chainId: 8453,
+    chainId: BASE_CHAIN_ID,
     scanUrl: 'https://basescan.org/address/0x89712980cb434ef5ae4ab29349419eb976b0b496',
-    performanceFeeBps: 200,
+    performanceFeeBps: DEFAULT_PERFORMANCE_FEE_BPS,
     status: 'active',
     riskTier: 'low',
     createdAt: '2024-11-01T00:00:00Z',
@@ -100,9 +102,9 @@ export const vaults: VaultConfig[] = [
     symbol: 'mWETHv2',
     asset: 'WETH',
     address: process.env.NEXT_PUBLIC_VAULT_WETH_V2 || '0xd6dcad2f7da91fbb27bda471540d9770c97a5a43',
-    chainId: 8453,
+    chainId: BASE_CHAIN_ID,
     scanUrl: 'https://basescan.org/address/0xd6dcad2f7da91fbb27bda471540d9770c97a5a43',
-    performanceFeeBps: 200,
+    performanceFeeBps: DEFAULT_PERFORMANCE_FEE_BPS,
     status: 'active',
     riskTier: 'medium',
     createdAt: '2024-11-01T00:00:00Z',
@@ -115,9 +117,9 @@ export const vaults: VaultConfig[] = [
     symbol: 'mcbBTCv2',
     asset: 'cbBTC',
     address: process.env.NEXT_PUBLIC_VAULT_CBBTC_V2 || '0x99dcd0d75822ba398f13b2a8852b07c7e137ec70',
-    chainId: 8453,
+    chainId: BASE_CHAIN_ID,
     scanUrl: 'https://basescan.org/address/0x99dcd0d75822ba398f13b2a8852b07c7e137ec70',
-    performanceFeeBps: 200,
+    performanceFeeBps: DEFAULT_PERFORMANCE_FEE_BPS,
     status: 'active',
     riskTier: 'medium',
     createdAt: '2024-11-01T00:00:00Z',
@@ -128,9 +130,9 @@ export const vaults: VaultConfig[] = [
 
 // Protocol configuration
 export const protocolConfig: ProtocolConfig = {
-  chainId: 8453,
-  chainName: 'Base',
-  defaultPerformanceFeeBps: parseInt(process.env.NEXT_PUBLIC_DEFAULT_PERF_FEE_BPS || '200'),
+  chainId: BASE_CHAIN_ID,
+  chainName: BASE_CHAIN_NAME,
+  defaultPerformanceFeeBps: parseInt(process.env.NEXT_PUBLIC_DEFAULT_PERF_FEE_BPS || String(DEFAULT_PERFORMANCE_FEE_BPS)),
   roles: {
     owner: process.env.NEXT_PUBLIC_ROLE_OWNER || '0x4E5D3ef790C75682ac4f6d4C1dDCc08b36fC100A',
     guardian: process.env.NEXT_PUBLIC_ROLE_GUARDIAN || '0x64e804eEF4F5a53272A8623b563ad2724E98A0a9',

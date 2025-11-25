@@ -1,6 +1,7 @@
 import { gql, request } from 'graphql-request';
 import { mergeConfig } from './config';
 import type { CuratorConfig, MorphoMarketRaw } from './types';
+import { BASE_CHAIN_ID } from '@/lib/constants';
 
 const MARKETS_QUERY = gql`
   query MorphoMarkets($first: Int!, $chainIds: [Int!]) {
@@ -33,7 +34,7 @@ const MARKETS_QUERY = gql`
 export async function fetchMorphoMarkets(
   limit = 200,
   config?: CuratorConfig,
-  chainIds: number[] = [8453] // Default to Base chain
+  chainIds: number[] = [BASE_CHAIN_ID] // Default to Base chain
 ): Promise<MorphoMarketRaw[]> {
   const effectiveConfig = config ?? mergeConfig();
 

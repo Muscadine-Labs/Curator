@@ -3,6 +3,7 @@
 import { QueryClient } from '@tanstack/react-query';
 import { createConfig, http } from 'wagmi';
 import { base } from 'viem/chains';
+import { QUERY_STALE_TIME_MEDIUM } from '@/lib/constants';
 
 // Create wagmi config
 const config = createConfig({
@@ -20,7 +21,7 @@ const config = createConfig({
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000, // 5 minutes
+      staleTime: QUERY_STALE_TIME_MEDIUM,
       refetchOnWindowFocus: false,
     },
   },

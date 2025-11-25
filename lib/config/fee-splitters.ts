@@ -1,5 +1,6 @@
 import { Address } from 'viem';
 import { vaults } from './vaults';
+import { FEE_SPLITTER_V1, FEE_SPLITTER_V2 } from '@/lib/constants';
 
 /**
  * Fee Splitter Configuration
@@ -13,11 +14,9 @@ export interface FeeSplitterConfig {
   vaultAddresses: Address[];
 }
 
-// V1 Fee Splitter (original)
-export const FEE_SPLITTER_V1: Address = '0x194DeC45D34040488f355823e1F94C0434304188' as Address;
-
-// V2 Fee Splitter (new contract for V1 and V2 vaults)
-export const FEE_SPLITTER_V2: Address = '0x3690Eb8735fE51c695d2f2Da289D1FA447137E24' as Address;
+// Fee Splitter addresses are now in lib/constants.ts
+// Re-export for backward compatibility
+export { FEE_SPLITTER_V1, FEE_SPLITTER_V2 };
 
 // V1 Vaults (USDC, cbBTC, WETH)
 const V1_VAULTS: Address[] = [

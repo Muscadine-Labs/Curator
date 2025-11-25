@@ -5,8 +5,16 @@ import {
   getLatestDuneQueryResults,
   type DuneQueryParams 
 } from '@/lib/dune/service';
-
-const MORPHO_GRAPHQL_ENDPOINT = 'https://api.morpho.org/graphql';
+import { 
+  MORPHO_GRAPHQL_ENDPOINT, 
+  BASE_CHAIN_ID, 
+  GRAPHQL_FIRST_LIMIT,
+  DAYS_30_MS,
+  DUNE_QUERY_IDS
+} from '@/lib/constants';
+import { fetchExternalApi } from '@/lib/utils/fetch-with-timeout';
+import { handleApiError } from '@/lib/utils/error-handler';
+import { createRateLimitMiddleware, RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS } from '@/lib/utils/rate-limit';
 
 type MorphoVaultItem = {
   address: string;
@@ -21,15 +29,32 @@ type MorphoPositionItem = {
   user: { address: string };
 };
 
-export async function GET() {
+export async function GET(request: Request) {
+  // Rate limiting
+  const rateLimitMiddleware = createRateLimitMiddleware(
+    RATE_LIMIT_REQUESTS_PER_MINUTE,
+    MINUTE_MS
+  );
+  const rateLimitResult = rateLimitMiddleware(request);
+  
+  if (!rateLimitResult.allowed) {
+    return NextResponse.json(
+      { error: 'Rate limit exceeded. Please try again later.' },
+      { 
+        status: 429,
+        headers: rateLimitResult.headers,
+      }
+    );
+  }
+
   try {
     const addresses = configuredVaults.map(v => v.address.toLowerCase());
 
     const query = `
       query FetchProtocolStats($addresses: [String!]) {
         vaults(
-          first: 1000
-          where: { address_in: $addresses, chainId_in: [8453] }
+          first: ${GRAPHQL_FIRST_LIMIT}
+          where: { address_in: $addresses, chainId_in: [${BASE_CHAIN_ID}] }
         ) {
           items {
             address
@@ -41,7 +66,7 @@ export async function GET() {
         }
 
         vaultPositions(
-          first: 1000
+          first: ${GRAPHQL_FIRST_LIMIT}
           where: { vaultAddress_in: $addresses }
         ) {
           items {
@@ -52,7 +77,7 @@ export async function GET() {
       }
     `;
 
-    const response = await fetch(MORPHO_GRAPHQL_ENDPOINT, {
+    const response = await fetchExternalApi(MORPHO_GRAPHQL_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query, variables: { addresses } }),
@@ -87,9 +112,9 @@ export async function GET() {
 
     // Minimal placeholder trends (current TVL as a flat series) to avoid mocks
     const now = new Date();
-    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const thirtyDaysAgo = new Date(now.getTime() - DAYS_30_MS);
     const tvlTrend = Array.from({ length: 30 }, (_, i) => {
-      const date = new Date(thirtyDaysAgo.getTime() + i * 24 * 60 * 60 * 1000);
+      const date = new Date(thirtyDaysAgo.getTime() + i * DAYS_30_MS / 30);
       return { date: date.toISOString(), value: totalDeposited };
     });
 
@@ -99,11 +124,11 @@ export async function GET() {
     
     try {
       if (process.env.DUNE_API_KEY) {
-        // Fetch fees data for all active vaults
+        // Fetch fees data for all active vaults in parallel
         const activeVaults = configuredVaults.filter(v => v.status === 'active');
-        const allRows: Array<Record<string, unknown>> = [];
         
-        for (const vault of activeVaults) {
+        // Parallelize Dune API calls
+        const dunePromises = activeVaults.map(async (vault) => {
           try {
             const vaultParamValue = `${vault.name} - base - ${vault.address}`;
             const params: DuneQueryParams = {
@@ -111,21 +136,23 @@ export async function GET() {
             };
             
             // Try to get latest results first
-            let duneResult = await getLatestDuneQueryResults(5930091, params);
+            let duneResult = await getLatestDuneQueryResults(DUNE_QUERY_IDS.SINGLE_VAULT_PERFORMANCE, params);
             
             // If no latest results, execute and wait
             if (!duneResult || duneResult.state !== 'QUERY_STATE_COMPLETED') {
-              duneResult = await executeDuneQueryAndWait(5930091, params);
+              duneResult = await executeDuneQueryAndWait(DUNE_QUERY_IDS.SINGLE_VAULT_PERFORMANCE, params);
             }
             
-            if (duneResult?.result?.rows) {
-              allRows.push(...duneResult.result.rows);
-            }
+            return duneResult?.result?.rows || [];
           } catch (error) {
             // Continue with other vaults if one fails
             console.error(`Error fetching Dune data for vault ${vault.address}:`, error);
+            return [];
           }
-        }
+        });
+        
+        const duneResults = await Promise.all(dunePromises);
+        const allRows: Array<Record<string, unknown>> = duneResults.flat();
         
         // Transform Dune results
         if (allRows.length > 0) {
@@ -174,9 +201,13 @@ export async function GET() {
       feesTrend,
     };
 
-    return NextResponse.json(stats);
+    const responseHeaders = new Headers(rateLimitResult.headers);
+    responseHeaders.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
+
+    return NextResponse.json(stats, { headers: responseHeaders });
   } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+    const { error, statusCode } = handleApiError(err, 'Failed to fetch protocol stats');
+    return NextResponse.json(error, { status: statusCode });
   }
 }
 

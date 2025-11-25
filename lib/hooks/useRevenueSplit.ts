@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { readFeeSplitterData, readPendingToken, readTotalReleased, readReleased } from '@/lib/onchain/contracts';
 import { Address } from 'viem';
 import { getFeeSplitterForVault, getAllFeeSplitters, FEE_SPLITTER_V1, FEE_SPLITTER_V2 } from '@/lib/config/fee-splitters';
+import { QUERY_STALE_TIME_MEDIUM, QUERY_STALE_TIME_SHORT, QUERY_REFETCH_INTERVAL_MEDIUM, QUERY_REFETCH_INTERVAL_SHORT } from '@/lib/constants';
 
 export interface RevenueSplitData {
   payee1: Address | null;
@@ -42,8 +43,8 @@ export const useRevenueSplit = (splitterAddress?: Address, vaultAddress?: Addres
       return readFeeSplitterData(address);
     },
     enabled: true,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    refetchInterval: 5 * 60 * 1000, // Refetch every 5 minutes
+    staleTime: QUERY_STALE_TIME_MEDIUM,
+    refetchInterval: QUERY_REFETCH_INTERVAL_MEDIUM,
   });
 };
 
@@ -123,8 +124,8 @@ export const usePendingToken = (
       };
     },
     enabled: !!tokenAddress,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    refetchInterval: 2 * 60 * 1000, // Refetch every 2 minutes
+    staleTime: QUERY_STALE_TIME_SHORT,
+    refetchInterval: QUERY_REFETCH_INTERVAL_SHORT,
   });
 };
 

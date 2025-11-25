@@ -1,4 +1,5 @@
 import type { CuratorConfig, CuratorWeights } from './types';
+import { MORPHO_GRAPHQL_ENDPOINT } from '@/lib/constants';
 
 export type CuratorConfigOverrides = Partial<Omit<CuratorConfig, 'weights'>> & {
   weights?: Partial<CuratorWeights>;
@@ -13,7 +14,7 @@ const DEFAULT_WEIGHTS: CuratorWeights = {
 };
 
 export const DEFAULT_CURATOR_CONFIG: CuratorConfig = {
-  morphoApiUrl: 'https://api.morpho.org/graphql',
+  morphoApiUrl: MORPHO_GRAPHQL_ENDPOINT,
   utilizationCeiling: 0.9,
   utilizationBufferHours: 48,
   rateAlignmentEps: 0.02,

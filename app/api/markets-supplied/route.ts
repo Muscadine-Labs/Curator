@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { vaults as configuredVaults } from '@/lib/config/vaults';
-
-const MORPHO_GRAPHQL_ENDPOINT = 'https://api.morpho.org/graphql';
+import { MORPHO_GRAPHQL_ENDPOINT, BASE_CHAIN_ID, GRAPHQL_FIRST_LIMIT } from '@/lib/constants';
+import { fetchExternalApi } from '@/lib/utils/fetch-with-timeout';
+import { handleApiError } from '@/lib/utils/error-handler';
+import { createRateLimitMiddleware, RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS } from '@/lib/utils/rate-limit';
 
 type VaultAlloc = {
   address: string;
@@ -34,7 +36,24 @@ type MarketItem = {
   };
 };
 
-export async function GET() {
+export async function GET(request: Request) {
+  // Rate limiting
+  const rateLimitMiddleware = createRateLimitMiddleware(
+    RATE_LIMIT_REQUESTS_PER_MINUTE,
+    MINUTE_MS
+  );
+  const rateLimitResult = rateLimitMiddleware(request);
+  
+  if (!rateLimitResult.allowed) {
+    return NextResponse.json(
+      { error: 'Rate limit exceeded. Please try again later.' },
+      { 
+        status: 429,
+        headers: rateLimitResult.headers,
+      }
+    );
+  }
+
   try {
     const vaultAddresses = configuredVaults.map(v => v.address.toLowerCase());
     const configByAddress = new Map(
@@ -44,7 +63,7 @@ export async function GET() {
     // 1) Fetch vault allocations to discover markets we supply to
     const vaultsQuery = `
       query VaultAllocations($addresses: [String!]) {
-        vaults(first: 1000, where: { address_in: $addresses, chainId_in: [8453] }) {
+        vaults(first: ${GRAPHQL_FIRST_LIMIT}, where: { address_in: $addresses, chainId_in: [${BASE_CHAIN_ID}] }) {
           items {
             address
             state {
@@ -58,17 +77,17 @@ export async function GET() {
       }
     `;
 
-    const vResp = await fetch(MORPHO_GRAPHQL_ENDPOINT, {
+    const vResp = await fetchExternalApi(MORPHO_GRAPHQL_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query: vaultsQuery, variables: { addresses: vaultAddresses } }),
     });
     if (!vResp.ok) {
       const text = await vResp.text();
-      return NextResponse.json({ error: `Morpho API error: ${text}` }, { status: 502 });
+      throw new Error(`Morpho API error: ${text}`);
     }
     const vJson = await vResp.json();
-    if (vJson.errors) return NextResponse.json({ error: vJson.errors }, { status: 502 });
+    if (vJson.errors) throw new Error(JSON.stringify(vJson.errors));
 
     const vaultItems: VaultAlloc[] = vJson?.data?.vaults?.items ?? [];
     const vaultAllocations = vaultItems.map((v) => {
@@ -103,7 +122,7 @@ export async function GET() {
     // 2) Fetch market details for these markets
     const marketsQuery = `
       query Markets($chainIds: [Int!]) {
-        markets(first: 1000, where: { chainId_in: $chainIds }) {
+        markets(first: ${GRAPHQL_FIRST_LIMIT}, where: { chainId_in: $chainIds }) {
           items {
             uniqueKey
             lltv
@@ -128,17 +147,17 @@ export async function GET() {
       }
     `;
 
-    const mResp = await fetch(MORPHO_GRAPHQL_ENDPOINT, {
+    const mResp = await fetchExternalApi(MORPHO_GRAPHQL_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: marketsQuery, variables: { chainIds: [8453] } }),
+      body: JSON.stringify({ query: marketsQuery, variables: { chainIds: [BASE_CHAIN_ID] } }),
     });
     if (!mResp.ok) {
       const text = await mResp.text();
-      return NextResponse.json({ error: `Morpho API error: ${text}` }, { status: 502 });
+      throw new Error(`Morpho API error: ${text}`);
     }
     const mJson = await mResp.json();
-    if (mJson.errors) return NextResponse.json({ error: mJson.errors }, { status: 502 });
+    if (mJson.errors) throw new Error(JSON.stringify(mJson.errors));
 
     const allMarkets: MarketItem[] = mJson?.data?.markets?.items ?? [];
     const marketsByKey: Record<string, MarketItem> = {};
@@ -197,7 +216,8 @@ export async function GET() {
       })),
     });
   } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+    const { error, statusCode } = handleApiError(err, 'Failed to fetch markets data');
+    return NextResponse.json(error, { status: statusCode });
   }
 }
 

@@ -1,24 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getVaultByAddress, getVaultById } from '@/lib/config/vaults';
-
-const MORPHO_GRAPHQL_ENDPOINT = 'https://api.morpho.org/graphql';
+import { MORPHO_GRAPHQL_ENDPOINT, GRAPHQL_FIRST_LIMIT, GRAPHQL_TRANSACTIONS_LIMIT, getDaysAgoTimestamp } from '@/lib/constants';
+import { fetchExternalApi } from '@/lib/utils/fetch-with-timeout';
+import { handleApiError, AppError } from '@/lib/utils/error-handler';
+import { createRateLimitMiddleware, RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS } from '@/lib/utils/rate-limit';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Rate limiting
+  const rateLimitMiddleware = createRateLimitMiddleware(
+    RATE_LIMIT_REQUESTS_PER_MINUTE,
+    MINUTE_MS
+  );
+  const rateLimitResult = rateLimitMiddleware(request);
+  
+  if (!rateLimitResult.allowed) {
+    return NextResponse.json(
+      { error: 'Rate limit exceeded. Please try again later.' },
+      { 
+        status: 429,
+        headers: rateLimitResult.headers,
+      }
+    );
+  }
+
   try {
     const { id } = await params;
     const cfg = getVaultById(id) ?? getVaultByAddress(id);
     if (!cfg) {
-      return NextResponse.json({ error: 'Vault not found' }, { status: 404 });
+      throw new AppError('Vault not found', 404, 'VAULT_NOT_FOUND');
     }
 
     const variables = {
       address: cfg.address,
       chainId: cfg.chainId,
       options: {
-        startTimestamp: Math.floor(Date.now() / 1000) - 30 * 24 * 60 * 60, // 30 days ago
+        startTimestamp: getDaysAgoTimestamp(30),
         endTimestamp: Math.floor(Date.now() / 1000),
         interval: 'DAY'
       }
@@ -115,11 +134,11 @@ export async function GET(
           }
         }
         positions: vaultPositions(
-          first: 1000,
+          first: ${GRAPHQL_FIRST_LIMIT},
           where: { vaultAddress_in: [$address] }
         ) { items { user { address } } }
         txs: transactions(
-          first: 10,
+          first: ${GRAPHQL_TRANSACTIONS_LIMIT},
           orderBy: Timestamp,
           orderDirection: Desc,
           where: { vaultAddress_in: [$address] }
@@ -129,7 +148,7 @@ export async function GET(
       }
     `;
 
-    const resp = await fetch(MORPHO_GRAPHQL_ENDPOINT, {
+    const resp = await fetchExternalApi(MORPHO_GRAPHQL_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query, variables }),
@@ -246,9 +265,13 @@ export async function GET(
       },
     };
 
-    return NextResponse.json(result);
+    const responseHeaders = new Headers(rateLimitResult.headers);
+    responseHeaders.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
+
+    return NextResponse.json(result, { headers: responseHeaders });
   } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+    const { error, statusCode } = handleApiError(err, 'Failed to fetch vault details');
+    return NextResponse.json(error, { status: statusCode });
   }
 }
 

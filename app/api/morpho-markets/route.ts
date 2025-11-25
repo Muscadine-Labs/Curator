@@ -1,10 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getMorphoMarketRatings } from '@/lib/morpho/service';
 import type { CuratorConfigOverrides } from '@/lib/morpho/config';
+import { GRAPHQL_FIRST_LIMIT } from '@/lib/constants';
+import { handleApiError, AppError } from '@/lib/utils/error-handler';
+import { createRateLimitMiddleware, RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS } from '@/lib/utils/rate-limit';
 
 export const revalidate = 300;
 
 export async function GET(request: NextRequest) {
+  // Rate limiting
+  const rateLimitMiddleware = createRateLimitMiddleware(
+    RATE_LIMIT_REQUESTS_PER_MINUTE,
+    MINUTE_MS
+  );
+  const rateLimitResult = rateLimitMiddleware(request);
+  
+  if (!rateLimitResult.allowed) {
+    return NextResponse.json(
+      { error: 'Rate limit exceeded. Please try again later.' },
+      { 
+        status: 429,
+        headers: rateLimitResult.headers,
+      }
+    );
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const limitParam = searchParams.get('limit');
@@ -14,12 +34,9 @@ export async function GET(request: NextRequest) {
     if (limitParam !== null) {
       const parsed = Number(limitParam);
       if (!Number.isFinite(parsed) || parsed <= 0) {
-        return NextResponse.json(
-          { error: 'Invalid limit parameter' },
-          { status: 400 }
-        );
+        throw new AppError('Invalid limit parameter', 400, 'INVALID_LIMIT');
       }
-      limit = Math.min(parsed, 1000);
+      limit = Math.min(parsed, GRAPHQL_FIRST_LIMIT);
     }
 
     const overrides = parseConfigOverrides(searchParams);
@@ -31,18 +48,19 @@ export async function GET(request: NextRequest) {
     });
 
     if (marketId && markets.length === 0) {
-      return NextResponse.json({ error: 'Market not found' }, { status: 404 });
+      throw new AppError('Market not found', 404, 'MARKET_NOT_FOUND');
     }
+
+    const responseHeaders = new Headers(rateLimitResult.headers);
+    responseHeaders.set('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
 
     return NextResponse.json({
       timestamp: new Date().toISOString(),
       markets,
-    });
+    }, { headers: responseHeaders });
   } catch (error) {
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 502 }
-    );
+    const { error: apiError, statusCode } = handleApiError(error, 'Failed to fetch market ratings');
+    return NextResponse.json(apiError, { status: statusCode });
   }
 }
 

@@ -6,6 +6,9 @@ import {
   type DuneRow
 } from '@/lib/dune/service';
 import { vaults } from '@/lib/config/vaults';
+import { DUNE_QUERY_IDS, DEFAULT_PERFORMANCE_FEE_BPS } from '@/lib/constants';
+import { handleApiError } from '@/lib/utils/error-handler';
+import { createRateLimitMiddleware, RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS } from '@/lib/utils/rate-limit';
 
 interface FeeHistoryItem {
   date: string;
@@ -19,15 +22,7 @@ interface FeesTrendItem {
   value: number;
 }
 
-/**
- * Dune Query IDs for fee analytics
- * These correspond to the queries on Dune Analytics
- */
-const DUNE_QUERY_IDS = {
-  // Single vault performance query (from the provided Dune link)
-  SINGLE_VAULT_PERFORMANCE: 5930091,
-  // Add more query IDs as needed
-} as const;
+// Dune Query IDs are now in lib/constants.ts
 
 /**
  * Transform Dune query results to our fee data format
@@ -105,15 +100,13 @@ function transformDuneResultsToFeeData(duneResults: { result?: { rows?: DuneRow[
  * Fetch fees data for all vaults or a specific vault
  */
 async function fetchFeesForVaults(vaultAddresses?: string[]) {
-  const results: DuneRow[] = [];
-
   // If no specific vaults, fetch for all active vaults
   const targetVaults = vaultAddresses 
     ? vaults.filter(v => vaultAddresses.includes(v.address.toLowerCase()))
     : vaults.filter(v => v.status === 'active');
 
-  // Fetch data for each vault
-  for (const vault of targetVaults) {
+  // Parallelize Dune API calls for better performance
+  const dunePromises = targetVaults.map(async (vault) => {
     try {
       // Build query parameters based on vault
       // Dune queries use specific parameter names - try the most common one first
@@ -137,19 +130,38 @@ async function fetchFeesForVaults(vaultAddresses?: string[]) {
         );
       }
 
-      if (duneResult?.result?.rows) {
-        results.push(...duneResult.result.rows);
-      }
+      return duneResult?.result?.rows || [];
     } catch (error) {
       console.error(`Error fetching Dune data for vault ${vault.address}:`, error);
       // Continue with other vaults even if one fails
+      return [];
     }
-  }
+  });
 
-  return transformDuneResultsToFeeData({ result: { rows: results } });
+  const results = await Promise.all(dunePromises);
+  const allRows: DuneRow[] = results.flat();
+
+  return transformDuneResultsToFeeData({ result: { rows: allRows } });
 }
 
 export async function GET(request: Request) {
+  // Rate limiting
+  const rateLimitMiddleware = createRateLimitMiddleware(
+    RATE_LIMIT_REQUESTS_PER_MINUTE,
+    MINUTE_MS
+  );
+  const rateLimitResult = rateLimitMiddleware(request);
+  
+  if (!rateLimitResult.allowed) {
+    return NextResponse.json(
+      { error: 'Rate limit exceeded. Please try again later.' },
+      { 
+        status: 429,
+        headers: rateLimitResult.headers,
+      }
+    );
+  }
+
   try {
     // Check if Dune API key is configured
     if (!process.env.DUNE_API_KEY) {
@@ -170,22 +182,19 @@ export async function GET(request: Request) {
     // Fetch fees data
     const feesData = await fetchFeesForVaults(vaultAddresses);
 
-    // Add performance fee rate (2% = 200 bps)
+    // Add performance fee rate
     const feesDataWithMetadata = {
       ...feesData,
-      performanceFeeBps: 200, // 2%
+      performanceFeeBps: DEFAULT_PERFORMANCE_FEE_BPS,
     };
 
-    return NextResponse.json(feesDataWithMetadata);
+    const responseHeaders = new Headers(rateLimitResult.headers);
+    responseHeaders.set('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+
+    return NextResponse.json(feesDataWithMetadata, { headers: responseHeaders });
   } catch (error) {
-    console.error('Error fetching Dune fees data:', error);
-    return NextResponse.json(
-      { 
-        error: 'Failed to fetch fees data from Dune',
-        message: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    );
+    const { error: apiError, statusCode } = handleApiError(error, 'Failed to fetch fees data from Dune');
+    return NextResponse.json(apiError, { status: statusCode });
   }
 }
 

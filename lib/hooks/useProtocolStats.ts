@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { QUERY_STALE_TIME_MEDIUM, QUERY_STALE_TIME_SHORT, QUERY_REFETCH_INTERVAL_MEDIUM, QUERY_REFETCH_INTERVAL_SHORT } from '@/lib/constants';
 
 export interface ProtocolStats {
   totalDeposited: number;
@@ -143,8 +144,8 @@ export const useProtocolStats = () => {
       if (!response.ok) throw new Error('Failed to fetch protocol stats');
       return response.json();
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    refetchInterval: 5 * 60 * 1000, // Refetch every 5 minutes
+    staleTime: QUERY_STALE_TIME_MEDIUM,
+    refetchInterval: QUERY_REFETCH_INTERVAL_MEDIUM,
   });
 };
 
@@ -168,8 +169,8 @@ export const useVaultList = (filters?: {
       if (!response.ok) throw new Error('Failed to fetch vaults');
       return response.json();
     },
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    refetchInterval: 2 * 60 * 1000, // Refetch every 2 minutes
+    staleTime: QUERY_STALE_TIME_SHORT,
+    refetchInterval: QUERY_REFETCH_INTERVAL_SHORT,
   });
 };
 
@@ -183,8 +184,8 @@ export const useVault = (id: string) => {
       return response.json();
     },
     enabled: !!id,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    refetchInterval: 2 * 60 * 1000, // Refetch every 2 minutes
+    staleTime: QUERY_STALE_TIME_SHORT,
+    refetchInterval: QUERY_REFETCH_INTERVAL_SHORT,
   });
 };
 
@@ -204,8 +205,8 @@ export const useFeesData = () => {
       }
       return response.json();
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    refetchInterval: 5 * 60 * 1000, // Refetch every 5 minutes
+    staleTime: QUERY_STALE_TIME_MEDIUM,
+    refetchInterval: QUERY_REFETCH_INTERVAL_MEDIUM,
     retry: 1, // Retry once before falling back
   });
 };

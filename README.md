@@ -5,12 +5,16 @@ Modern Next.js dashboard for Muscadine vaults on Morpho. Live data is sourced fr
 ## Features
 
 - **Protocol Overview**: KPI dashboard with TVL, total interest generated, and user metrics
-- **Vaults Explorer**: Comprehensive view of all 3 Muscadine vaults with their market allocations and curator risk ratings (0-100)
+- **Vaults Explorer**: Comprehensive view of all 6 Muscadine vaults (3 V1 + 3 V2 Prime) with their market allocations and curator risk ratings (0-100)
 - **Vault Details**: Individual vault pages with performance charts and role information
 - **Allocation Console**: Interactive allocator workflow to record liquidity allocation and deallocation intents across Morpho markets
-- **Fee Splitter**: Integration with immutable ERC20FeeSplitter contract for fee claims
+- **Fee Splitter**: Integration with multiple ERC20FeeSplitter contracts (V1 and V2) for fee claims
 - **Wallet Integration**: Coinbase OnchainKit + wagmi + viem for Base network
 - **On-chain Data**: Real-time data from Base chain via Alchemy and Morpho GraphQL API
+- **Dune Analytics**: Real-time and historical fee data integration
+- **Rate Limiting**: Built-in API rate limiting for production use
+- **Error Handling**: Comprehensive error boundaries and standardized error responses
+- **Input Sanitization**: All user inputs are validated and sanitized
 
 ## Tech Stack
 
@@ -54,12 +58,33 @@ The application now integrates with Dune Analytics to fetch real-time fee data a
 
 ### Query Configuration
 
-The Dune integration uses query ID `5930091` by default (from the provided Dune links). To use different queries:
+The Dune integration uses query ID `5930091` by default (from the provided Dune links). Query IDs are configured in `/lib/constants.ts` under `DUNE_QUERY_IDS`. To use different queries:
 
-1. Update `DUNE_QUERY_IDS` in `/app/api/dune/fees/route.ts`
+1. Update `DUNE_QUERY_IDS` in `/lib/constants.ts`
 2. Adjust the parameter mapping in the `transformDuneResultsToFeeData` function to match your query's column names
 
-## Recent Optimizations (Nov 2024)
+## Recent Improvements (Dec 2024)
+
+### Security & Performance Enhancements
+1. **Rate Limiting**: All API routes now have rate limiting (60 requests/minute) to prevent abuse
+2. **Input Sanitization**: All user inputs are validated and sanitized to prevent injection attacks
+3. **Request Timeouts**: External API calls (Morpho, Dune) have configurable timeouts (30-60s)
+4. **Error Handling**: Standardized error handling across all API routes with proper status codes
+5. **Environment Validation**: Automatic validation of required environment variables on startup
+
+### Code Quality Improvements
+1. **Constants Extraction**: All magic numbers (chain IDs, timeouts, limits) moved to `/lib/constants.ts`
+2. **Parallel API Calls**: Dune API calls are now parallelized for better performance
+3. **Improved ErrorBoundary**: Enhanced error boundary with detailed error information in development
+4. **Logging Service**: Centralized logging utility (ready for production logging service integration)
+5. **Type Safety**: Improved TypeScript types throughout the codebase
+
+### Infrastructure
+1. **Allocation Intents Storage**: Documented in-memory storage limitation (ready for database migration)
+2. **Cache Headers**: Added appropriate cache headers to API responses
+3. **Code Organization**: Extracted large functions and improved code structure
+
+## Previous Optimizations (Nov 2024)
 
 ### Critical Fixes
 1. **🔴 Fixed Morpho Markets Query** - Added `chainId_in: [8453]` filter to prevent pulling markets from other chains (Ethereum, etc.). Previously, the query was fetching ALL chains which caused incorrect data display.
@@ -80,6 +105,7 @@ The Dune integration uses query ID `5930091` by default (from the provided Dune 
 - **Removed legacy code**: Deleted old `/markets-supplied` page and 4 mock API routes
 - Cleaned up unused components and legacy code
 - Reduced route count from 16 to 12 (25% reduction)
+- Parallelized Dune API calls for faster fee data fetching
 
 ### UI/UX Enhancements
 - Consistent button styling across all pages (Fee Splitter matches other buttons)
@@ -102,15 +128,19 @@ The Dune integration uses query ID `5930091` by default (from the provided Dune 
    cp .env.example .env.local
    ```
 
+   **Note**: The `.env.example` file is blocked by gitignore. See the file structure below for required variables, or check the environment variable validation in `/lib/config/env.ts`.
+
    Required environment variables:
-   - Server: `ALCHEMY_API_KEY`
-   - Client: `NEXT_PUBLIC_ALCHEMY_API_KEY`, `NEXT_PUBLIC_ONCHAINKIT_API_KEY`
+   - Server: `ALCHEMY_API_KEY` (required)
+   - Client: `NEXT_PUBLIC_ALCHEMY_API_KEY` (required), `NEXT_PUBLIC_ONCHAINKIT_API_KEY` (optional)
    - Addresses:
      - V1: `NEXT_PUBLIC_VAULT_USDC`, `NEXT_PUBLIC_VAULT_CBBTC`, `NEXT_PUBLIC_VAULT_WETH`
      - V2 Prime: `NEXT_PUBLIC_VAULT_USDC_V2`, `NEXT_PUBLIC_VAULT_WETH_V2`, `NEXT_PUBLIC_VAULT_CBBTC_V2`
      - Fee splitter: `NEXT_PUBLIC_FEE_SPLITTER`
    - Optional: `NEXT_PUBLIC_DEFAULT_PERF_FEE_BPS`, `NEXT_PUBLIC_ROLE_OWNER`, `NEXT_PUBLIC_ROLE_GUARDIAN`, `NEXT_PUBLIC_ROLE_CURATOR`, `NEXT_PUBLIC_ALLOCATOR_HOT`, `NEXT_PUBLIC_ALLOCATOR_IGNAS`
    - Analytics: `DUNE_API_KEY` (optional, for Dune Analytics fee data integration)
+
+   Environment variables are automatically validated on startup in development mode.
 
 3. **Run development server**:
    ```bash
@@ -156,7 +186,7 @@ References:
 /api/vaults/[id]         # Live vault detail (Morpho GraphQL)
 /api/protocol-stats      # Protocol aggregates (Morpho GraphQL)
 /api/morpho-markets      # Morpho risk ratings (0-100 scale)
-  /api/allocations/intents # Mock endpoint for recording allocation intents
+  /api/allocations/intents # Endpoint for recording allocation intents (in-memory storage, see notes below)
   /layout.tsx              # Root layout
   /providers.tsx           # App providers
 
@@ -172,12 +202,24 @@ References:
   SplitterPanel.tsx        # Fee splitter panel
 
 /lib
-  /config/vaults.ts        # Vault configurations
-  /onchain/client.ts       # Viem client setup
-  /onchain/contracts.ts    # Contract readers
+  /config/
+    vaults.ts              # Vault configurations
+    fee-splitters.ts       # Fee splitter contract mappings
+    env.ts                 # Environment variable validation
+  /constants.ts            # Application constants (chain IDs, timeouts, etc.)
+  /utils/
+    rate-limit.ts          # Rate limiting utilities
+    error-handler.ts       # Standardized error handling
+    sanitize.ts            # Input sanitization utilities
+    fetch-with-timeout.ts  # Fetch with timeout wrapper
+    logger.ts              # Logging service
+  /onchain/
+    client.ts              # Viem client setup
+    contracts.ts           # Contract readers
   /hooks/                  # React Query hooks
   /format/number.ts        # Number formatting utilities
   /wallet/config.ts        # Wallet configuration
+  /dune/service.ts         # Dune Analytics API service
 ```
 
 ## Deployment
@@ -196,6 +238,9 @@ Production checklist:
 - UI tolerates missing fields and renders N/A gracefully
 - All components are responsive and accessible
 - Charts load with skeleton states for better UX
+- **Allocation Intents**: Currently stored in-memory (data lost on server restart). For production, migrate to a database (PostgreSQL, Supabase, etc.)
+- **Rate Limiting**: In-memory rate limiting is used. For production at scale, consider using a distributed rate limiting service (e.g., Upstash)
+- **Logging**: Development logging goes to console. For production, integrate with a logging service (Winston, Pino, Sentry, etc.)
 
 ## Contract Integration
 

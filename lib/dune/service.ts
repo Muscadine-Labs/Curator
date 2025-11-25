@@ -5,7 +5,8 @@
  * Documentation: https://docs.dune.com/api-reference
  */
 
-const DUNE_API_BASE = 'https://api.dune.com/api/v1';
+import { DUNE_API_BASE, DUNE_MAX_WAIT_TIME_MS, DUNE_POLL_INTERVAL_MS } from '@/lib/constants';
+import { fetchExternalApi } from '@/lib/utils/fetch-with-timeout';
 
 export interface DuneQueryResult {
   execution_id: string;
@@ -63,7 +64,7 @@ export async function executeDuneQuery(
     body.query_parameters = parameters;
   }
 
-  const response = await fetch(url, {
+  const response = await fetchExternalApi(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -91,7 +92,7 @@ export async function getDuneQueryResults(executionId: string): Promise<DuneExec
 
   const url = `${DUNE_API_BASE}/execution/${executionId}/results`;
   
-  const response = await fetch(url, {
+  const response = await fetchExternalApi(url, {
     method: 'GET',
     headers: {
       'X-Dune-API-Key': apiKey,
@@ -112,8 +113,8 @@ export async function getDuneQueryResults(executionId: string): Promise<DuneExec
 export async function executeDuneQueryAndWait(
   queryId: number,
   parameters?: DuneQueryParams,
-  maxWaitTime = 60000, // 60 seconds
-  pollInterval = 2000 // 2 seconds
+  maxWaitTime = DUNE_MAX_WAIT_TIME_MS,
+  pollInterval = DUNE_POLL_INTERVAL_MS
 ): Promise<DuneExecutionResult> {
   // Execute the query
   const execution = await executeDuneQuery(queryId, parameters);
@@ -167,7 +168,7 @@ export async function getLatestDuneQueryResults(
       ? `${url}?${searchParams.toString()}`
       : url;
 
-    const response = await fetch(fullUrl, {
+    const response = await fetchExternalApi(fullUrl, {
       method: 'GET',
       headers: {
         'X-Dune-API-Key': apiKey,
