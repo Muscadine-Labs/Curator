@@ -92,7 +92,7 @@ function transformDuneResultsToFeeData(duneResults: { result?: { rows?: DuneRow[
       date,
       value: value as number,
     }))
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    .sort((a: FeesTrendItem, b: FeesTrendItem) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   return {
     totalFeesGenerated,

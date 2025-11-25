@@ -10,8 +10,7 @@ import { Address } from 'viem';
 function SplitterCard({ 
   splitterAddress
 }: { 
-  splitterAddress: Address; 
-  name: string;
+  splitterAddress: Address;
 }) {
   const { data: revenueSplit, isLoading, error } = useRevenueSplit(splitterAddress);
 
@@ -122,8 +121,7 @@ export function SplitterPanel() {
         </CardHeader>
         <CardContent>
           <SplitterCard 
-            splitterAddress={allSplitters[0].address} 
-            name={allSplitters[0].name}
+            splitterAddress={allSplitters[0].address}
           />
         </CardContent>
       </Card>
@@ -148,8 +146,7 @@ export function SplitterPanel() {
           {allSplitters.map((splitter) => (
             <TabsContent key={splitter.address} value={splitter.address}>
               <SplitterCard 
-                splitterAddress={splitter.address} 
-                name={splitter.name}
+                splitterAddress={splitter.address}
               />
             </TabsContent>
           ))}
