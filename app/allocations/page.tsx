@@ -194,7 +194,11 @@ export default function AllocationsPage() {
       allocations: Array<{ marketKey: string; sharePct: number }>;
     }) => {
       if (!walletAddress) {
-        throw new Error('Wallet address is required');
+        throw new Error('Wallet address is required. Please connect your wallet.');
+      }
+
+      if (!isConnected) {
+        throw new Error('Wallet is not connected. Please connect your wallet and try again.');
       }
 
       // Check if we're on the correct chain
@@ -203,8 +207,10 @@ export default function AllocationsPage() {
           await switchChain({ chainId: base.id });
           // Wait a bit for chain switch
           await new Promise((resolve) => setTimeout(resolve, 1000));
-        } catch {
-          throw new Error('Please switch to Base network in your wallet');
+        } catch (switchError: unknown) {
+          const err = switchError as { shortMessage?: string; message?: string };
+          const errorMsg = err.shortMessage || err.message || 'Failed to switch chain';
+          throw new Error(`Please switch to Base network in your wallet: ${errorMsg}`);
         }
       }
 
@@ -250,10 +256,26 @@ export default function AllocationsPage() {
       for (const alloc of calculatedAllocations) {
         const market = markets.data.markets.find(m => m.uniqueKey === alloc.marketKey);
         
-        if (!market || !market.id) {
+        if (!market) {
+          throw new Error(
+            `Market not found for uniqueKey: ${alloc.marketKey}. ` +
+            'Please ensure the market is allocated and exists in the markets data.'
+          );
+        }
+
+        if (!market.id) {
           throw new Error(
             `Market address not found for ${alloc.marketKey}. ` +
-            'Please ensure the market is allocated and has an address.'
+            'The market exists but does not have a contract address. ' +
+            'Please ensure the market is properly configured and has an address.'
+          );
+        }
+
+        // Validate that market.id is a valid address format
+        if (!/^0x[a-fA-F0-9]{40}$/.test(market.id)) {
+          throw new Error(
+            `Invalid market address format for ${alloc.marketKey}: ${market.id}. ` +
+            'Expected a valid Ethereum address.'
           );
         }
 
@@ -277,34 +299,57 @@ export default function AllocationsPage() {
         throw new Error('No valid market addresses found for reallocation');
       }
 
+      if (marketAddresses.length !== amounts.length) {
+        throw new Error(`Mismatch: ${marketAddresses.length} market addresses but ${amounts.length} amounts`);
+      }
+
+      // Prepare transaction parameters
+      const txParams = {
+        address: vaultAddress,
+        abi: MORPHO_BLUE_VAULT_ALLOCATOR_ABI,
+        args: [marketAddresses, amounts] as const,
+        chainId: base.id,
+      };
+
       try {
         // Try reallocate function first
-        const hash = await writeContractAsync({
-          address: vaultAddress,
-          abi: MORPHO_BLUE_VAULT_ALLOCATOR_ABI,
-          functionName: 'reallocate',
-          args: [marketAddresses, amounts],
-          chainId: base.id,
+        console.log('Attempting reallocate transaction:', {
+          vaultAddress,
+          marketAddresses,
+          amounts: amounts.map(a => a.toString()),
         });
 
+        const hash = await writeContractAsync({
+          ...txParams,
+          functionName: 'reallocate',
+        });
+
+        console.log('Transaction submitted:', hash);
         return { hash, allocations: calculatedAllocations };
       } catch (error: unknown) {
-        const err = error as { shortMessage?: string; message?: string };
+        const err = error as { shortMessage?: string; message?: string; cause?: unknown };
         const errorMessage = err.shortMessage || err.message || 'Transaction failed';
         
+        console.error('Reallocate transaction failed:', error);
+        
         // If reallocate doesn't exist, try updateAllocations
-        if (errorMessage.includes('function') || errorMessage.includes('not found') || errorMessage.includes('reallocate')) {
+        if (
+          errorMessage.includes('function') || 
+          errorMessage.includes('not found') || 
+          errorMessage.includes('reallocate') ||
+          errorMessage.includes('does not exist')
+        ) {
           try {
+            console.log('Trying updateAllocations as fallback...');
             const hash = await writeContractAsync({
-              address: vaultAddress,
-              abi: MORPHO_BLUE_VAULT_ALLOCATOR_ABI,
+              ...txParams,
               functionName: 'updateAllocations',
-              args: [marketAddresses, amounts],
-              chainId: base.id,
             });
+            console.log('UpdateAllocations transaction submitted:', hash);
             return { hash, allocations: calculatedAllocations };
           } catch (fallbackError: unknown) {
             const fallbackErr = fallbackError as { shortMessage?: string; message?: string };
+            console.error('UpdateAllocations also failed:', fallbackError);
             throw new Error(
               fallbackErr.shortMessage || fallbackErr.message || 
               'Failed to execute reallocation transaction. ' +
@@ -313,6 +358,12 @@ export default function AllocationsPage() {
             );
           }
         }
+        
+        // Re-throw user-friendly errors (like user rejection)
+        if (errorMessage.includes('User rejected') || errorMessage.includes('user rejected') || errorMessage.includes('denied')) {
+          throw new Error('Transaction was rejected. Please approve the transaction in your wallet to continue.');
+        }
+        
         throw new Error(errorMessage);
       }
     },

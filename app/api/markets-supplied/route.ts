@@ -107,6 +107,7 @@ export async function GET(request: Request) {
           }
         ) {
           items {
+            id
             uniqueKey
             lltv
             oracleAddress
