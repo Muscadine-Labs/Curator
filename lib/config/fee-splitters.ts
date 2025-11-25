@@ -55,6 +55,8 @@ export const feeSplitters: FeeSplitterConfig[] = [
 
 /**
  * Get the fee splitter address for a given vault address
+ * Uses hardcoded mapping (for backward compatibility with sync usage)
+ * For on-chain reading, use getFeeSplitterForVaultAsync instead
  */
 export function getFeeSplitterForVault(vaultAddress: Address): Address | null {
   const vaultAddrLower = vaultAddress.toLowerCase();
@@ -83,6 +85,34 @@ export function getFeeSplitterForVault(vaultAddress: Address): Address | null {
   }
   
   return null;
+}
+
+/**
+ * Async version that reads fee splitter from contract first, falls back to hardcoded mapping
+ * Use this when you can handle async operations (e.g., in API routes)
+ */
+export async function getFeeSplitterForVaultAsync(vaultAddress: Address): Promise<Address | null> {
+  const vaultAddrLower = vaultAddress.toLowerCase();
+  
+  // Check if it's a testing vault (no fee splitter)
+  if (vaultAddrLower === TESTING_VAULT.toLowerCase()) {
+    return null;
+  }
+  
+  // Try to read from contract first
+  try {
+    const { readVaultFeeSplitter } = await import('@/lib/onchain/contracts');
+    const onChainSplitter = await readVaultFeeSplitter(vaultAddress);
+    if (onChainSplitter) {
+      return onChainSplitter;
+    }
+  } catch (error) {
+    // If on-chain read fails, fall back to hardcoded mapping
+    console.warn(`Failed to read fee splitter from contract ${vaultAddress}, using hardcoded mapping:`, error);
+  }
+  
+  // Fallback to hardcoded mapping
+  return getFeeSplitterForVault(vaultAddress);
 }
 
 /**

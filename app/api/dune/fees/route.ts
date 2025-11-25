@@ -10,6 +10,8 @@ import { DUNE_QUERY_IDS, DEFAULT_PERFORMANCE_FEE_BPS } from '@/lib/constants';
 import { handleApiError } from '@/lib/utils/error-handler';
 import { createRateLimitMiddleware, RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS } from '@/lib/utils/rate-limit';
 import { logger } from '@/lib/utils/logger';
+import { readVaultData } from '@/lib/onchain/contracts';
+import { Address } from 'viem';
 
 interface FeeHistoryItem {
   date: string;
@@ -186,10 +188,44 @@ export async function GET(request: Request) {
     // Fetch fees data
     const feesData = await fetchFeesForVaults(vaultAddresses);
 
+    // Fetch performance fee rate from vault contracts
+    // Use average if multiple vaults, or single vault's fee
+    const targetVaults = vaultAddresses 
+      ? vaults.filter(v => vaultAddresses.includes(v.address.toLowerCase()))
+      : vaults.filter(v => v.status === 'active');
+
+    let performanceFeeBps = DEFAULT_PERFORMANCE_FEE_BPS;
+    if (targetVaults.length > 0) {
+      try {
+        // Fetch fees from all target vaults and use the first successful read
+        // If multiple vaults, we could average them, but for now use the first one
+        const feePromises = targetVaults.map(async (vault) => {
+          try {
+            const vaultData = await readVaultData(vault.address as Address);
+            return vaultData.performanceFeeBps;
+          } catch {
+            return null;
+          }
+        });
+        
+        const fees = await Promise.all(feePromises);
+        const validFees = fees.filter((f): f is number => f !== null);
+        if (validFees.length > 0) {
+          // Use the first valid fee, or average if you prefer
+          performanceFeeBps = validFees[0];
+        }
+      } catch (error) {
+        // If on-chain reads fail, use default
+        logger.warn('Failed to fetch performanceFeeBps from contracts, using default', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
     // Add performance fee rate
     const feesDataWithMetadata = {
       ...feesData,
-      performanceFeeBps: DEFAULT_PERFORMANCE_FEE_BPS,
+      performanceFeeBps,
     };
 
     const responseHeaders = new Headers(rateLimitResult.headers);

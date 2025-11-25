@@ -5,6 +5,8 @@ import { handleApiError, AppError } from '@/lib/utils/error-handler';
 import { createRateLimitMiddleware, RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS } from '@/lib/utils/rate-limit';
 import { morphoGraphQLClient } from '@/lib/morpho/graphql-client';
 import { gql } from 'graphql-request';
+import { readVaultData, readVaultRoles } from '@/lib/onchain/contracts';
+import { Address } from 'viem';
 // Types imported from SDK but not directly used in this file
 // import type { Vault, VaultPosition, Maybe } from '@morpho-org/blue-api-sdk';
 
@@ -173,6 +175,31 @@ export async function GET(
       variables
     );
 
+    // Fetch on-chain data from vault contract
+    // Fallback to config/API values if on-chain reads fail
+    let performanceFeeBps = cfg.performanceFeeBps;
+    let onChainRoles: { owner: Address | null; curator: Address | null; guardian: Address | null; timelock: Address | null } | null = null;
+    
+    try {
+      const [vaultData, roles] = await Promise.all([
+        readVaultData(cfg.address as Address),
+        readVaultRoles(cfg.address as Address),
+      ]);
+      
+      if (vaultData.performanceFeeBps !== null) {
+        performanceFeeBps = vaultData.performanceFeeBps;
+      }
+      
+      // Only use on-chain roles if at least one is successfully read
+      if (roles.owner || roles.curator || roles.guardian || roles.timelock) {
+        onChainRoles = roles;
+      }
+    } catch (error) {
+      // If on-chain reads fail, use config/API values as fallback
+      // This ensures the API doesn't fail if contract read times out
+      console.warn(`Failed to fetch on-chain data from contract ${cfg.address}, using fallback values:`, error);
+    }
+
     // Type assertion for vault data - structure matches our query
     const mv = data.vault as {
       address?: string;
@@ -337,10 +364,11 @@ export async function GET(
         totalAssetsUsd: mv?.historicalState?.totalAssetsUsd || [],
       },
       roles: {
-        owner: mv?.state?.owner ?? null,
-        curator: mv?.state?.curator ?? null,
-        guardian: mv?.state?.guardian ?? null,
-        timelock: mv?.state?.timelock ?? null,
+        // Prefer on-chain values, fallback to Morpho API, then null
+        owner: onChainRoles?.owner ?? mv?.state?.owner ?? null,
+        curator: onChainRoles?.curator ?? mv?.state?.curator ?? null,
+        guardian: onChainRoles?.guardian ?? mv?.state?.guardian ?? null,
+        timelock: onChainRoles?.timelock ?? mv?.state?.timelock ?? null,
       },
       transactions: txs.map((t) => ({
         blockNumber: t.blockNumber,
@@ -349,7 +377,7 @@ export async function GET(
         userAddress: t.user?.address ?? null,
       })),
       parameters: {
-        performanceFeeBps: cfg.performanceFeeBps,
+        performanceFeeBps, // Now fetched on-chain with config fallback
         maxDeposit: null,
         maxWithdrawal: null,
         strategyNotes: cfg.description || '',

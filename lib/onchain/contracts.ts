@@ -40,6 +40,55 @@ export const readVaultData = async (vaultAddress: Address): Promise<VaultData> =
   };
 };
 
+// Vault roles interface
+export interface VaultRoles {
+  owner: Address | null;
+  curator: Address | null;
+  guardian: Address | null;
+  timelock: Address | null;
+}
+
+// Read vault roles from contract (with fallback to null if not available)
+export const readVaultRoles = async (vaultAddress: Address): Promise<VaultRoles> => {
+  const [owner, curator, guardian, timelock] = await Promise.all([
+    safeContractRead<Address>(vaultAddress, VAULT_ABI, 'owner'),
+    safeContractRead<Address>(vaultAddress, VAULT_ABI, 'curator'),
+    safeContractRead<Address>(vaultAddress, VAULT_ABI, 'guardian'),
+    safeContractRead<Address>(vaultAddress, VAULT_ABI, 'timelock'),
+  ]);
+
+  return {
+    owner,
+    curator,
+    guardian,
+    timelock,
+  };
+};
+
+// Read allocator addresses from contract (if available)
+export const readVaultAllocators = async (vaultAddress: Address): Promise<Address[] | null> => {
+  // Try different function names that might be used
+  const allocators1 = await safeContractRead<Address[]>(vaultAddress, VAULT_ABI, 'allocators');
+  if (allocators1) return allocators1;
+  
+  const allocators2 = await safeContractRead<Address[]>(vaultAddress, VAULT_ABI, 'getAllocators');
+  if (allocators2) return allocators2;
+  
+  return null;
+};
+
+// Read fee splitter address from vault contract (if available)
+export const readVaultFeeSplitter = async (vaultAddress: Address): Promise<Address | null> => {
+  // Try different function names that might be used
+  const splitter1 = await safeContractRead<Address>(vaultAddress, VAULT_ABI, 'feeSplitter');
+  if (splitter1) return splitter1;
+  
+  const splitter2 = await safeContractRead<Address>(vaultAddress, VAULT_ABI, 'getFeeSplitter');
+  if (splitter2) return splitter2;
+  
+  return null;
+};
+
 // ERC20 contract reader
 export const readERC20Data = async (
   tokenAddress: Address,
