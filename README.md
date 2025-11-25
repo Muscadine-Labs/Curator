@@ -195,7 +195,6 @@ References:
   VaultTable.tsx           # Vaults table
   ChartTvl.tsx             # TVL chart
   ChartFees.tsx            # Fees chart
-  ChartPerf.tsx            # Performance chart
   AddressBadge.tsx         # Address display with copy/scan
   RoleList.tsx             # Protocol roles
   AllocatorList.tsx        # Allocators list

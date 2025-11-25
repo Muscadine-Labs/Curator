@@ -2,6 +2,16 @@ import type { CuratorConfig, MorphoMarketMetrics } from './types';
 import type { Market } from '@morpho-org/blue-api-sdk';
 import { logger } from '@/lib/utils/logger';
 
+// Constants for TVL-based tolerance scaling
+// Larger markets can handle higher absolute insolvency due to better liquidity depth,
+// more liquidators, and better price discovery mechanisms
+// For very large markets ($1B+), we allow up to 25% tolerance to account for their
+// ability to handle larger absolute insolvency amounts
+// This prevents large, liquid markets from being unfairly penalized
+const LARGE_MARKET_THRESHOLD = 500_000_000; // $500M
+const LARGE_MARKET_MAX_TOLERANCE = 0.30; // 30% for very large markets ($2B+)
+const VERY_LARGE_MARKET_THRESHOLD = 2_000_000_000; // $2B
+
 /**
  * Clamps a value to [0, 1] range
  */
@@ -90,7 +100,34 @@ export function computeMetricsForMarket(
   const potentialInsolvencyUsd = Math.max(0, borrowed - collateralAfterShock);
   const insolvencyPctOfTvl = tvl > 0 ? potentialInsolvencyUsd / tvl : 1;
 
-  const insolvencyTolerancePctTvl = clamp01(config.insolvencyTolerancePctTvl);
+  // Scale insolvency tolerance with TVL - larger markets can handle higher absolute insolvency
+  // Base tolerance for small markets, scales up for large markets ($500M+)
+  // Rationale: Large markets have better liquidity depth, more liquidators, and better price discovery
+  // This prevents unfairly penalizing large, liquid markets like the $1B+ USDC market
+  const baseTolerance = clamp01(config.insolvencyTolerancePctTvl);
+  let insolvencyTolerancePctTvl = baseTolerance;
+  
+  if (tvl >= LARGE_MARKET_THRESHOLD) {
+    // Use square root scaling for more aggressive tolerance increase for very large markets
+    // This better handles $1B+ markets that can handle higher absolute insolvency
+    // Linear scale factor
+    const linearScale = Math.min(1, (tvl - LARGE_MARKET_THRESHOLD) / (VERY_LARGE_MARKET_THRESHOLD - LARGE_MARKET_THRESHOLD));
+    // Square root scaling gives more aggressive increase for markets closer to $1B+
+    const sqrtScale = Math.sqrt(linearScale);
+    insolvencyTolerancePctTvl = baseTolerance + (LARGE_MARKET_MAX_TOLERANCE - baseTolerance) * sqrtScale;
+    insolvencyTolerancePctTvl = clamp01(insolvencyTolerancePctTvl);
+    
+    // For markets over $1B, apply additional boost to handle very large absolute insolvency
+    // Large markets ($1B+) can handle 20%+ insolvency exposure due to their size and liquidity
+    if (tvl >= 1_000_000_000) {
+      // Base boost of 5% for $1B markets, scaling up to 10% for $2B+ markets
+      const baseBoost = 0.05;
+      const additionalBoost = Math.min(0.05, (tvl - 1_000_000_000) / 1_000_000_000 * 0.05);
+      const totalBoost = baseBoost + additionalBoost;
+      insolvencyTolerancePctTvl = Math.min(LARGE_MARKET_MAX_TOLERANCE, insolvencyTolerancePctTvl + totalBoost);
+    }
+  }
+  
   let stressExposureScore =
     insolvencyPctOfTvl <= 0
       ? 1

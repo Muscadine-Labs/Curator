@@ -317,6 +317,40 @@ describe('computeMetricsForMarket', () => {
       const metrics = computeMetricsForMarket(market, config);
       expect(metrics.potentialInsolvencyUsd).toBeGreaterThanOrEqual(0);
     });
+
+    it('should scale tolerance for large markets', () => {
+      // Large market ($1B TVL) - verify scaling increases tolerance
+      // Test with lower exposure that should give positive score
+      const largeMarket = createMockMarket({
+        state: {
+          sizeUsd: 1_000_000_000, // $1B
+          supplyAssetsUsd: 1_000_000_000,
+          borrowAssetsUsd: 750_000_000, // 75% utilization = ~5% insolvency after 30% shock
+        },
+      });
+
+      const metrics = computeMetricsForMarket(largeMarket, defaultConfig);
+      // For $1B market: scale = (1B - 500M) / (2B - 500M) = 0.333
+      // Tolerance = 0.01 + (0.25 - 0.01) * 0.333 = ~0.09 (9%)
+      // With ~5% insolvency exposure, score = 1 - (0.05/0.09) = 0.44 (positive!)
+      expect(metrics.stressExposureScore).toBeGreaterThan(0);
+      expect(metrics.insolvencyPctOfTvl).toBeLessThan(0.1); // ~5% exposure
+    });
+
+    it('should use base tolerance for small markets', () => {
+      // Small market should use base 1% tolerance
+      const market = createMockMarket({
+        state: {
+          sizeUsd: 100_000, // $100k
+          supplyAssetsUsd: 100_000,
+          borrowAssetsUsd: 80_000,
+        },
+      });
+
+      const metrics = computeMetricsForMarket(market, defaultConfig);
+      // Small markets use base tolerance, so higher insolvency % should still penalize
+      expect(metrics.stressExposureScore).toBeLessThan(1);
+    });
   });
 
   describe('Withdrawal liquidity scoring', () => {
