@@ -19,6 +19,8 @@ const eslintConfig = [
       "build/**",
       "coverage/**",
       "next-env.d.ts",
+      "__tests__/**/*.test.tsx",
+      "jest.setup.js",
     ],
   },
 ];
