@@ -111,7 +111,21 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
                 </p>
               </div>
             </div>
-            <WalletConnect />
+            <div className="flex items-center gap-4">
+              <Button variant="outline" asChild>
+                <Link href="/">Home</Link>
+              </Button>
+              <Button variant="outline" asChild>
+                <Link href="/vaults">Vaults</Link>
+              </Button>
+              <Button variant="outline" asChild>
+                <Link href="/fees">Fee Splitter</Link>
+              </Button>
+              <Button variant="outline" asChild>
+                <Link href="/allocations">Allocations</Link>
+              </Button>
+              <WalletConnect />
+            </div>
           </div>
         </div>
       </header>

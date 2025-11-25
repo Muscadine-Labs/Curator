@@ -16,6 +16,7 @@ import { createRateLimitMiddleware, RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS } 
 import { morphoGraphQLClient } from '@/lib/morpho/graphql-client';
 import { gql } from 'graphql-request';
 import type { Vault, VaultPosition, Maybe } from '@morpho-org/blue-api-sdk';
+import { logger } from '@/lib/utils/logger';
 
 // Type-safe response matching our query structure
 type ProtocolStatsQueryResponse = {
@@ -138,7 +139,10 @@ export async function GET(request: Request) {
             return duneResult?.result?.rows || [];
           } catch (error) {
             // Continue with other vaults if one fails
-            console.error(`Error fetching Dune data for vault ${vault.address}:`, error);
+            logger.error(`Error fetching Dune data for vault ${vault.address}`, error as Error, {
+              vaultAddress: vault.address,
+              vaultName: vault.name,
+            });
             return [];
           }
         });
@@ -180,7 +184,7 @@ export async function GET(request: Request) {
       }
     } catch (error) {
       // Silently fail - use empty array if Dune fetch fails
-      console.error('Failed to fetch fees trend from Dune:', error);
+      logger.error('Failed to fetch fees trend from Dune', error as Error);
     }
 
     const stats = {

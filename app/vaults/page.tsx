@@ -146,7 +146,10 @@ export default function VaultsPage() {
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-4">
+              <Button variant="outline" asChild>
+                <Link href="/">Home</Link>
+              </Button>
               <Button variant="outline" asChild>
                 <Link href="/fees">Fee Splitter</Link>
               </Button>

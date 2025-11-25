@@ -37,9 +37,12 @@ export default function FeesPage() {
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-4">
               <Button variant="outline" asChild>
                 <Link href="/vaults">Vaults</Link>
+              </Button>
+              <Button variant="outline" asChild>
+                <Link href="/allocations">Allocations</Link>
               </Button>
               <WalletConnect />
             </div>

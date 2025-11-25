@@ -164,15 +164,18 @@ export default function VaultDetailPage() {
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" asChild>
+            <div className="flex items-center gap-4">
+              <Button variant="outline" asChild>
+                <Link href="/">Home</Link>
+              </Button>
+              <Button variant="outline" asChild>
+                <Link href="/vaults">Vaults</Link>
+              </Button>
+              <Button variant="outline" asChild>
+                <Link href="/fees">Fee Splitter</Link>
+              </Button>
+              <Button variant="outline" asChild>
                 <Link href="/allocations">Allocations</Link>
-              </Button>
-              <Button variant="outline" size="sm" disabled>
-                Deposit (Coming Soon)
-              </Button>
-              <Button variant="outline" size="sm" disabled>
-                Withdraw (Coming Soon)
               </Button>
               <WalletConnect />
             </div>

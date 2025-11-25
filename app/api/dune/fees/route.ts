@@ -9,6 +9,7 @@ import { vaults } from '@/lib/config/vaults';
 import { DUNE_QUERY_IDS, DEFAULT_PERFORMANCE_FEE_BPS } from '@/lib/constants';
 import { handleApiError } from '@/lib/utils/error-handler';
 import { createRateLimitMiddleware, RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS } from '@/lib/utils/rate-limit';
+import { logger } from '@/lib/utils/logger';
 
 interface FeeHistoryItem {
   date: string;
@@ -132,7 +133,10 @@ async function fetchFeesForVaults(vaultAddresses?: string[]) {
 
       return duneResult?.result?.rows || [];
     } catch (error) {
-      console.error(`Error fetching Dune data for vault ${vault.address}:`, error);
+      logger.error(`Error fetching Dune data for vault ${vault.address}`, error as Error, {
+        vaultAddress: vault.address,
+        vaultName: vault.name,
+      });
       // Continue with other vaults even if one fails
       return [];
     }

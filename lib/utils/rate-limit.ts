@@ -62,16 +62,20 @@ export function rateLimit(
 
 /**
  * Get rate limit info for an identifier
+ * @param identifier - Unique identifier for the rate limit
+ * @param maxRequests - Maximum number of requests allowed (used to calculate remaining)
+ * @returns Rate limit info with remaining requests and reset time, or null if no active limit
  */
 export function getRateLimitInfo(
-  identifier: string
+  identifier: string,
+  maxRequests: number
 ): { remaining: number; resetTime: number } | null {
   const entry = store[identifier];
   if (!entry || entry.resetTime < Date.now()) {
     return null;
   }
   return {
-    remaining: Math.max(0, entry.count),
+    remaining: Math.max(0, maxRequests - entry.count),
     resetTime: entry.resetTime,
   };
 }
@@ -92,7 +96,7 @@ export function createRateLimitMiddleware(
     const allowed = rateLimit(identifier, maxRequests, windowMs);
 
     if (!allowed) {
-      const info = getRateLimitInfo(identifier);
+      const info = getRateLimitInfo(identifier, maxRequests);
       const headers = new Headers();
       if (info) {
         headers.set('X-RateLimit-Limit', maxRequests.toString());
@@ -102,11 +106,11 @@ export function createRateLimitMiddleware(
       return { allowed: false, headers };
     }
 
-    const info = getRateLimitInfo(identifier);
+    const info = getRateLimitInfo(identifier, maxRequests);
     const headers = new Headers();
     if (info) {
       headers.set('X-RateLimit-Limit', maxRequests.toString());
-      headers.set('X-RateLimit-Remaining', (maxRequests - info.remaining).toString());
+      headers.set('X-RateLimit-Remaining', info.remaining.toString());
       headers.set('X-RateLimit-Reset', Math.ceil(info.resetTime / 1000).toString());
     }
     return { allowed: true, headers };
