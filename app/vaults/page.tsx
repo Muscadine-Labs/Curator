@@ -379,9 +379,9 @@ export default function VaultsPage() {
                             {market.collateralAsset?.symbol} / {market.loanAsset?.symbol}
                           </div>
                           <div className="text-xs text-muted-foreground">
-                            {market.collateralAsset?.symbol} / {market.loanAsset?.symbol}
-            </div>
-          </div>
+                            {market.uniqueKey}
+                          </div>
+                        </div>
                         {market.rating && <RatingBadge rating={market.rating} className="ml-2" />}
                       </div>
                     ))}

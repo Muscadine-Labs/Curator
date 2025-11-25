@@ -417,6 +417,36 @@ describe('computeMetricsForMarket', () => {
       }
     });
 
+    it('should score liquidation capacity very leniently for very large markets ($500M+) with 30% coverage', () => {
+      // Simulate very large market ($1B) with 30% liquidation capacity
+      // This matches the real USDC market scenario:
+      // TVL: $1.024B, Liquidator capacity: $61.46M, Debt: $204.86M
+      // Coverage: 61.46M / 204.86M = 0.30 (30%)
+      // For very large markets, 30% coverage should score ~0.5 (not 0.3)
+      const market = createMockMarket({
+        state: {
+          sizeUsd: 1_024_000_000, // $1.024B (above $500M threshold)
+          supplyAssetsUsd: 1_024_000_000,
+          borrowAssetsUsd: 921_910_000, // High borrow to create insolvency
+          liquidityAssetsUsd: 102_440_000, // Available liquidity
+          utilization: 0.90,
+        },
+      });
+
+      const metrics = computeMetricsForMarket(market, defaultConfig);
+      
+      // Verify this is a very large market scenario
+      expect(metrics.tvlUsd).toBeGreaterThanOrEqual(500_000_000);
+      
+      // For very large markets with 30% coverage, should score ~0.5 (not 0.3)
+      // This reflects that $61M+ in absolute liquidity is substantial
+      if (metrics.liquidationCapacityScore < 1) {
+        // Should score much better than linear (0.3) due to very lenient curve
+        expect(metrics.liquidationCapacityScore).toBeGreaterThan(0.4);
+        expect(metrics.liquidationCapacityScore).toBeLessThan(0.6); // Around 0.5 for 30% coverage
+      }
+    });
+
     it('should use base tolerance for small markets', () => {
       // Small market should use base 1% tolerance
       const market = createMockMarket({

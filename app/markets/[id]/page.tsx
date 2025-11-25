@@ -129,7 +129,7 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
             </div>
             <RatingBadge rating={market.rating} className="text-base" />
           </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <Badge variant="outline" className="justify-center">
               Utilization Score · {(market.utilizationScore * 100).toFixed(0)}
             </Badge>
@@ -140,7 +140,10 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
               Stress Coverage Score · {(market.stressExposureScore * 100).toFixed(0)}
             </Badge>
             <Badge variant="outline" className="justify-center">
-              Liquidity Score · {(market.withdrawalLiquidityScore * 100).toFixed(0)}
+              Withdrawal Liquidity Score · {(market.withdrawalLiquidityScore * 100).toFixed(0)}
+            </Badge>
+            <Badge variant="outline" className="justify-center">
+              Liquidation Capacity Score · {(market.liquidationCapacityScore * 100).toFixed(0)}
             </Badge>
           </CardContent>
         </Card>
@@ -243,7 +246,7 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
               </p>
               <p>
                 <span className="font-semibold text-foreground">Next steps.</span> Integrate persistent
-                utilization monitoring (48h windows) and external benchmark feeds (Aave/Compound) to
+                utilization monitoring ({config.utilizationBufferHours}h windows) and external benchmark feeds (Aave/Compound) to
                 tighten rate alignment scoring.
               </p>
             </CardContent>
