@@ -9,6 +9,7 @@ import { usePendingToken, useRevenueSplit, useTotalReleased, useReleased } from 
 import { formatCompactUSD } from '@/lib/format/number';
 import { vaults } from '@/lib/config/vaults';
 import { AddressBadge } from './AddressBadge';
+import { getFeeSplitterForVault, FEE_SPLITTER_V1, FEE_SPLITTER_V2 } from '@/lib/config/fee-splitters';
 // OnchainKit integrates with wagmi, so we use wagmi hooks for contract interactions
 import { useAccount, useWriteContract, useChainId, useSwitchChain } from 'wagmi';
 import { Address } from 'viem';
@@ -21,17 +22,30 @@ export function PendingTokenPanel() {
   const [txError, setTxError] = useState<string>('');
   const [txHash, setTxHash] = useState<string>('');
   
-  const { data: revenueSplit, isLoading: splitLoading, error: splitError } = useRevenueSplit();
+  // Determine which fee splitter to use based on selected vault
+  const vaultAddress = selectedVault ? (selectedVault as Address) : undefined;
+  const splitterAddress = vaultAddress ? getFeeSplitterForVault(vaultAddress) : undefined;
+  
+  const { data: revenueSplit, isLoading: splitLoading, error: splitError } = useRevenueSplit(
+    splitterAddress,
+    vaultAddress
+  );
   const { data: pendingData, isLoading: pendingLoading } = usePendingToken(
     selectedVault as `0x${string}` || null,
-    selectedPayee as `0x${string}` || null
+    selectedPayee as `0x${string}` || null,
+    splitterAddress,
+    vaultAddress
   );
   const { data: totalReleased, isLoading: totalReleasedLoading } = useTotalReleased(
-    selectedVault as `0x${string}` || null
+    selectedVault as `0x${string}` || null,
+    splitterAddress,
+    vaultAddress
   );
   const { data: released, isLoading: releasedLoading } = useReleased(
     selectedVault as `0x${string}` || null,
-    selectedPayee as `0x${string}` || null
+    selectedPayee as `0x${string}` || null,
+    splitterAddress,
+    vaultAddress
   );
   const { address: connectedAddress } = useAccount();
   const { writeContractAsync, isPending } = useWriteContract();
@@ -129,12 +143,16 @@ export function PendingTokenPanel() {
           ) : splitError ? (
             <div className="text-sm text-red-600 space-y-1">
               <p>Error loading fee splitter: {splitError instanceof Error ? splitError.message : 'Unknown error'}</p>
-              <p className="text-xs text-muted-foreground">Contract: 0x194DeC45D34040488f355823e1F94C0434304188</p>
+              {splitterAddress && (
+                <p className="text-xs text-muted-foreground">Contract: {splitterAddress}</p>
+              )}
             </div>
           ) : (
             <div className="text-sm text-muted-foreground space-y-1">
               <p>Loading fee splitter data...</p>
-              <p className="text-xs">Contract: 0x194DeC45D34040488f355823e1F94C0434304188</p>
+              {splitterAddress && (
+                <p className="text-xs">Contract: {splitterAddress}</p>
+              )}
             </div>
           )}
 
@@ -145,6 +163,17 @@ export function PendingTokenPanel() {
                 <label className="text-xs font-medium text-muted-foreground">Vault Address</label>
                 <AddressBadge address={selectedVault} scanUrl={`https://basescan.org/address/${selectedVault}`} />
               </div>
+              {splitterAddress && (
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">Fee Splitter Contract</label>
+                  <AddressBadge address={splitterAddress} scanUrl={`https://basescan.org/address/${splitterAddress}`} />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {splitterAddress.toLowerCase() === FEE_SPLITTER_V1.toLowerCase() ? 'Fee Splitter V1' :
+                     splitterAddress.toLowerCase() === FEE_SPLITTER_V2.toLowerCase() ? 'Fee Splitter V2' :
+                     'Fee Splitter'}
+                  </p>
+                </div>
+              )}
               <div>
                 <label className="text-xs font-medium text-muted-foreground">Payee Address</label>
                 <AddressBadge address={selectedPayee} scanUrl={`https://basescan.org/address/${selectedPayee}`} />
@@ -223,9 +252,11 @@ export function PendingTokenPanel() {
                   onClick={async () => {
                     setTxError('');
                     setTxHash('');
+                    if (!splitterAddress) {
+                      setTxError('No fee splitter found for this vault');
+                      return;
+                    }
                     try {
-                      const splitterAddress = (process.env.NEXT_PUBLIC_FEE_SPLITTER as Address) ||
-                        ('0x194DeC45D34040488f355823e1F94C0434304188' as Address);
                       const hash = await writeContractAsync({
                         address: splitterAddress,
                         abi: ERC20_FEE_SPLITTER_ABI,
@@ -293,8 +324,11 @@ export function PendingTokenPanel() {
                       setTxError('Please select a vault (token) first');
                       return;
                     }
+                    if (!splitterAddress) {
+                      setTxError('No fee splitter found for this vault');
+                      return;
+                    }
                     try {
-                      const splitterAddress = '0x194DeC45D34040488f355823e1F94C0434304188' as Address;
                       console.log('Calling claimAll:', {
                         address: splitterAddress,
                         functionName: 'claimAll',
@@ -336,7 +370,12 @@ export function PendingTokenPanel() {
 
           {/* Instructions */}
           <div className="text-sm text-muted-foreground">
-            <p>Select a vault (token) and a payee to check pending fees from the Fee Splitter contract.</p>
+            <p>Select a vault (token) and a payee to check pending fees. The appropriate fee splitter contract will be automatically selected based on the vault.</p>
+            {!splitterAddress && selectedVault && (
+              <p className="mt-2 text-yellow-600 dark:text-yellow-400">
+                ⚠️ No fee splitter configured for this vault. This vault may not have fees routed to a splitter contract.
+              </p>
+            )}
             {txHash && (
               <p className="mt-2">
                 Tx sent: <a className="underline" target="_blank" rel="noreferrer" href={`https://basescan.org/tx/${txHash}`}>{txHash.slice(0, 10)}...</a>

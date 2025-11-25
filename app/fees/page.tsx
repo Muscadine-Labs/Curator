@@ -3,6 +3,7 @@
 import { SplitterPanel } from '@/components/SplitterPanel';
 import { PendingTokenPanel } from '@/components/PendingTokenPanel';
 import { useFeesData } from '@/lib/hooks/useProtocolStats';
+import { ChartFees } from '@/components/ChartFees';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -48,58 +49,8 @@ export default function FeesPage() {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
-        {/* Fee Splitter and Pending Tokens */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          <SplitterPanel />
-          <PendingTokenPanel />
-        </div>
-
-        {/* Fee History */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Fee History</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {feesLoading ? (
-              <div className="space-y-4">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="flex items-center space-x-4">
-                    <Skeleton className="h-4 w-24" />
-                    <Skeleton className="h-4 w-20" />
-                    <Skeleton className="h-4 w-16" />
-                    <Skeleton className="h-4 w-32" />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Token</TableHead>
-                    <TableHead>Vault</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {feesData?.feeHistory.slice(0, 10).map((fee, index) => (
-                    <TableRow key={index}>
-                      <TableCell>{formatDate(fee.date)}</TableCell>
-                      <TableCell>{formatCompactUSD(fee.amount)}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{fee.token}</Badge>
-                      </TableCell>
-                      <TableCell>{fee.vault}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-
         {/* Summary Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <Card>
             <CardHeader>
               <CardTitle>Total Fees Generated</CardTitle>
@@ -132,6 +83,75 @@ export default function FeesPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Fee Splitter and Pending Tokens */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          <SplitterPanel />
+          <PendingTokenPanel />
+        </div>
+
+        {/* Fees Trend Chart */}
+        {feesData?.feesTrend && feesData.feesTrend.length > 0 && (
+          <div className="mb-8">
+            <ChartFees 
+              data={feesData.feesTrend} 
+              isLoading={feesLoading}
+              title="Fees Generated Over Time"
+            />
+          </div>
+        )}
+
+        {/* Fee History */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>Fee History</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {feesLoading ? (
+              <div className="space-y-4">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="flex items-center space-x-4">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-4 w-16" />
+                    <Skeleton className="h-4 w-32" />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Token</TableHead>
+                    <TableHead>Vault</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {feesData?.feeHistory && feesData.feeHistory.length > 0 ? (
+                    feesData.feeHistory.slice(0, 10).map((fee, index) => (
+                      <TableRow key={index}>
+                        <TableCell>{formatDate(fee.date)}</TableCell>
+                        <TableCell>{formatCompactUSD(fee.amount)}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{fee.token}</Badge>
+                        </TableCell>
+                        <TableCell>{fee.vault}</TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                        No fee history available
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
       </main>
 
       {/* Footer */}

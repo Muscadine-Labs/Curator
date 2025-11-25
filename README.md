@@ -35,6 +35,30 @@ Modern Next.js dashboard for Muscadine vaults on Morpho. Live data is sourced fr
 
 If your wallet is on a different network, the app will prompt you to switch to Base.
 
+## Dune Analytics Integration
+
+The application now integrates with Dune Analytics to fetch real-time fee data and historical trends. This provides more accurate fee analytics compared to the previous mock data.
+
+### Setup
+
+1. **Get Dune API Key**: Sign up at [Dune Analytics](https://dune.com) and generate an API key
+2. **Configure Query IDs**: Update the query IDs in `/app/api/dune/fees/route.ts` to match your Dune queries
+3. **Set Environment Variable**: Add `DUNE_API_KEY` to your `.env.local` file
+
+### Features
+
+- **Real-time Fee Data**: Fetches actual fee data from Dune queries
+- **Historical Trends**: Displays fee trends over time in charts
+- **Automatic Fallback**: Falls back to Morpho API data if Dune is unavailable
+- **Multi-Vault Support**: Aggregates fee data across all configured vaults
+
+### Query Configuration
+
+The Dune integration uses query ID `5930091` by default (from the provided Dune links). To use different queries:
+
+1. Update `DUNE_QUERY_IDS` in `/app/api/dune/fees/route.ts`
+2. Adjust the parameter mapping in the `transformDuneResultsToFeeData` function to match your query's column names
+
 ## Recent Optimizations (Nov 2024)
 
 ### Critical Fixes
@@ -86,6 +110,7 @@ If your wallet is on a different network, the app will prompt you to switch to B
      - V2 Prime: `NEXT_PUBLIC_VAULT_USDC_V2`, `NEXT_PUBLIC_VAULT_WETH_V2`, `NEXT_PUBLIC_VAULT_CBBTC_V2`
      - Fee splitter: `NEXT_PUBLIC_FEE_SPLITTER`
    - Optional: `NEXT_PUBLIC_DEFAULT_PERF_FEE_BPS`, `NEXT_PUBLIC_ROLE_OWNER`, `NEXT_PUBLIC_ROLE_GUARDIAN`, `NEXT_PUBLIC_ROLE_CURATOR`, `NEXT_PUBLIC_ALLOCATOR_HOT`, `NEXT_PUBLIC_ALLOCATOR_IGNAS`
+   - Analytics: `DUNE_API_KEY` (optional, for Dune Analytics fee data integration)
 
 3. **Run development server**:
    ```bash
@@ -111,6 +136,7 @@ Vault configurations are defined in `/lib/config/vaults.ts`. To add new vaults:
 - Protocol overview: `/api/protocol-stats` aggregates TVL/users across configured vaults
 - Markets supplied: `/api/markets-supplied` discovers markets from allocations and fetches market stats and historical series
 - Fee splitter: On-chain reads via viem from `NEXT_PUBLIC_FEE_SPLITTER`
+- Fee analytics: Dune Analytics API (`/api/dune/fees`) for historical fee data and trends (requires `DUNE_API_KEY`)
 
 References:
 - Earn (vaults/allocations): https://docs.morpho.org/build/earn/tutorials/get-data

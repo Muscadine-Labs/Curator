@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server';
 import { vaults as configuredVaults } from '@/lib/config/vaults';
+import { 
+  executeDuneQueryAndWait, 
+  getLatestDuneQueryResults,
+  type DuneQueryParams 
+} from '@/lib/dune/service';
 
 const MORPHO_GRAPHQL_ENDPOINT = 'https://api.morpho.org/graphql';
 
@@ -69,8 +74,8 @@ export async function GET() {
     const totalDeposited = morphoVaults.reduce((sum, v) => sum + (v.state.totalAssetsUsd ?? 0), 0);
     const activeVaults = configuredVaults.length;
     
-    // Calculate total fees generated (interest) from Morpho fee data
-    const totalFeesGenerated = morphoVaults.reduce((sum, v) => sum + (v.state.fee ?? 0), 0);
+    // Calculate total fees from Morpho (fallback)
+    let totalFeesGenerated = morphoVaults.reduce((sum, v) => sum + (v.state.fee ?? 0), 0);
     
     // Total interest generated is approximately the fees generated (in a MetaMorpho vault, fees = performance fees from interest)
     // For more accurate calculation, we'd need historical APY data
@@ -88,7 +93,78 @@ export async function GET() {
       return { date: date.toISOString(), value: totalDeposited };
     });
 
-    const feesTrend: Array<{ date: string; value: number }> = [];
+    // Try to fetch fees trend from Dune Analytics
+    let feesTrend: Array<{ date: string; value: number }> = [];
+    let duneTotalFees = totalFeesGenerated;
+    
+    try {
+      if (process.env.DUNE_API_KEY) {
+        // Fetch fees data for all active vaults
+        const activeVaults = configuredVaults.filter(v => v.status === 'active');
+        const allRows: any[] = [];
+        
+        for (const vault of activeVaults) {
+          try {
+            const vaultParamValue = `${vault.name} - base - ${vault.address}`;
+            const params: DuneQueryParams = {
+              vault_name_e15077: vaultParamValue,
+              vault_name_e25e0d: vaultParamValue, // Alternative parameter name
+              vault_name: vaultParamValue, // Generic fallback
+            };
+            
+            // Try to get latest results first
+            let duneResult = await getLatestDuneQueryResults(5930091, params);
+            
+            // If no latest results, execute and wait
+            if (!duneResult || duneResult.state !== 'QUERY_STATE_COMPLETED') {
+              duneResult = await executeDuneQueryAndWait(5930091, params);
+            }
+            
+            if (duneResult?.result?.rows) {
+              allRows.push(...duneResult.result.rows);
+            }
+          } catch (error) {
+            // Continue with other vaults if one fails
+            console.error(`Error fetching Dune data for vault ${vault.address}:`, error);
+          }
+        }
+        
+        // Transform Dune results
+        if (allRows.length > 0) {
+          // Calculate total fees
+          duneTotalFees = allRows.reduce((sum, row) => {
+            const feeAmount = row.total_fees || row.fees || row.amount || row.fee_amount || 0;
+            return sum + (typeof feeAmount === 'number' ? feeAmount : parseFloat(feeAmount) || 0);
+          }, 0);
+          
+          // Create fees trend
+          const dailyFees = allRows.reduce((acc: Record<string, number>, row: any) => {
+            const date = row.date || row.timestamp || row.time || row.block_time;
+            const amount = row.total_fees || row.fees || row.amount || row.fee_amount || 0;
+            if (date) {
+              const dateKey = new Date(date).toISOString().split('T')[0];
+              acc[dateKey] = (acc[dateKey] || 0) + (typeof amount === 'number' ? amount : parseFloat(amount) || 0);
+            }
+            return acc;
+          }, {});
+          
+          feesTrend = Object.entries(dailyFees)
+            .map(([date, value]) => ({
+              date,
+              value: value as number,
+            }))
+            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        }
+        
+        // Use Dune total fees if available
+        if (duneTotalFees > 0) {
+          totalFeesGenerated = duneTotalFees;
+        }
+      }
+    } catch (error) {
+      // Silently fail - use empty array if Dune fetch fails
+      console.error('Failed to fetch fees trend from Dune:', error);
+    }
 
     const stats = {
       totalDeposited,

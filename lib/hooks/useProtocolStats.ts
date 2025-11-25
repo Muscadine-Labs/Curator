@@ -121,7 +121,11 @@ export interface FeesData {
     token: string;
     vault: string;
   }>;
-  splitterData: {
+  feesTrend?: Array<{
+    date: string;
+    value: number;
+  }>;
+  splitterData?: {
     payee1: string;
     payee2: string;
     shares1: bigint;
@@ -189,11 +193,19 @@ export const useFeesData = () => {
   return useQuery<FeesData>({
     queryKey: ['fees'],
     queryFn: async () => {
-      const response = await fetch('/api/mock/fees');
-      if (!response.ok) throw new Error('Failed to fetch fees data');
+      const response = await fetch('/api/dune/fees');
+      if (!response.ok) {
+        // Fallback to mock data if Dune API fails
+        const fallbackResponse = await fetch('/api/mock/fees');
+        if (fallbackResponse.ok) {
+          return fallbackResponse.json();
+        }
+        throw new Error('Failed to fetch fees data');
+      }
       return response.json();
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
     refetchInterval: 5 * 60 * 1000, // Refetch every 5 minutes
+    retry: 1, // Retry once before falling back
   });
 };
