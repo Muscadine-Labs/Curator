@@ -7,7 +7,8 @@ import { useAccount, useWriteContract, useChainId, useSwitchChain, useWaitForTra
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Address } from 'viem';
 import { base } from 'viem/chains';
-import { MORPHO_BLUE_VAULT_ALLOCATOR_ABI } from '@/lib/onchain/client';
+import { MORPHO_BLUE_VAULT_ALLOCATOR_ABI, publicClient } from '@/lib/onchain/client';
+import { readVaultData } from '@/lib/onchain/contracts';
 import { vaults } from '@/lib/config/vaults';
 import { useMarketsSupplied, SuppliedMarket } from '@/lib/hooks/useMarkets';
 import { useMorphoMarkets } from '@/lib/hooks/useMorphoMarkets';
