@@ -1,26 +1,20 @@
 import { NextResponse } from 'next/server';
 import { vaults as configuredVaults } from '@/lib/config/vaults';
-import { MORPHO_GRAPHQL_ENDPOINT, BASE_CHAIN_ID, GRAPHQL_FIRST_LIMIT } from '@/lib/constants';
-import { fetchExternalApi } from '@/lib/utils/fetch-with-timeout';
+import { BASE_CHAIN_ID, GRAPHQL_FIRST_LIMIT } from '@/lib/constants';
 import { handleApiError } from '@/lib/utils/error-handler';
 import { createRateLimitMiddleware, RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS } from '@/lib/utils/rate-limit';
+import { morphoGraphQLClient } from '@/lib/morpho/graphql-client';
+import { gql } from 'graphql-request';
+import type { Vault, VaultPosition, Maybe } from '@morpho-org/blue-api-sdk';
 
-type MorphoVaultItem = {
-  address: string;
-  asset: {
-    decimals: number | null;
+// Type-safe response matching our query structure
+type VaultsQueryResponse = {
+  vaults: {
+    items: Maybe<Vault>[] | null;
   } | null;
-  state: {
-    totalAssets: string | null;
-    totalAssetsUsd: number | null;
-    weeklyNetApy: number | null;
-    monthlyNetApy: number | null;
-  };
-};
-
-type MorphoPositionItem = {
-  vault: { address: string };
-  user: { address: string };
+  vaultPositions: {
+    items: Maybe<VaultPosition>[] | null;
+  } | null;
 };
 
 export async function GET(request: Request) {
@@ -46,7 +40,7 @@ export async function GET(request: Request) {
     const addresses = configuredVaults.map(v => v.address.toLowerCase());
 
     // Build a single GraphQL query to fetch vaults and positions
-    const query = `
+    const query = gql`
       query FetchVaultsAndPositions($addresses: [String!]) {
         vaults(
           first: ${GRAPHQL_FIRST_LIMIT}
@@ -78,35 +72,21 @@ export async function GET(request: Request) {
       }
     `;
 
-    const response = await fetchExternalApi(MORPHO_GRAPHQL_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query,
-        variables: { addresses },
-      }),
-    });
+    const data = await morphoGraphQLClient.request<VaultsQueryResponse>(
+      query,
+      { addresses }
+    );
 
-    if (!response.ok) {
-      const text = await response.text();
-      return NextResponse.json({ error: `Morpho API error: ${text}` }, { status: 502 });
-    }
-
-    const json = await response.json();
-    if (json.errors) {
-      return NextResponse.json({ error: json.errors }, { status: 502 });
-    }
-
-    const morphoVaults: MorphoVaultItem[] = json?.data?.vaults?.items ?? [];
-    const positions: MorphoPositionItem[] = json?.data?.vaultPositions?.items ?? [];
+    const morphoVaults = data.vaults?.items?.filter((v): v is Vault => v !== null) ?? [];
+    const positions = data.vaultPositions?.items?.filter((p): p is VaultPosition => p !== null) ?? [];
 
     // Compute depositors per vault by counting unique users per vault address
     const depositorsByVault: Record<string, number> = {};
     for (const pos of positions) {
-      const addr = pos.vault.address.toLowerCase();
-      depositorsByVault[addr] = (depositorsByVault[addr] || 0) + 1;
+      const addr = pos.vault?.address?.toLowerCase();
+      if (addr) {
+        depositorsByVault[addr] = (depositorsByVault[addr] || 0) + 1;
+      }
     }
 
     // Map Morpho data by address for quick lookups
@@ -119,7 +99,7 @@ export async function GET(request: Request) {
     const merged = configuredVaults.map(v => {
       const m = morphoByAddress[v.address.toLowerCase()];
       const tvl = m?.state?.totalAssetsUsd ?? 0;
-      const totalAssetsRaw = m?.state?.totalAssets ? BigInt(m.state.totalAssets) : null;
+      const totalAssetsRaw = m?.state?.totalAssets ? (typeof m.state.totalAssets === 'bigint' ? m.state.totalAssets : BigInt(String(m.state.totalAssets))) : null;
       const assetDecimals = m?.asset?.decimals ?? 18; // Default to 18 if not found
       const weeklyNetApy = m?.state?.weeklyNetApy ?? 0; // decimal e.g. 0.05
       const monthlyNetApy = m?.state?.monthlyNetApy ?? 0; // decimal e.g. 0.07

@@ -1,7 +1,8 @@
 import { mergeConfig, type CuratorConfigOverrides } from './config';
 import { computeMetricsForMarket } from './compute';
 import { fetchMorphoMarkets } from './query';
-import type { MorphoMarketMetrics, MorphoMarketRaw } from './types';
+import type { MorphoMarketMetrics } from './types';
+import type { Market } from '@morpho-org/blue-api-sdk';
 
 type RatingOptions = {
   limit?: number;
@@ -11,7 +12,7 @@ type RatingOptions = {
 };
 
 function applyBenchmark(
-  market: MorphoMarketRaw,
+  market: Market,
   benchmarkRates?: Record<string, number>,
   fallback?: number
 ): number | undefined {

@@ -1,4 +1,5 @@
-import type { CuratorConfig, MorphoMarketMetrics, MorphoMarketRaw } from './types';
+import type { CuratorConfig, MorphoMarketMetrics } from './types';
+import type { Market } from '@morpho-org/blue-api-sdk';
 
 const MAX_UTILIZATION_BEYOND = 1.1;
 
@@ -10,7 +11,7 @@ export function normalize01(value: number): number {
 }
 
 export function computeMetricsForMarket(
-  market: MorphoMarketRaw,
+  market: Market,
   config: CuratorConfig,
   benchmarkSupplyRate?: number
 ): MorphoMarketMetrics {

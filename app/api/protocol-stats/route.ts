@@ -6,27 +6,25 @@ import {
   type DuneQueryParams 
 } from '@/lib/dune/service';
 import { 
-  MORPHO_GRAPHQL_ENDPOINT, 
   BASE_CHAIN_ID, 
   GRAPHQL_FIRST_LIMIT,
   DAYS_30_MS,
   DUNE_QUERY_IDS
 } from '@/lib/constants';
-import { fetchExternalApi } from '@/lib/utils/fetch-with-timeout';
 import { handleApiError } from '@/lib/utils/error-handler';
 import { createRateLimitMiddleware, RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS } from '@/lib/utils/rate-limit';
+import { morphoGraphQLClient } from '@/lib/morpho/graphql-client';
+import { gql } from 'graphql-request';
+import type { Vault, VaultPosition, Maybe } from '@morpho-org/blue-api-sdk';
 
-type MorphoVaultItem = {
-  address: string;
-  state: {
-    totalAssetsUsd: number | null;
-    fee: number | null;
-  };
-};
-
-type MorphoPositionItem = {
-  vault: { address: string };
-  user: { address: string };
+// Type-safe response matching our query structure
+type ProtocolStatsQueryResponse = {
+  vaults: {
+    items: Maybe<Vault>[] | null;
+  } | null;
+  vaultPositions: {
+    items: Maybe<VaultPosition>[] | null;
+  } | null;
 };
 
 export async function GET(request: Request) {
@@ -50,7 +48,7 @@ export async function GET(request: Request) {
   try {
     const addresses = configuredVaults.map(v => v.address.toLowerCase());
 
-    const query = `
+    const query = gql`
       query FetchProtocolStats($addresses: [String!]) {
         vaults(
           first: ${GRAPHQL_FIRST_LIMIT}
@@ -77,24 +75,13 @@ export async function GET(request: Request) {
       }
     `;
 
-    const response = await fetchExternalApi(MORPHO_GRAPHQL_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query, variables: { addresses } }),
-    });
+    const data = await morphoGraphQLClient.request<ProtocolStatsQueryResponse>(
+      query,
+      { addresses }
+    );
 
-    if (!response.ok) {
-      const text = await response.text();
-      return NextResponse.json({ error: `Morpho API error: ${text}` }, { status: 502 });
-    }
-
-    const json = await response.json();
-    if (json.errors) {
-      return NextResponse.json({ error: json.errors }, { status: 502 });
-    }
-
-    const morphoVaults: MorphoVaultItem[] = json?.data?.vaults?.items ?? [];
-    const positions: MorphoPositionItem[] = json?.data?.vaultPositions?.items ?? [];
+    const morphoVaults = data.vaults?.items?.filter((v): v is Vault => v !== null) ?? [];
+    const positions = data.vaultPositions?.items?.filter((p): p is VaultPosition => p !== null) ?? [];
 
     const totalDeposited = morphoVaults.reduce((sum, v) => sum + (v.state.totalAssetsUsd ?? 0), 0);
     const activeVaults = configuredVaults.length;
@@ -108,7 +95,12 @@ export async function GET(request: Request) {
 
     // Unique depositors across our vaults
     const uniqueUsers = new Set<string>();
-    for (const p of positions) uniqueUsers.add(p.user.address.toLowerCase());
+    for (const p of positions) {
+      const userAddress = p.user?.address?.toLowerCase();
+      if (userAddress) {
+        uniqueUsers.add(userAddress);
+      }
+    }
 
     // Minimal placeholder trends (current TVL as a flat series) to avoid mocks
     const now = new Date();
