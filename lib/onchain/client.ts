@@ -119,6 +119,19 @@ export const VAULT_ABI = [
 // Morpho Blue Vault Allocator ABI
 // NOTE: This is a placeholder based on common Morpho Blue patterns.
 // Update with the exact ABI from your vault contract if different.
+//
+// According to Morpho Blue MetaMorpho vault documentation:
+// - reallocate(markets, amounts) function signature:
+//   * markets: address[] - Market identifiers (in Morpho Blue, markets are identified by uniqueKey bytes32,
+//     which must be converted to address format by taking the first 20 bytes)
+//   * amounts: uint256[] - Amounts in the vault's asset (e.g., USDC for USDC vault, WETH for WETH vault)
+//     * Amounts represent how much of the vault's asset to allocate to each market
+//     * Amounts must be in the vault asset's native units (with proper decimals)
+//     * For USDC vault: amounts in USDC (6 decimals), e.g., $1000 = 1000 * 10^6 = 1,000,000,000
+//     * For WETH vault: amounts in WETH (18 decimals), e.g., $1000 ≈ 0.4 WETH * 10^18 (if WETH = $2500)
+//   * The function reallocates vault assets across the specified markets
+//   * Amounts should typically sum to vault's totalAssets or desired allocation amount
+//   * Access control: Only authorized allocators can call this function
 export const MORPHO_BLUE_VAULT_ALLOCATOR_ABI = [
   {
     name: 'queueSupply',

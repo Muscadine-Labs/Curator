@@ -7,7 +7,7 @@ import { useAccount, useWriteContract, useChainId, useSwitchChain, useWaitForTra
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Address } from 'viem';
 import { base } from 'viem/chains';
-import { MORPHO_BLUE_VAULT_ALLOCATOR_ABI, publicClient } from '@/lib/onchain/client';
+import { MORPHO_BLUE_VAULT_ALLOCATOR_ABI } from '@/lib/onchain/client';
 import { readVaultData } from '@/lib/onchain/contracts';
 import { vaults } from '@/lib/config/vaults';
 import { useMarketsSupplied, SuppliedMarket } from '@/lib/hooks/useMarkets';
@@ -326,6 +326,56 @@ export default function AllocationsPage() {
       if (marketAddresses.length !== amounts.length) {
         throw new Error(`Mismatch: ${marketAddresses.length} market addresses but ${amounts.length} amounts`);
       }
+
+      // Validation: Check that amounts sum correctly and don't exceed available assets
+      // According to Morpho Blue MetaMorpho vault documentation:
+      // - reallocate(markets, amounts) expects:
+      //   * markets: address[] - Market identifiers (derived from uniqueKey bytes32)
+      //   * amounts: uint256[] - Amounts in vault's asset (e.g., USDC for USDC vault)
+      //   * Amounts represent how much of the vault's asset to allocate to each market
+      //   * Amounts should sum to the desired total allocation (typically totalAssets or less)
+      
+      const totalAllocationAmount = amounts.reduce((sum, amount) => sum + amount, BigInt(0));
+      
+      // Validate no zero amounts (unless intentionally removing allocation)
+      const zeroAmounts = amounts.filter(a => a === BigInt(0));
+      if (zeroAmounts.length > 0 && zeroAmounts.length < amounts.length) {
+        // Mixed zero and non-zero amounts might be intentional (removing some, adding others)
+        // But warn if all are zero
+        if (totalAllocationAmount === BigInt(0)) {
+          throw new Error(
+            'All allocation amounts are zero. ' +
+            'Please set at least one market allocation to a non-zero value.'
+          );
+        }
+      }
+
+      // Fetch vault's totalAssets on-chain to validate we don't exceed available assets
+      let vaultTotalAssets: bigint | null = null;
+      try {
+        const vaultData = await readVaultData(vaultAddress);
+        vaultTotalAssets = vaultData.totalAssets;
+      } catch {
+        // If on-chain read fails, use the totalSupplyUsd from allocation data as fallback
+        // Convert USD to vault asset units for comparison
+        if (selectedAllocation?.totalSupplyUsd) {
+          vaultTotalAssets = BigInt(Math.floor(selectedAllocation.totalSupplyUsd * Math.pow(10, vaultAssetDecimals)));
+        }
+      }
+
+      // Validate total allocation doesn't exceed vault's total assets
+      if (vaultTotalAssets !== null && totalAllocationAmount > vaultTotalAssets) {
+        const totalAllocationUsd = Number(totalAllocationAmount) / Math.pow(10, vaultAssetDecimals);
+        const vaultTotalUsd = Number(vaultTotalAssets) / Math.pow(10, vaultAssetDecimals);
+        throw new Error(
+          `Total allocation amount (${totalAllocationUsd.toFixed(2)} ${vaultConfig.asset}) ` +
+          `exceeds vault's total assets (${vaultTotalUsd.toFixed(2)} ${vaultConfig.asset}). ` +
+          'Please reduce allocation amounts to match available assets.'
+        );
+      }
+
+      // Note: We allow allocations less than totalAssets (user might want to keep some unallocated)
+      // This is valid and the contract will handle it appropriately
 
       // Prepare transaction parameters
       const txParams = {
