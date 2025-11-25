@@ -254,48 +254,47 @@ export default function AllocationsPage() {
       }
 
       for (const alloc of calculatedAllocations) {
+        // Find market in markets data (if available)
         const market = markets.data.markets.find(m => m.uniqueKey === alloc.marketKey);
         
-        if (!market) {
-          throw new Error(
-            `Market not found for uniqueKey: ${alloc.marketKey}. ` +
-            'Please ensure the market is allocated and exists in the markets data.'
-          );
-        }
+        // Use the uniqueKey from the allocation directly (it's the source of truth)
+        // The marketKey in allocations IS the uniqueKey
+        const uniqueKey = alloc.marketKey;
 
         // In Morpho Blue, markets are identified by uniqueKey (bytes32 hash), not by contract address
         // The uniqueKey is a 66-character hex string (0x + 64 hex chars)
         // We need to convert it to an address format (0x + 40 hex chars) by taking the first 20 bytes
         
-        if (!market.uniqueKey) {
+        if (!uniqueKey) {
           throw new Error(
-            `Market uniqueKey is missing for ${alloc.marketKey}. ` +
+            `Market uniqueKey is missing for allocation. ` +
             'Please ensure the market has a valid uniqueKey.'
           );
         }
 
-        if (!market.uniqueKey.startsWith('0x') || market.uniqueKey.length !== 66) {
+        if (!uniqueKey.startsWith('0x') || uniqueKey.length !== 66) {
           throw new Error(
-            `Invalid uniqueKey format for ${alloc.marketKey}: ${market.uniqueKey}. ` +
+            `Invalid uniqueKey format: ${uniqueKey}. ` +
             'Expected a 66-character hex string starting with 0x (bytes32 format).'
           );
         }
 
         // uniqueKey is bytes32 (0x + 64 hex chars), convert to address (0x + 40 hex chars)
         // Take the first 20 bytes (40 hex characters) after 0x
-        const marketAddress = (`0x${market.uniqueKey.slice(2, 42)}` as Address).toLowerCase() as Address;
+        const marketAddress = (`0x${uniqueKey.slice(2, 42)}` as Address).toLowerCase() as Address;
         
         // Validate the converted address format
         if (!/^0x[a-fA-F0-9]{40}$/.test(marketAddress)) {
           throw new Error(
-            `Failed to convert uniqueKey to valid address format for ${alloc.marketKey}. ` +
-            `uniqueKey: ${market.uniqueKey}, converted: ${marketAddress}`
+            `Failed to convert uniqueKey to valid address format. ` +
+            `uniqueKey: ${uniqueKey}, converted: ${marketAddress}`
           );
         }
 
         // Get the vault's asset to determine decimals
         // For Morpho Blue vaults, allocations are typically in the loan asset
-        const tokenDecimals = market.loanAsset?.decimals ?? 18;
+        // Use market data if available, otherwise default to 18 decimals
+        const tokenDecimals = market?.loanAsset?.decimals ?? 18;
         const amountUsd = alloc.amountUsd;
         
         // Convert USD amount to token amount
