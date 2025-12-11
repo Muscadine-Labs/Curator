@@ -102,3 +102,4 @@ export function getDailyFeesChartData(response: DefiLlamaFeesResponse): FeesChar
     value: dailyValue || 0,
   }));
 }
+
