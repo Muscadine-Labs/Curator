@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Plus, Shield } from 'lucide-react';
+import { Shield } from 'lucide-react';
 import { vaults } from '@/lib/config/vaults';
 
 const navBase = [{ label: 'Overview', href: '/', icon: Shield }];
@@ -26,11 +26,6 @@ export function Sidebar() {
         </span>
         Curator
       </Link>
-
-      <button className="mb-6 inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-3 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800">
-        <Plus className="h-4 w-4" />
-        Create Vault
-      </button>
 
       <nav className="space-y-6 text-sm">
         <div className="space-y-1">

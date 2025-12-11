@@ -17,7 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { RatingBadge } from '@/components/morpho/RatingBadge';
-import { formatCompactUSD, formatPercentage, formatRelativeTime } from '@/lib/format/number';
+import { formatCompactUSD, formatPercentage } from '@/lib/format/number';
 import type { MorphoMarketMetrics } from '@/lib/morpho/types';
 import { getVaultByAddress } from '@/lib/config/vaults';
 import { useVaultRisk } from '@/lib/hooks/useVaultRisk';
@@ -195,7 +195,6 @@ export default function VaultDetailPage() {
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <KpiCard title="Fees YTD" value={vault.feesYtd} subtitle="Year to date" format="usd" />
               <KpiCard title="Utilization" value={vault.utilization * 100} subtitle="Capital utilization" format="percentage" />
-              <KpiCard title="Last Harvest" value={formatRelativeTime(vault.lastHarvest)} subtitle="Most recent harvest" format="raw" />
             </div>
           </TabsContent>
 
