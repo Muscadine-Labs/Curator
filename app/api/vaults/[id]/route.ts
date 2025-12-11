@@ -337,6 +337,16 @@ export async function GET(
 
     const tvlUsd = mv?.state?.totalAssetsUsd ?? 0;
     const apyPct = (mv?.state?.netApy ?? mv?.state?.avgNetApy ?? mv?.state?.apy ?? 0) * 100;
+    const apyBasePct = (mv?.state?.apy ?? 0) * 100;
+    const apyBoostedPct = (mv?.state?.netApy ?? 0) * 100;
+    const utilization = mv?.state?.allocation?.reduce((sum, a) => {
+      const cap = a.supplyCap ? (typeof a.supplyCap === 'bigint' ? Number(a.supplyCap) : Number(a.supplyCap)) : 0;
+      const assets = a.supplyAssets ? (typeof a.supplyAssets === 'bigint' ? Number(a.supplyAssets) : Number(a.supplyAssets)) : 0;
+      return cap > 0 ? sum + (assets / cap) : sum;
+    }, 0) ?? 0;
+    
+    // Get performance fee from Morpho API (decimal like 0.05 = 5%) or config fallback
+    const performanceFeeBps = mv?.state?.fee ? Math.round(mv.state.fee * 10000) : cfg.performanceFeeBps;
 
     // Fetch DefiLlama fees data and calculate this vault's share based on TVL proportion
     let vaultRevenueAllTime: number | null = null;
@@ -362,6 +372,10 @@ export async function GET(
       ...cfg,
       tvl: tvlUsd,
       apy: apyPct,
+      apyBase: apyBasePct,
+      apyBoosted: apyBoostedPct,
+      feesYtd: vaultRevenueAllTime,
+      utilization: utilization,
       depositors,
       revenueAllTime: vaultRevenueAllTime,
       feesAllTime: vaultFeesAllTime,

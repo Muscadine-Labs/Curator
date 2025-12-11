@@ -24,8 +24,8 @@ import { useVaultRisk } from '@/lib/hooks/useVaultRisk';
 
 export default function VaultDetailPage() {
   const params = useParams();
-  const vaultId = params.id as string;
-  const { data: vault, isLoading } = useVault(vaultId);
+  const vaultAddress = params.address as string;
+  const { data: vault, isLoading } = useVault(vaultAddress);
   const { data: morpho } = useMorphoMarkets();
   const { summary: riskSummary, isLoading: riskLoading } = useVaultRisk(vault);
 
@@ -135,15 +135,14 @@ export default function VaultDetailPage() {
           </Badge>
         </div>
 
-        <Tabs defaultValue="risk" className="space-y-4">
+        <Tabs defaultValue="overview" className="space-y-4">
           <TabsList className="w-full justify-start overflow-x-auto">
-            <TabsTrigger value="risk">Risk Management</TabsTrigger>
             <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="risk">Risk Management</TabsTrigger>
             <TabsTrigger value="roles">Roles</TabsTrigger>
-            <TabsTrigger value="adapters">Adapters</TabsTrigger>
+            <TabsTrigger value="parameters">Parameters</TabsTrigger>
             <TabsTrigger value="allocation">Allocation</TabsTrigger>
             <TabsTrigger value="caps">Caps</TabsTrigger>
-            <TabsTrigger value="timelocks">Timelocks</TabsTrigger>
           </TabsList>
 
           <TabsContent value="risk" className="space-y-4">
@@ -172,9 +171,9 @@ export default function VaultDetailPage() {
                   </p>
                 </div>
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-xs uppercase text-slate-500">Timelock posture</p>
-                  <p className="text-lg font-semibold text-slate-900">Pending / Scheduled</p>
-                  <p className="text-xs text-slate-500">View in Timelocks tab</p>
+                  <p className="text-xs uppercase text-slate-500">Vault Type</p>
+                  <p className="text-lg font-semibold text-slate-900">V1 MetaMorpho</p>
+                  <p className="text-xs text-slate-500">Standard vault configuration</p>
                 </div>
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                   <p className="text-xs uppercase text-slate-500">Liquidity & caps</p>
@@ -188,19 +187,18 @@ export default function VaultDetailPage() {
           <TabsContent value="overview" className="space-y-4">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
               <KpiCard title="TVL" value={vault.tvl} subtitle="Total Value Locked" format="usd" />
-              <KpiCard title="Base APY" value={vault.apyBase} subtitle="Base yield rate" format="percentage" />
-              <KpiCard title="Boosted APY" value={vault.apyBoosted} subtitle="With boost" format="percentage" />
+              <KpiCard title="APY" value={vault.apy} subtitle="Current yield rate" format="percentage" />
               <KpiCard title="Depositors" value={vault.depositors} subtitle="Total depositors" format="number" />
-            </div>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <KpiCard title="Fees YTD" value={vault.feesYtd} subtitle="Year to date" format="usd" />
-              <KpiCard title="Utilization" value={vault.utilization * 100} subtitle="Capital utilization" format="percentage" />
               <KpiCard 
                 title="Performance Fee" 
                 value={vault.parameters?.performanceFeeBps ? vault.parameters.performanceFeeBps / 100 : null} 
                 subtitle="Curator fee rate" 
                 format="percentage" 
               />
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <KpiCard title="Revenue (All Time)" value={vault.revenueAllTime} subtitle="Interest generated for depositors" format="usd" />
+              <KpiCard title="Fees (All Time)" value={vault.feesAllTime} subtitle="Curator fees collected" format="usd" />
             </div>
           </TabsContent>
 
@@ -211,13 +209,30 @@ export default function VaultDetailPage() {
             </div>
           </TabsContent>
 
-          <TabsContent value="adapters" className="space-y-4">
+          <TabsContent value="parameters" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Adapters</CardTitle>
+                <CardTitle>Vault Parameters</CardTitle>
               </CardHeader>
-              <CardContent className="text-sm text-slate-600">
-                Adapter registry and configuration pulls from Morpho vault contracts. Use caps and timelocks tabs to change allocations and timing.
+              <CardContent className="grid gap-4 md:grid-cols-2">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs uppercase text-slate-500">Performance Fee</p>
+                  <p className="text-lg font-semibold text-slate-900">
+                    {vault.parameters?.performanceFeeBps ? `${vault.parameters.performanceFeeBps / 100}%` : 'N/A'}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs uppercase text-slate-500">Asset</p>
+                  <p className="text-lg font-semibold text-slate-900">{vault.asset}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs uppercase text-slate-500">Chain</p>
+                  <p className="text-lg font-semibold text-slate-900">Base</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs uppercase text-slate-500">Version</p>
+                  <p className="text-lg font-semibold text-slate-900">V1 (MetaMorpho)</p>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -292,21 +307,10 @@ export default function VaultDetailPage() {
           <TabsContent value="caps" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Caps</CardTitle>
+                <CardTitle>Supply Caps</CardTitle>
               </CardHeader>
               <CardContent className="text-sm text-slate-600">
-                Configure absolute and relative caps per adapter. Pull data from Morpho vault V2 for v2 vaults and MetaMorpho v1.1 for v1 vaults.
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="timelocks" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Timelocks</CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm text-slate-600">
-                Pending actions will surface here once wired to contract reads. Execute after timelock expiry or revoke if needed.
+                Supply caps are configured per market allocation. V1 vaults use MetaMorpho cap settings.
               </CardContent>
             </Card>
           </TabsContent>
