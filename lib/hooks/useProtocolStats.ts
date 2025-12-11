@@ -37,6 +37,10 @@ export interface VaultWithData {
 
 export interface VaultDetail extends VaultWithData {
   apy: number | null;
+  apyBase: number | null;
+  apyBoosted: number | null;
+  feesYtd: number | null;
+  utilization: number;
   revenueAllTime: number | null;
   feesAllTime: number | null;
   apyBreakdown?: {
