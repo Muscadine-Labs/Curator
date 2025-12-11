@@ -37,51 +37,6 @@ export interface ProtocolConfig {
 // Hard-coded vault configurations
 export const vaults: VaultConfig[] = [
   {
-    id: 'usdc-vault',
-    name: 'Muscadine USDC Vault',
-    symbol: 'mvUSDC',
-    asset: 'USDC',
-    address: process.env.NEXT_PUBLIC_VAULT_USDC || '0xf7e26Fa48A568b8b0038e104DfD8ABdf0f99074F',
-    chainId: BASE_CHAIN_ID,
-    scanUrl: 'https://basescan.org/address/0xf7e26Fa48A568b8b0038e104DfD8ABdf0f99074F',
-    performanceFeeBps: DEFAULT_PERFORMANCE_FEE_BPS,
-    status: 'active',
-    riskTier: 'low',
-    createdAt: '2024-01-15T00:00:00Z',
-    description: 'USDC yield vault with low risk strategy',
-    version: 'v1'
-  },
-  {
-    id: 'cbbtc-vault',
-    name: 'Muscadine cbBTC Vault',
-    symbol: 'mvcbBTC',
-    asset: 'cbBTC',
-    address: process.env.NEXT_PUBLIC_VAULT_CBBTC || '0xAeCc8113a7bD0CFAF7000EA7A31afFD4691ff3E9',
-    chainId: BASE_CHAIN_ID,
-    scanUrl: 'https://basescan.org/address/0xaecc8113a7bd0cfaf7000ea7a31affd4691ff3e9',
-    performanceFeeBps: DEFAULT_PERFORMANCE_FEE_BPS,
-    status: 'active',
-    riskTier: 'medium',
-    createdAt: '2024-02-01T00:00:00Z',
-    description: 'cbBTC yield vault with medium risk strategy',
-    version: 'v1'
-  },
-  {
-    id: 'weth-vault',
-    name: 'Muscadine WETH Vault',
-    symbol: 'mvWETH',
-    asset: 'WETH',
-    address: process.env.NEXT_PUBLIC_VAULT_WETH || '0x21e0d366272798da3A977FEBA699FCB91959d120',
-    chainId: BASE_CHAIN_ID,
-    scanUrl: 'https://basescan.org/address/0x21e0d366272798da3A977FEBA699FCB91959d120',
-    performanceFeeBps: DEFAULT_PERFORMANCE_FEE_BPS,
-    status: 'active',
-    riskTier: 'medium',
-    createdAt: '2024-02-15T00:00:00Z',
-    description: 'WETH yield vault with medium risk strategy',
-    version: 'v1'
-  },
-  {
     id: 'usdc-vault-v2',
     name: 'Muscadine USDC Prime',
     symbol: 'mpUSDC',
@@ -125,6 +80,51 @@ export const vaults: VaultConfig[] = [
     createdAt: '2024-11-01T00:00:00Z',
     description: 'cbBTC Prime vault with Morpho V2 allocator flexibility',
     version: 'v2'
+  },
+  {
+    id: 'usdc-vault',
+    name: 'Muscadine USDC Vault',
+    symbol: 'mvUSDC',
+    asset: 'USDC',
+    address: process.env.NEXT_PUBLIC_VAULT_USDC || '0xf7e26Fa48A568b8b0038e104DfD8ABdf0f99074F',
+    chainId: BASE_CHAIN_ID,
+    scanUrl: 'https://basescan.org/address/0xf7e26Fa48A568b8b0038e104DfD8ABdf0f99074F',
+    performanceFeeBps: DEFAULT_PERFORMANCE_FEE_BPS,
+    status: 'active',
+    riskTier: 'low',
+    createdAt: '2024-01-15T00:00:00Z',
+    description: 'USDC yield vault with low risk strategy',
+    version: 'v1'
+  },
+  {
+    id: 'cbbtc-vault',
+    name: 'Muscadine cbBTC Vault',
+    symbol: 'mvcbBTC',
+    asset: 'cbBTC',
+    address: process.env.NEXT_PUBLIC_VAULT_CBBTC || '0xAeCc8113a7bD0CFAF7000EA7A31afFD4691ff3E9',
+    chainId: BASE_CHAIN_ID,
+    scanUrl: 'https://basescan.org/address/0xaecc8113a7bd0cfaf7000ea7a31affd4691ff3e9',
+    performanceFeeBps: DEFAULT_PERFORMANCE_FEE_BPS,
+    status: 'active',
+    riskTier: 'medium',
+    createdAt: '2024-02-01T00:00:00Z',
+    description: 'cbBTC yield vault with medium risk strategy',
+    version: 'v1'
+  },
+  {
+    id: 'weth-vault',
+    name: 'Muscadine WETH Vault',
+    symbol: 'mvWETH',
+    asset: 'WETH',
+    address: process.env.NEXT_PUBLIC_VAULT_WETH || '0x21e0d366272798da3A977FEBA699FCB91959d120',
+    chainId: BASE_CHAIN_ID,
+    scanUrl: 'https://basescan.org/address/0x21e0d366272798da3A977FEBA699FCB91959d120',
+    performanceFeeBps: DEFAULT_PERFORMANCE_FEE_BPS,
+    status: 'active',
+    riskTier: 'medium',
+    createdAt: '2024-02-15T00:00:00Z',
+    description: 'WETH yield vault with medium risk strategy',
+    version: 'v1'
   }
 ];
 

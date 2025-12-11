@@ -182,9 +182,7 @@ Vault configurations are defined in `/lib/config/vaults.ts`. To add new vaults:
 - Vault list: Morpho GraphQL (`/api/vaults`) maps TVL and APY fields per Morpho docs
 - Vault detail: Morpho GraphQL (`/api/vaults/[id]`) via `vaultByAddress` + positions + allocations + rewards + warnings + queues + txs
 - Protocol overview: `/api/protocol-stats` aggregates TVL/users across configured vaults
-- Markets supplied: `/api/markets-supplied` discovers markets from allocations and fetches market stats and historical series
-- Fee splitter: On-chain reads via viem from `NEXT_PUBLIC_FEE_SPLITTER`
-- Fee analytics: Dune Analytics API (`/api/dune/fees`) for historical fee data and trends (requires `DUNE_API_KEY`)
+- Risk ratings: `/api/morpho-markets` computes market-level risk ratings (0-100) from Morpho data
 
 References:
 - Earn (vaults/allocations): https://docs.morpho.org/build/earn/tutorials/get-data
@@ -194,49 +192,41 @@ References:
 
 ```
 /app
-  /page.tsx                 # Overview page
-  /vaults/page.tsx         # All vaults list with market metrics per vault
-  /vaults/[id]/page.tsx    # Vault detail page with embedded market metrics
-  /allocations/page.tsx    # Allocate/deallocate interface for Morpho markets
-  /fees/page.tsx           # Fees page
-/api/markets-supplied    # Markets data endpoint (Morpho GraphQL)
-/api/vaults              # Live vault list (Morpho GraphQL)
-/api/vaults/[id]         # Live vault detail (Morpho GraphQL)
-/api/protocol-stats      # Protocol aggregates (Morpho GraphQL)
-/api/morpho-markets      # Morpho risk ratings (0-100 scale)
-  /api/allocations/intents # Endpoint for recording allocation intents (in-memory storage, see notes below)
-  /layout.tsx              # Root layout
-  /providers.tsx           # App providers
+  page.tsx                  # Overview (landing) - select vault from sidebar
+  vaults/[id]/page.tsx      # Vault detail with tabs (risk, overview, roles, adapters, allocation, caps, timelocks)
+  layout.tsx                # Root layout
+  providers.tsx             # App providers
+
+/app/api
+  morpho-markets/route.ts   # Morpho market risk ratings (0-100)
+  protocol-stats/route.ts   # Protocol aggregates (TVL, users, fees)
+  vaults/route.ts           # Vault list (Morpho GraphQL)
+  vaults/[id]/route.ts      # Vault detail (Morpho GraphQL)
 
 /components
-  KpiCard.tsx              # KPI display component
-  VaultTable.tsx           # Vaults table
-  ChartTvl.tsx             # TVL chart
-  ChartFees.tsx            # Fees chart
-  AddressBadge.tsx         # Address display with copy/scan
-  RoleList.tsx             # Protocol roles
-  AllocatorList.tsx        # Allocators list
-  SplitterPanel.tsx        # Fee splitter panel
+  layout/AppShell.tsx       # Shared shell with sidebar/topbar
+  layout/Sidebar.tsx        # Sidebar with vault list
+  layout/Topbar.tsx         # Top bar with wallet/network
+  KpiCard.tsx               # KPI display
+  ChartTvl.tsx              # TVL chart
+  ChartFees.tsx             # Fees chart
+  AddressBadge.tsx          # Address display with copy/scan
+  RoleList.tsx              # Protocol roles
+  AllocatorList.tsx         # Allocators list
+  morpho/RatingBadge.tsx    # Risk rating badge
+  ui/*                      # UI primitives
 
 /lib
-  /config/
-    vaults.ts              # Vault configurations
-    fee-splitters.ts       # Fee splitter contract mappings
-    env.ts                 # Environment variable validation
-  /constants.ts            # Application constants (chain IDs, timeouts, etc.)
-  /utils/
-    rate-limit.ts          # Rate limiting utilities
-    error-handler.ts       # Standardized error handling
-    sanitize.ts            # Input sanitization utilities
-    fetch-with-timeout.ts  # Fetch with timeout wrapper
-    logger.ts              # Logging service
-  /onchain/
-    client.ts              # Viem client setup
-    contracts.ts           # Contract readers
-  /hooks/                  # React Query hooks
-  /format/number.ts        # Number formatting utilities
-  /wallet/config.ts        # Wallet configuration
-  /dune/service.ts         # Dune Analytics API service
+  config/vaults.ts          # Vault configurations (V1/V2)
+  config/env.ts             # Environment variable validation
+  constants.ts              # Application constants
+  morpho/*                  # Morpho clients, queries, compute helpers
+  hooks/*                   # React Query hooks
+  format/number.ts          # Number formatting utilities
+  wallet/config.ts          # Wallet configuration
+  dune/service.ts           # Dune Analytics API service (protocol stats)
+  onchain/*                 # Viem client and contracts
+  utils/*                   # Utilities (rate limit, error handling, etc.)
 ```
 
 ## Deployment
