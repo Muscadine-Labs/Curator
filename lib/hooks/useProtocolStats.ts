@@ -24,21 +24,19 @@ export interface VaultWithData {
   riskTier: 'low' | 'medium' | 'high';
   createdAt: string;
   description?: string;
+  version?: 'v1' | 'v2';
   tvl: number;
-  tokenAmount: string | null;
-  assetDecimals: number;
-  apy7d: number;
-  apy30d: number;
+  apy: number | null;
   depositors: number;
-  utilization: number;
+  revenueAllTime: number | null;
+  feesAllTime: number | null;
   lastHarvest: string | null;
 }
 
 export interface VaultDetail extends VaultWithData {
-  apyBase: number | null;
-  apyBoosted: number | null;
-  feesYtd: number | null;
-  // charts: removed - always null, historical data not available via current Morpho API
+  apy: number | null;
+  revenueAllTime: number | null;
+  feesAllTime: number | null;
   apyBreakdown?: {
     apy: number | null;
     netApy: number | null;
@@ -113,28 +111,6 @@ export interface VaultDetail extends VaultWithData {
   };
 }
 
-export interface FeesData {
-  totalFeesGenerated: number;
-  performanceFeeBps: number;
-  feeHistory: Array<{
-    date: string;
-    amount: number;
-    token: string;
-    vault: string;
-  }>;
-  feesTrend?: Array<{
-    date: string;
-    value: number;
-  }>;
-  splitterData?: {
-    payee1: string;
-    payee2: string;
-    shares1: bigint;
-    shares2: bigint;
-    totalShares: bigint;
-  };
-}
-
 // Protocol stats hook
 export const useProtocolStats = () => {
   return useQuery<ProtocolStats>({
@@ -189,22 +165,3 @@ export const useVault = (id: string) => {
   });
 };
 
-// Fees data hook
-export const useFeesData = () => {
-  return useQuery<FeesData>({
-    queryKey: ['fees'],
-    queryFn: async () => {
-      const response = await fetch('/api/dune/fees');
-      if (!response.ok) {
-        // Don't fall back to mock data - return empty data structure instead
-        // This ensures we show real data or nothing, not hardcoded mock values
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to fetch fees data from Dune API');
-      }
-      return response.json();
-    },
-    staleTime: QUERY_STALE_TIME_MEDIUM,
-    refetchInterval: QUERY_REFETCH_INTERVAL_MEDIUM,
-    retry: 1,
-  });
-};

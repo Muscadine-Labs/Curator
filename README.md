@@ -1,13 +1,15 @@
 # Muscadine Curator
 
-Modern Next.js dashboard for Muscadine vaults on Morpho. Live data is sourced from the Morpho GraphQL API and onchain reads; wallet connection is powered by Wagmi + Coinbase OnchainKit.
+Modern Next.js dashboard for Muscadine vaults on Morpho. Live data is sourced from the Morpho GraphQL API, DefiLlama, and onchain reads; wallet connection is powered by Wagmi + Coinbase OnchainKit.
 
 ## Features
 
-- **Overview**: KPI snapshot (TVL, users, interest) from Morpho data
-- **Vaults**: Six vaults (3 V1, 3 V2 Prime) accessible via sidebar
-- **Vault Detail Tabs**: Risk (market-averaged rating), Overview, Roles, Adapters, Allocation, Caps, Timelocks
+- **Overview**: KPI snapshot (TVL, users, fees, interest) with historical trends
+- **Vaults**: Six vaults (3 V1, 3 V2 Prime) with version-specific pages
+- **V1 Vaults** (`/vault/v1/[address]`): Overview, Risk Management, Roles, Parameters, Allocation, Caps
+- **V2 Vaults** (`/vault/v2/[address]`): Overview, Risk Management, Roles, Adapters, Allocations, Caps, Timelock
 - **Risk Ratings**: Morpho market ratings (0–100) aggregated per vault
+- **Revenue & Fees**: All-time revenue and curator fees from DefiLlama
 - **Wallet Integration**: Coinbase OnchainKit + wagmi + viem on Base
 - **Rate Limiting & Error Handling**: Production-safe API limits and standardized errors
 
@@ -33,17 +35,13 @@ Modern Next.js dashboard for Muscadine vaults on Morpho. Live data is sourced fr
 
 If your wallet is on a different network, the app will prompt you to switch to Base.
 
-## Dune Analytics (optional)
+## Latest Updates (Jan 2025)
 
-Protocol stats can optionally use Dune fee data if `DUNE_API_KEY` is set; otherwise falls back to Morpho data for TVL/users/fees.
-
-## Latest Updates (Dec 2025)
-
-- Simplified navigation: sidebar with Overview + six vaults (3 V1, 3 V2 Prime)
-- Removed legacy allocations, fees, and markets pages/APIs; focused on vault detail flow
-- Risk tab now uses Morpho market ratings (0–100) aggregated per vault via `/api/morpho-markets`
-- Wallet header uses Coinbase OnchainKit + wagmi on Base
-- README and structure updated to match the streamlined layout
+- **Vault Routes Reorganized**: V1 vaults at `/vault/v1/[address]`, V2 vaults at `/vault/v2/[address]`
+- **DefiLlama Integration**: All-time revenue and fees data from DefiLlama API
+- **Simplified Stats**: Single APY field, removed utilization from overview
+- **Historical Data**: TVL and fees trends from Morpho GraphQL and DefiLlama
+- **Sidebar Navigation**: Direct links to V1 and V2 vault pages
 
 ## Setup
 
@@ -67,7 +65,6 @@ Protocol stats can optionally use Dune fee data if `DUNE_API_KEY` is set; otherw
      - V1: `NEXT_PUBLIC_VAULT_USDC`, `NEXT_PUBLIC_VAULT_CBBTC`, `NEXT_PUBLIC_VAULT_WETH`
      - V2 Prime: `NEXT_PUBLIC_VAULT_USDC_V2`, `NEXT_PUBLIC_VAULT_WETH_V2`, `NEXT_PUBLIC_VAULT_CBBTC_V2`
    - Optional: `NEXT_PUBLIC_DEFAULT_PERF_FEE_BPS`, `NEXT_PUBLIC_ROLE_OWNER`, `NEXT_PUBLIC_ROLE_GUARDIAN`, `NEXT_PUBLIC_ROLE_CURATOR`, `NEXT_PUBLIC_ALLOCATOR_HOT`, `NEXT_PUBLIC_ALLOCATOR_IGNAS`
-   - Analytics: `DUNE_API_KEY` (optional, for Dune Analytics fee data integration)
 
 3. **Run development server**:
    ```bash
@@ -88,29 +85,36 @@ Vault configurations are defined in `/lib/config/vaults.ts`. To add new vaults:
 
 ### Data Sources
 
-- Vault list: Morpho GraphQL (`/api/vaults`) maps TVL and APY fields per Morpho docs
-- Vault detail: Morpho GraphQL (`/api/vaults/[id]`) via `vaultByAddress` + positions + allocations + rewards + warnings + queues + txs
-- Protocol overview: `/api/protocol-stats` aggregates TVL/users across configured vaults
-- Risk ratings: `/api/morpho-markets` computes market-level risk ratings (0-100) from Morpho data
+- **Morpho GraphQL API**: Vault TVL, APY, allocations, positions, rewards, historical data
+- **DefiLlama API**: All-time revenue and fees (`/summary/fees/muscadine`)
+- **On-chain**: Vault roles, performance fees via viem RPC calls
+
+API Endpoints:
+- `/api/vaults` - Vault list with TVL, APY, depositors
+- `/api/vaults/[id]` - Vault detail with allocations, roles, historical data, revenue/fees
+- `/api/protocol-stats` - Protocol aggregates (TVL, users, fees trends)
+- `/api/morpho-markets` - Market-level risk ratings (0-100)
 
 References:
-- Earn (vaults/allocations): https://docs.morpho.org/build/earn/tutorials/get-data
-- Markets (markets/apy/history): https://docs.morpho.org/build/borrow/tutorials/get-data
+- Morpho Earn: https://docs.morpho.org/build/earn/tutorials/get-data
+- Morpho Markets: https://docs.morpho.org/build/borrow/tutorials/get-data
+- DefiLlama Fees: https://defillama.com/protocol/muscadine
 
 ## Project Structure
 
 ```
 /app
-  page.tsx                  # Overview (landing) - select vault from sidebar
-  vaults/[id]/page.tsx      # Vault detail with tabs (risk, overview, roles, adapters, allocation, caps, timelocks)
+  page.tsx                  # Overview (landing) - protocol stats and trends
+  vault/v1/[address]/       # V1 vault detail (Overview, Risk, Roles, Parameters, Allocation, Caps)
+  vault/v2/[address]/       # V2 vault detail (Overview, Risk, Roles, Adapters, Allocations, Caps, Timelock)
   layout.tsx                # Root layout
   providers.tsx             # App providers
 
 /app/api
   morpho-markets/route.ts   # Morpho market risk ratings (0-100)
-  protocol-stats/route.ts   # Protocol aggregates (TVL, users, fees)
+  protocol-stats/route.ts   # Protocol aggregates (TVL, users, fees trends)
   vaults/route.ts           # Vault list (Morpho GraphQL)
-  vaults/[id]/route.ts      # Vault detail (Morpho GraphQL)
+  vaults/[id]/route.ts      # Vault detail (Morpho + DefiLlama)
 
 /components
   layout/AppShell.tsx       # Shared shell with sidebar/topbar
@@ -128,11 +132,11 @@ References:
 /lib
   config/vaults.ts          # Vault configurations (V1/V2)
   constants.ts              # Application constants
+  defillama/service.ts      # DefiLlama API client for fees/revenue
   morpho/*                  # Morpho clients, queries, compute helpers
   hooks/*                   # React Query hooks
   format/number.ts          # Number formatting utilities
   wallet/config.ts          # Wallet configuration
-  dune/service.ts           # Dune Analytics API service (protocol stats)
   onchain/*                 # Viem client and contracts
   utils/*                   # Utilities (rate limit, error handling, etc.)
 ```
@@ -192,4 +196,4 @@ For questions or support, contact us at: **muscadinelabs@gmail.com**
 
 ## License
 
-© 2024 Muscadine. Built on Base.
+© 2025 Muscadine. Built on Base.

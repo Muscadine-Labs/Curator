@@ -1,15 +1,9 @@
 import { NextResponse } from 'next/server';
 import { vaults as configuredVaults } from '@/lib/config/vaults';
 import { 
-  executeDuneQueryAndWait, 
-  getLatestDuneQueryResults,
-  type DuneQueryParams 
-} from '@/lib/dune/service';
-import { 
   BASE_CHAIN_ID, 
   GRAPHQL_FIRST_LIMIT,
-  DAYS_30_MS,
-  DUNE_QUERY_IDS
+  getDaysAgoTimestamp
 } from '@/lib/constants';
 import { handleApiError } from '@/lib/utils/error-handler';
 import { createRateLimitMiddleware, RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS } from '@/lib/utils/rate-limit';
@@ -17,6 +11,7 @@ import { morphoGraphQLClient } from '@/lib/morpho/graphql-client';
 import { gql } from 'graphql-request';
 import type { Vault, VaultPosition, Maybe } from '@morpho-org/blue-api-sdk';
 import { logger } from '@/lib/utils/logger';
+import { fetchDefiLlamaFees, getFeesChartData } from '@/lib/defillama/service';
 
 // Type-safe response matching our query structure
 type ProtocolStatsQueryResponse = {
@@ -25,6 +20,21 @@ type ProtocolStatsQueryResponse = {
   } | null;
   vaultPositions: {
     items: Maybe<VaultPosition>[] | null;
+  } | null;
+};
+
+type VaultHistoricalQueryResponse = {
+  vault: {
+    address: string;
+    state: {
+      totalAssetsUsd: number;
+      fee: number; // Performance fee rate (e.g., 0.05 = 5%)
+      netApy: number | null;
+      apy: number | null;
+    } | null;
+    historicalState: {
+      totalAssetsUsd: Array<{ x: number; y: number }> | null;
+    } | null;
   } | null;
 };
 
@@ -85,14 +95,7 @@ export async function GET(request: Request) {
     const positions = data.vaultPositions?.items?.filter((p): p is VaultPosition => p !== null) ?? [];
 
     const totalDeposited = morphoVaults.reduce((sum, v) => sum + (v.state?.totalAssetsUsd ?? 0), 0);
-    const activeVaults = configuredVaults.length;
-    
-    // Calculate total fees from Morpho (fallback)
-    let totalFeesGenerated = morphoVaults.reduce((sum, v) => sum + (v.state?.fee ?? 0), 0);
-    
-    // Total interest generated is approximately the fees generated (in a MetaMorpho vault, fees = performance fees from interest)
-    // For more accurate calculation, we'd need historical APY data
-    const totalInterestGenerated = totalFeesGenerated;
+    const activeVaultsCount = configuredVaults.length;
 
     // Unique depositors across our vaults
     const uniqueUsers = new Set<string>();
@@ -103,98 +106,186 @@ export async function GET(request: Request) {
       }
     }
 
-    // Minimal placeholder trends (current TVL as a flat series) to avoid mocks
-    const now = new Date();
-    const thirtyDaysAgo = new Date(now.getTime() - DAYS_30_MS);
-    const tvlTrend = Array.from({ length: 30 }, (_, i) => {
-      const date = new Date(thirtyDaysAgo.getTime() + i * DAYS_30_MS / 30);
-      return { date: date.toISOString(), value: totalDeposited };
-    });
+    // Fetch historical data for all vaults from Morpho GraphQL
+    const historicalOptions = {
+      startTimestamp: getDaysAgoTimestamp(30),
+      endTimestamp: Math.floor(Date.now() / 1000),
+      interval: 'DAY' as const,
+    };
 
-    // Try to fetch fees trend from Dune Analytics
-    let feesTrend: Array<{ date: string; value: number }> = [];
-    let duneTotalFees = totalFeesGenerated;
-    
-    try {
-      if (process.env.DUNE_API_KEY) {
-        // Fetch fees data for all active vaults in parallel
-        const activeVaults = configuredVaults.filter(v => v.status === 'active');
-        
-        // Parallelize Dune API calls
-        const dunePromises = activeVaults.map(async (vault) => {
-          try {
-            const vaultParamValue = `${vault.name} - base - ${vault.address}`;
-            const params: DuneQueryParams = {
-              vault_name_e15077: vaultParamValue,
-            };
-            
-            // Try to get latest results first
-            let duneResult = await getLatestDuneQueryResults(DUNE_QUERY_IDS.SINGLE_VAULT_PERFORMANCE, params);
-            
-            // If no latest results, execute and wait
-            if (!duneResult || duneResult.state !== 'QUERY_STATE_COMPLETED') {
-              duneResult = await executeDuneQueryAndWait(DUNE_QUERY_IDS.SINGLE_VAULT_PERFORMANCE, params);
-            }
-            
-            return duneResult?.result?.rows || [];
-          } catch (error) {
-            // Continue with other vaults if one fails
-            logger.error(`Error fetching Dune data for vault ${vault.address}`, error as Error, {
-              vaultAddress: vault.address,
-              vaultName: vault.name,
-            });
-            return [];
+    const historicalQuery = gql`
+      query VaultHistorical($address: String!, $chainId: Int!, $options: TimeseriesOptions) {
+        vault: vaultByAddress(address: $address, chainId: $chainId) {
+          address
+          state {
+            totalAssetsUsd
+            fee
+            netApy
+            apy
           }
-        });
-        
-        const duneResults = await Promise.all(dunePromises);
-        const allRows: Array<Record<string, unknown>> = duneResults.flat();
-        
-        // Transform Dune results
-        if (allRows.length > 0) {
-          // Calculate total fees
-          duneTotalFees = allRows.reduce((sum, row) => {
-            const feeAmount = row.total_fees || row.fees || row.amount || row.fee_amount || 0;
-            return sum + (typeof feeAmount === 'number' ? feeAmount : parseFloat(String(feeAmount)) || 0);
-          }, 0);
-          
-          // Create fees trend
-          const dailyFees = allRows.reduce((acc: Record<string, number>, row: Record<string, unknown>) => {
-            const date = row.date || row.timestamp || row.time || row.block_time;
-            const amount = row.total_fees || row.fees || row.amount || row.fee_amount || 0;
-            if (date) {
-              const dateKey = new Date(String(date)).toISOString().split('T')[0];
-              acc[dateKey] = (acc[dateKey] || 0) + (typeof amount === 'number' ? amount : parseFloat(String(amount)) || 0);
+          historicalState {
+            totalAssetsUsd(options: $options) {
+              x
+              y
             }
-            return acc;
-          }, {});
-          
-          feesTrend = Object.entries(dailyFees)
-            .map(([date, value]) => ({
-              date,
-              value: value as number,
-            }))
-            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-        }
-        
-        // Use Dune total fees if available
-        if (duneTotalFees > 0) {
-          totalFeesGenerated = duneTotalFees;
+          }
         }
       }
-    } catch (error) {
-      // Silently fail - use empty array if Dune fetch fails
-      logger.error('Failed to fetch fees trend from Dune', error as Error);
+    `;
+
+    // Fetch historical data for all active vaults in parallel
+    const activeVaultsList = configuredVaults.filter((v) => v.status === 'active');
+    const historicalPromises = activeVaultsList.map(async (vault) => {
+      try {
+        const data = await morphoGraphQLClient.request<VaultHistoricalQueryResponse>(
+          historicalQuery,
+          {
+            address: vault.address,
+            chainId: vault.chainId,
+            options: historicalOptions,
+          }
+        );
+        return data.vault;
+      } catch (error) {
+        logger.error(`Error fetching historical data for vault ${vault.address}`, error as Error, {
+          vaultAddress: vault.address,
+          vaultName: vault.name,
+        });
+        return null;
+      }
+    });
+
+    const historicalResults = await Promise.all(historicalPromises);
+    const validHistoricalData = historicalResults.filter((v: typeof historicalResults[0]): v is NonNullable<typeof v> => v !== null);
+
+    // Aggregate TVL trend data
+    const tvlByTimestamp: Record<number, number> = {};
+    for (const vault of validHistoricalData) {
+      const tvlData = vault.historicalState?.totalAssetsUsd;
+      if (tvlData && Array.isArray(tvlData)) {
+        for (const point of tvlData) {
+          const timestamp = point.x;
+          const value = point.y || 0;
+          tvlByTimestamp[timestamp] = (tvlByTimestamp[timestamp] || 0) + value;
+        }
+      }
+    }
+
+    // Convert to array and sort by date
+    const tvlTrend = Object.entries(tvlByTimestamp)
+      .map(([timestamp, value]) => ({
+        date: new Date(parseInt(timestamp) * 1000).toISOString(),
+        value: value as number,
+      }))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // Fetch fees data from DefiLlama (primary source - actual on-chain data)
+    // Reference: https://github.com/DefiLlama/dimension-adapters/blob/master/fees/muscadine.ts
+    const defiLlamaData = await fetchDefiLlamaFees();
+    
+    let totalFeesGenerated = 0;
+    let totalInterestGenerated = 0;
+    let feesTrend: Array<{ date: string; value: number }> = [];
+
+    if (defiLlamaData) {
+      // Use DefiLlama data (actual on-chain fees)
+      // DefiLlama "Fees" = Total yields from deposited assets (interest generated)
+      // DefiLlama methodology: SupplySideRevenue goes to depositors, ProtocolRevenue to curator
+      totalInterestGenerated = defiLlamaData.total30d || defiLlamaData.totalAllTime || 0;
+      
+      // Calculate curator fees (protocol revenue) from total interest
+      // Performance fee is typically 5% of interest
+      let avgPerformanceFeeRate = 0;
+      let feeRateCount = 0;
+      for (const vault of validHistoricalData) {
+        const feeRate = vault.state?.fee || 0;
+        if (feeRate > 0) {
+          avgPerformanceFeeRate += feeRate;
+          feeRateCount++;
+        }
+      }
+      if (feeRateCount > 0) {
+        avgPerformanceFeeRate = avgPerformanceFeeRate / feeRateCount;
+      }
+      
+      totalFeesGenerated = totalInterestGenerated * avgPerformanceFeeRate;
+      
+      // Get historical fees trend from DefiLlama (they store historical data)
+      feesTrend = getFeesChartData(defiLlamaData);
+      
+      logger.info('Using DefiLlama fees data', {
+        total30d: defiLlamaData.total30d,
+        totalAllTime: defiLlamaData.totalAllTime,
+        chartPoints: feesTrend.length,
+      });
+    } else {
+      // Fallback: Estimate from Morpho APY data
+      logger.warn('DefiLlama data unavailable, using Morpho APY estimation');
+      
+      if (tvlTrend.length >= 2) {
+        const startTvl = tvlTrend[0]?.value || 0;
+        const endTvl = tvlTrend[tvlTrend.length - 1]?.value || 0;
+        
+        // Calculate average APY across all vaults (weighted by TVL)
+        let weightedApySum = 0;
+        let totalWeight = 0;
+        for (const vault of validHistoricalData) {
+          const tvl = vault.state?.totalAssetsUsd || 0;
+          const apy = vault.state?.apy || 0;
+          if (tvl > 0 && apy > 0) {
+            weightedApySum += apy * tvl;
+            totalWeight += tvl;
+          }
+        }
+        const avgApy = totalWeight > 0 ? weightedApySum / totalWeight : 0;
+        
+        // Estimate 30-day interest
+        const avgTvl = (startTvl + endTvl) / 2;
+        totalInterestGenerated = avgTvl * (avgApy / 12);
+        
+        // Calculate fees from interest
+        let avgPerformanceFeeRate = 0;
+        let feeRateCount = 0;
+        for (const vault of validHistoricalData) {
+          const feeRate = vault.state?.fee || 0;
+          if (feeRate > 0) {
+            avgPerformanceFeeRate += feeRate;
+            feeRateCount++;
+          }
+        }
+        if (feeRateCount > 0) {
+          avgPerformanceFeeRate = avgPerformanceFeeRate / feeRateCount;
+          totalFeesGenerated = totalInterestGenerated * avgPerformanceFeeRate;
+        }
+        
+        // Create estimated fees trend
+        if (totalInterestGenerated > 0 && avgPerformanceFeeRate > 0) {
+          const totalDays = tvlTrend.length;
+          const dailyInterestRate = totalInterestGenerated / totalDays / avgTvl;
+          
+          let cumulativeFees = 0;
+          for (const point of tvlTrend) {
+            const dailyInterest = point.value * dailyInterestRate;
+            const dailyFees = dailyInterest * avgPerformanceFeeRate;
+            cumulativeFees += dailyFees;
+            feesTrend.push({
+              date: point.date,
+              value: cumulativeFees,
+            });
+          }
+        }
+      }
     }
 
     const stats = {
       totalDeposited,
       totalFeesGenerated,
-      activeVaults,
+      activeVaults: activeVaultsCount,
       totalInterestGenerated,
       users: uniqueUsers.size,
       tvlTrend,
       feesTrend,
+      dataSource: defiLlamaData ? 'defillama' : 'morpho-estimated',
     };
 
     const responseHeaders = new Headers(rateLimitResult.headers);

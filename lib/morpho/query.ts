@@ -56,3 +56,5 @@ export async function fetchMorphoMarkets(
 
   return data.markets?.items?.filter((item): item is Market => item !== null) ?? [];
 }
+
+

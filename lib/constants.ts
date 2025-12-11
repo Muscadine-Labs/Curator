@@ -34,16 +34,6 @@ export const DAYS_90_MS = 90 * DAY_MS;
 
 // API Configuration
 export const MORPHO_GRAPHQL_ENDPOINT = 'https://api.morpho.org/graphql';
-export const DUNE_API_BASE = 'https://api.dune.com/api/v1';
-
-// Dune Query Configuration
-export const DUNE_QUERY_IDS = {
-  SINGLE_VAULT_PERFORMANCE: 5930091,
-} as const;
-
-// Dune API Configuration
-export const DUNE_MAX_WAIT_TIME_MS = 60000; // 60 seconds
-export const DUNE_POLL_INTERVAL_MS = 2000; // 2 seconds
 
 // React Query Configuration
 export const QUERY_STALE_TIME_SHORT = 2 * MINUTE_MS; // 2 minutes
