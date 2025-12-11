@@ -58,7 +58,7 @@ Protocol stats can optionally use Dune fee data if `DUNE_API_KEY` is set; otherw
    cp .env.example .env.local
    ```
 
-   **Note**: The `.env.example` file is blocked by gitignore. See the file structure below for required variables, or check the environment variable validation in `/lib/config/env.ts`.
+   **Note**: The `.env.example` file is blocked by gitignore. See the file structure below for required variables.
 
    Required environment variables:
    - Server: `ALCHEMY_API_KEY` (required)
@@ -68,8 +68,6 @@ Protocol stats can optionally use Dune fee data if `DUNE_API_KEY` is set; otherw
      - V2 Prime: `NEXT_PUBLIC_VAULT_USDC_V2`, `NEXT_PUBLIC_VAULT_WETH_V2`, `NEXT_PUBLIC_VAULT_CBBTC_V2`
    - Optional: `NEXT_PUBLIC_DEFAULT_PERF_FEE_BPS`, `NEXT_PUBLIC_ROLE_OWNER`, `NEXT_PUBLIC_ROLE_GUARDIAN`, `NEXT_PUBLIC_ROLE_CURATOR`, `NEXT_PUBLIC_ALLOCATOR_HOT`, `NEXT_PUBLIC_ALLOCATOR_IGNAS`
    - Analytics: `DUNE_API_KEY` (optional, for Dune Analytics fee data integration)
-
-   Environment variables are automatically validated on startup in development mode.
 
 3. **Run development server**:
    ```bash
@@ -129,7 +127,6 @@ References:
 
 /lib
   config/vaults.ts          # Vault configurations (V1/V2)
-  config/env.ts             # Environment variable validation
   constants.ts              # Application constants
   morpho/*                  # Morpho clients, queries, compute helpers
   hooks/*                   # React Query hooks
@@ -146,17 +143,16 @@ Production checklist:
 1. Set `.env` with production keys and addresses
 2. `npm run build` succeeds
 3. `npm start` runs and pages load without 500s
-4. Verify wallet connect, fee splitter reads, and claim tx on test wallet
+4. Verify wallet connection on Base network
 5. Monitor logs for Morpho API errors
 
 ## Development Notes
 
 - Uses automatic Vercel deployments (no manual deployment needed)
-- Vaults list/detail use Morpho API; fee splitter uses on-chain reads
+- Vaults list/detail use Morpho API with on-chain fallbacks
 - UI tolerates missing fields and renders N/A gracefully
 - All components are responsive and accessible
 - Charts load with skeleton states for better UX
-- **Allocation Intents**: Currently stored in-memory (data lost on server restart). For production, migrate to a database (PostgreSQL, Supabase, etc.)
 - **Rate Limiting**: In-memory rate limiting is used. For production at scale, consider using a distributed rate limiting service (e.g., Upstash)
 - **Logging**: Development logging goes to console. For production, integrate with a logging service (Winston, Pino, Sentry, etc.)
 
@@ -180,7 +176,6 @@ No secrets are committed; only public on-chain addresses are shown for convenien
 - `asset()`: Vault asset address
 - `totalAssets()`: TVL calculation
 - `performanceFeeBps()`: Fee rate (defaults to 200 bps)
-- `lastHarvest()`: Last harvest timestamp
 
 ## Contributing
 
