@@ -22,10 +22,10 @@ import type { MorphoMarketMetrics } from '@/lib/morpho/types';
 import { getVaultByAddress } from '@/lib/config/vaults';
 import { useVaultRisk } from '@/lib/hooks/useVaultRisk';
 
-export default function V1VaultPage() {
+export default function VaultDetailPage() {
   const params = useParams();
-  const address = params.address as string;
-  const { data: vault, isLoading } = useVault(address);
+  const vaultId = params.id as string;
+  const { data: vault, isLoading } = useVault(vaultId);
   const { data: morpho } = useMorphoMarkets();
   const { summary: riskSummary, isLoading: riskLoading } = useVaultRisk(vault);
 
@@ -66,8 +66,6 @@ export default function V1VaultPage() {
           supplyApyPercent: supplyApyValue !== null ? supplyApyValue * 100 : null,
           borrowApyPercent: borrowApyValue !== null ? borrowApyValue * 100 : null,
           utilizationPercent: utilizationValue !== null ? utilizationValue * 100 : null,
-          supplyCap: allocation.supplyCap ?? null,
-          supplyAssetsUsd: allocation.supplyAssetsUsd ?? null,
           rating: metrics?.rating ?? null,
         };
       });
@@ -95,7 +93,7 @@ export default function V1VaultPage() {
           <CardContent className="flex items-center justify-between">
             <p className="text-sm text-slate-600">Check the address or pick a vault from the sidebar.</p>
             <Button asChild>
-              <Link href="/">Back to overview</Link>
+              <Link href="/vaults">Back to vaults</Link>
             </Button>
           </CardContent>
         </Card>
@@ -105,6 +103,7 @@ export default function V1VaultPage() {
 
   const ratingLabel = vault.riskTier ? vault.riskTier.toUpperCase() : 'N/A';
   const vaultConfig = getVaultByAddress(vault.address);
+  const vaultVersion = vaultConfig?.version ?? 'v2';
 
   return (
     <AppShell
@@ -113,7 +112,7 @@ export default function V1VaultPage() {
       actions={
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="flex items-center gap-1">
-            <Shield className="h-3 w-3" /> V1
+            <Shield className="h-3 w-3" /> {vaultVersion}
           </Badge>
           <Button variant="outline" size="sm" asChild>
             <a href={vault.scanUrl} target="_blank" rel="noreferrer">
@@ -136,42 +135,22 @@ export default function V1VaultPage() {
           </Badge>
         </div>
 
-        {/* V1 Tabs: Overview, Risk Management, Roles, Parameters, Allocation, Caps */}
-        <Tabs defaultValue="overview" className="space-y-4">
+        <Tabs defaultValue="risk" className="space-y-4">
           <TabsList className="w-full justify-start overflow-x-auto">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="risk">Risk Management</TabsTrigger>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="roles">Roles</TabsTrigger>
-            <TabsTrigger value="parameters">Parameters</TabsTrigger>
+            <TabsTrigger value="adapters">Adapters</TabsTrigger>
             <TabsTrigger value="allocation">Allocation</TabsTrigger>
             <TabsTrigger value="caps">Caps</TabsTrigger>
+            <TabsTrigger value="timelocks">Timelocks</TabsTrigger>
           </TabsList>
 
-          {/* Overview Tab */}
-          <TabsContent value="overview" className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <KpiCard title="TVL" value={vault.tvl} subtitle="Total Value Locked" format="usd" />
-              <KpiCard title="APY" value={vault.apy} subtitle="Current yield rate" format="percentage" />
-              <KpiCard title="Depositors" value={vault.depositors} subtitle="Total depositors" format="number" />
-              <KpiCard 
-                title="Performance Fee" 
-                value={(vault.parameters?.performanceFeeBps ?? vaultConfig?.performanceFeeBps ?? 200) / 100} 
-                subtitle="Curator fee" 
-                format="percentage" 
-              />
-            </div>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <KpiCard title="Revenue (All Time)" value={vault.revenueAllTime} subtitle="Interest generated for depositors" format="usd" />
-              <KpiCard title="Fees (All Time)" value={vault.feesAllTime} subtitle="Curator fees collected" format="usd" />
-            </div>
-          </TabsContent>
-
-          {/* Risk Management Tab */}
           <TabsContent value="risk" className="space-y-4">
             <Card>
               <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <CardTitle>Risk Management Rating</CardTitle>
+                  <CardTitle>Risk management rating</CardTitle>
                   <p className="text-sm text-slate-500">Curator risk posture and key signals</p>
                 </div>
                 <RatingBadge rating={riskLoading ? null : riskSummary.rating} />
@@ -193,12 +172,12 @@ export default function V1VaultPage() {
                   </p>
                 </div>
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-xs uppercase text-slate-500">Markets Allocated</p>
-                  <p className="text-lg font-semibold text-slate-900">{vaultMarkets.length}</p>
-                  <p className="text-xs text-slate-500">Active market allocations</p>
+                  <p className="text-xs uppercase text-slate-500">Timelock posture</p>
+                  <p className="text-lg font-semibold text-slate-900">Pending / Scheduled</p>
+                  <p className="text-xs text-slate-500">View in Timelocks tab</p>
                 </div>
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-xs uppercase text-slate-500">Liquidity & Caps</p>
+                  <p className="text-xs uppercase text-slate-500">Liquidity & caps</p>
                   <p className="text-lg font-semibold text-slate-900">Monitored</p>
                   <p className="text-xs text-slate-500">Idle, caps, utilization tracked</p>
                 </div>
@@ -206,7 +185,25 @@ export default function V1VaultPage() {
             </Card>
           </TabsContent>
 
-          {/* Roles Tab */}
+          <TabsContent value="overview" className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <KpiCard title="TVL" value={vault.tvl} subtitle="Total Value Locked" format="usd" />
+              <KpiCard title="Base APY" value={vault.apyBase} subtitle="Base yield rate" format="percentage" />
+              <KpiCard title="Boosted APY" value={vault.apyBoosted} subtitle="With boost" format="percentage" />
+              <KpiCard title="Depositors" value={vault.depositors} subtitle="Total depositors" format="number" />
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <KpiCard title="Fees YTD" value={vault.feesYtd} subtitle="Year to date" format="usd" />
+              <KpiCard title="Utilization" value={vault.utilization * 100} subtitle="Capital utilization" format="percentage" />
+              <KpiCard 
+                title="Performance Fee" 
+                value={vault.parameters?.performanceFeeBps ? vault.parameters.performanceFeeBps / 100 : null} 
+                subtitle="Curator fee rate" 
+                format="percentage" 
+              />
+            </div>
+          </TabsContent>
+
           <TabsContent value="roles">
             <div className="grid gap-6 md:grid-cols-2">
               <RoleList />
@@ -214,88 +211,57 @@ export default function V1VaultPage() {
             </div>
           </TabsContent>
 
-          {/* Parameters Tab (V1 specific) */}
-          <TabsContent value="parameters" className="space-y-4">
+          <TabsContent value="adapters" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Vault Parameters</CardTitle>
-                <p className="text-sm text-slate-500">MetaMorpho V1 vault configuration</p>
+                <CardTitle>Adapters</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                    <p className="text-xs uppercase text-slate-500">Performance Fee</p>
-                    <p className="text-lg font-semibold text-slate-900">
-                      {vault.parameters?.performanceFeeBps 
-                        ? `${(vault.parameters.performanceFeeBps / 100).toFixed(2)}%` 
-                        : `${(vaultConfig?.performanceFeeBps ?? 200) / 100}%`}
-                    </p>
-                    <p className="text-xs text-slate-500">Fee charged on yield generated</p>
-                  </div>
-                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                    <p className="text-xs uppercase text-slate-500">Max Deposit</p>
-                    <p className="text-lg font-semibold text-slate-900">
-                      {vault.parameters?.maxDeposit 
-                        ? formatCompactUSD(vault.parameters.maxDeposit) 
-                        : 'Unlimited'}
-                    </p>
-                    <p className="text-xs text-slate-500">Maximum deposit per transaction</p>
-                  </div>
-                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                    <p className="text-xs uppercase text-slate-500">Max Withdrawal</p>
-                    <p className="text-lg font-semibold text-slate-900">
-                      {vault.parameters?.maxWithdrawal 
-                        ? formatCompactUSD(vault.parameters.maxWithdrawal) 
-                        : 'Unlimited'}
-                    </p>
-                    <p className="text-xs text-slate-500">Maximum withdrawal per transaction</p>
-                  </div>
-                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                    <p className="text-xs uppercase text-slate-500">Strategy</p>
-                    <p className="text-sm font-medium text-slate-900">
-                      {vault.parameters?.strategyNotes || 'MetaMorpho v1.1 yield strategy'}
-                    </p>
-                    <p className="text-xs text-slate-500">Vault allocation strategy</p>
-                  </div>
-                </div>
+              <CardContent className="text-sm text-slate-600">
+                Adapter registry and configuration pulls from Morpho vault contracts. Use caps and timelocks tabs to change allocations and timing.
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* Allocation Tab */}
           <TabsContent value="allocation" className="space-y-4">
             {vaultMarkets.length > 0 ? (
               <Card>
                 <CardHeader>
                   <CardTitle>Market Allocation</CardTitle>
-                  <p className="text-sm text-slate-500">Current distribution across Morpho markets</p>
                 </CardHeader>
                 <CardContent>
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead className="min-w-[180px]">Market Pair</TableHead>
-                        <TableHead className="min-w-[140px]">Supply</TableHead>
+                        <TableHead className="min-w-[140px]">Total Supply</TableHead>
+                        <TableHead className="min-w-[140px]">Total Borrow</TableHead>
                         <TableHead className="min-w-[120px]">Supply APY</TableHead>
+                        <TableHead className="min-w-[120px]">Borrow APY</TableHead>
                         <TableHead className="min-w-[120px]">Utilization</TableHead>
-                        <TableHead className="min-w-[140px]">Rating</TableHead>
+                        <TableHead className="min-w-[140px]">Curator Rating</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {vaultMarkets.map((market) => (
                         <TableRow key={market.marketKey}>
                           <TableCell className="font-medium">
-                            <div className="flex items-center gap-2">
+                            <Link href={`/markets/${market.marketKey}`} className="flex items-center gap-2 hover:underline">
                               <span>{market.collateralSymbol}</span>
                               <span className="text-muted-foreground">/</span>
                               <span>{market.loanSymbol}</span>
-                            </div>
+                            </Link>
                           </TableCell>
                           <TableCell>
-                            {market.supplyAssetsUsd !== null ? formatCompactUSD(market.supplyAssetsUsd) : '—'}
+                            {market.totalSupplyUsd !== null ? formatCompactUSD(market.totalSupplyUsd) : '—'}
+                          </TableCell>
+                          <TableCell>
+                            {market.totalBorrowUsd !== null ? formatCompactUSD(market.totalBorrowUsd) : '—'}
                           </TableCell>
                           <TableCell className="text-green-600 dark:text-green-400">
                             {market.supplyApyPercent !== null ? formatPercentage(market.supplyApyPercent, 2) : '—'}
+                          </TableCell>
+                          <TableCell className="text-orange-600 dark:text-orange-400">
+                            {market.borrowApyPercent !== null ? formatPercentage(market.borrowApyPercent, 2) : '—'}
                           </TableCell>
                           <TableCell>
                             {market.utilizationPercent !== null ? formatPercentage(market.utilizationPercent, 2) : '—'}
@@ -316,57 +282,31 @@ export default function V1VaultPage() {
             ) : (
               <Card>
                 <CardHeader>
-                  <CardTitle>No Allocations</CardTitle>
+                  <CardTitle>No allocations found</CardTitle>
                 </CardHeader>
-                <CardContent className="text-sm text-slate-600">
-                  This vault has no active market allocations.
-                </CardContent>
+                <CardContent className="text-sm text-slate-600">This vault has no allocations yet.</CardContent>
               </Card>
             )}
           </TabsContent>
 
-          {/* Caps Tab */}
           <TabsContent value="caps" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Supply Caps</CardTitle>
-                <p className="text-sm text-slate-500">Maximum allocation limits per market</p>
+                <CardTitle>Caps</CardTitle>
               </CardHeader>
-              <CardContent>
-                {vaultMarkets.length > 0 ? (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Market</TableHead>
-                        <TableHead>Current Supply</TableHead>
-                        <TableHead>Supply Cap</TableHead>
-                        <TableHead>Utilization</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {vaultMarkets.map((market) => (
-                        <TableRow key={market.marketKey}>
-                          <TableCell className="font-medium">
-                            {market.collateralSymbol}/{market.loanSymbol}
-                          </TableCell>
-                          <TableCell>
-                            {market.supplyAssetsUsd !== null ? formatCompactUSD(market.supplyAssetsUsd) : '—'}
-                          </TableCell>
-                          <TableCell>
-                            {market.supplyCap !== null ? formatCompactUSD(market.supplyCap) : 'Unlimited'}
-                          </TableCell>
-                          <TableCell>
-                            {market.supplyCap && market.supplyAssetsUsd
-                              ? formatPercentage((market.supplyAssetsUsd / market.supplyCap) * 100, 1)
-                              : '—'}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                ) : (
-                  <p className="text-sm text-slate-600">No market allocations to display caps for.</p>
-                )}
+              <CardContent className="text-sm text-slate-600">
+                Configure absolute and relative caps per adapter. Pull data from Morpho vault V2 for v2 vaults and MetaMorpho v1.1 for v1 vaults.
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="timelocks" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Timelocks</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm text-slate-600">
+                Pending actions will surface here once wired to contract reads. Execute after timelock expiry or revoke if needed.
               </CardContent>
             </Card>
           </TabsContent>
