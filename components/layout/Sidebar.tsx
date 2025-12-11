@@ -50,15 +50,15 @@ export function Sidebar() {
 
         <div className="space-y-2">
           <p className="px-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            V2 Vaults
+            V2 Prime Vaults
           </p>
           <div className="space-y-1">
             {v2Vaults.map((vault) => (
               <Link
                 key={vault.id}
-                href={`/vaults/${vault.address}`}
+                href={`/vault/v2/${vault.address}`}
                 className={`flex items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 ${
-                  isActive(`/vaults/${vault.address}`) ? 'bg-slate-900 text-white' : ''
+                  isActive(`/vault/v2/${vault.address}`) ? 'bg-slate-900 text-white' : ''
                 }`}
               >
                 <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs font-semibold text-blue-700">
@@ -78,9 +78,9 @@ export function Sidebar() {
             {v1Vaults.map((vault) => (
               <Link
                 key={vault.id}
-                href={`/vaults/${vault.address}`}
+                href={`/vault/v1/${vault.address}`}
                 className={`flex items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 ${
-                  isActive(`/vaults/${vault.address}`) ? 'bg-slate-900 text-white' : ''
+                  isActive(`/vault/v1/${vault.address}`) ? 'bg-slate-900 text-white' : ''
                 }`}
               >
                 <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-700">

@@ -7,6 +7,7 @@ import { morphoGraphQLClient } from '@/lib/morpho/graphql-client';
 import { gql } from 'graphql-request';
 import { readVaultRoles } from '@/lib/onchain/contracts';
 import { Address } from 'viem';
+import { fetchDefiLlamaFees } from '@/lib/defillama/service';
 // Types imported from SDK but not directly used in this file
 // import type { Vault, VaultPosition, Maybe } from '@morpho-org/blue-api-sdk';
 
@@ -197,11 +198,10 @@ export async function GET(
         description: cfg.description,
         version: cfg.version,
         tvl: 0,
-        apyBase: null,
-        apyBoosted: null,
+        apy: null,
         depositors: 0,
-        feesYtd: null,
-        utilization: 0,
+        revenueAllTime: null,
+        feesAllTime: null,
         lastHarvest: null,
         apyBreakdown: null,
         rewards: [],
@@ -336,17 +336,35 @@ export async function GET(
     ).size;
 
     const tvlUsd = mv?.state?.totalAssetsUsd ?? 0;
-    const apyBasePct = (mv?.state?.avgApy ?? 0) * 100;
-    const apyNetPct = (mv?.state?.avgNetApy ?? 0) * 100;
+    const apyPct = (mv?.state?.netApy ?? mv?.state?.avgNetApy ?? mv?.state?.apy ?? 0) * 100;
+
+    // Fetch DefiLlama fees data and calculate this vault's share based on TVL proportion
+    let vaultRevenueAllTime: number | null = null;
+    let vaultFeesAllTime: number | null = null;
+    
+    try {
+      const defiLlamaData = await fetchDefiLlamaFees();
+      if (defiLlamaData && defiLlamaData.totalAllTime && tvlUsd > 0) {
+        // Calculate this vault's share based on TVL proportion
+        // Estimate protocol total TVL (~$534K based on recent data)
+        const estimatedProtocolTvl = 534000;
+        const vaultShare = tvlUsd / estimatedProtocolTvl;
+        
+        // Calculate this vault's estimated all-time revenue and fees
+        vaultRevenueAllTime = defiLlamaData.totalAllTime * vaultShare;
+        vaultFeesAllTime = vaultRevenueAllTime * (performanceFeeBps / 10000);
+      }
+    } catch {
+      // DefiLlama fetch failed, leave as null
+    }
 
     const result = {
       ...cfg,
       tvl: tvlUsd,
-      apyBase: apyBasePct,
-      apyBoosted: apyNetPct,
+      apy: apyPct,
       depositors,
-      feesYtd: 0,
-      utilization: 0,
+      revenueAllTime: vaultRevenueAllTime,
+      feesAllTime: vaultFeesAllTime,
       lastHarvest: null,
       apyBreakdown: {
         apy: (mv?.state?.apy ?? 0) * 100,
