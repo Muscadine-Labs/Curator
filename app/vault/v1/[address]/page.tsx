@@ -188,19 +188,18 @@ export default function VaultDetailPage() {
           <TabsContent value="overview" className="space-y-4">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
               <KpiCard title="TVL" value={vault.tvl} subtitle="Total Value Locked" format="usd" />
-              <KpiCard title="Base APY" value={vault.apyBase} subtitle="Base yield rate" format="percentage" />
-              <KpiCard title="Boosted APY" value={vault.apyBoosted} subtitle="With boost" format="percentage" />
+              <KpiCard title="APY" value={vault.apy} subtitle="Current yield rate" format="percentage" />
               <KpiCard title="Depositors" value={vault.depositors} subtitle="Total depositors" format="number" />
-            </div>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <KpiCard title="Fees YTD" value={vault.feesYtd} subtitle="Year to date" format="usd" />
-              <KpiCard title="Utilization" value={vault.utilization * 100} subtitle="Capital utilization" format="percentage" />
               <KpiCard 
                 title="Performance Fee" 
                 value={vault.parameters?.performanceFeeBps ? vault.parameters.performanceFeeBps / 100 : null} 
                 subtitle="Curator fee rate" 
                 format="percentage" 
               />
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <KpiCard title="Revenue (All Time)" value={vault.revenueAllTime} subtitle="Interest generated for depositors" format="usd" />
+              <KpiCard title="Fees (All Time)" value={vault.feesAllTime} subtitle="Curator fees collected" format="usd" />
             </div>
           </TabsContent>
 
