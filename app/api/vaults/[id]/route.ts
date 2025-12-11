@@ -87,10 +87,6 @@ export async function GET(
             totalAssets
             totalAssetsUsd
             totalSupply
-            totalSupplyShares
-            supplyQueue
-            withdrawQueue
-            lastUpdate
             apy
             netApy
             netApyWithoutRewards
@@ -103,7 +99,6 @@ export async function GET(
             monthlyApy
             monthlyNetApy
             fee
-            warnings { type level }
             rewards {
               asset { address chain { id } }
               supplyApr
@@ -170,10 +165,61 @@ export async function GET(
       }
     `;
 
-    const data = await morphoGraphQLClient.request<VaultDetailQueryResponse>(
-      query,
-      variables
-    );
+    let data: VaultDetailQueryResponse;
+    try {
+      data = await morphoGraphQLClient.request<VaultDetailQueryResponse>(
+        query,
+        variables
+      );
+    } catch (graphqlError) {
+      // If GraphQL fails (e.g., vault not indexed), return minimal response from config
+      console.warn(`GraphQL query failed for vault ${cfg.address}, returning config-based response:`, graphqlError);
+      data = { vault: null, positions: null, txs: null };
+    }
+
+    // If vault not found in Morpho (e.g., V2 vaults not indexed yet), return config-based response
+    if (!data.vault) {
+      const responseHeaders = new Headers(rateLimitResult.headers);
+      responseHeaders.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=120');
+      
+      return NextResponse.json({
+        id: cfg.id,
+        name: cfg.name,
+        symbol: cfg.symbol,
+        asset: cfg.asset,
+        address: cfg.address,
+        chainId: cfg.chainId,
+        scanUrl: cfg.scanUrl,
+        performanceFeeBps: cfg.performanceFeeBps,
+        status: cfg.status,
+        riskTier: cfg.riskTier,
+        createdAt: cfg.createdAt,
+        description: cfg.description,
+        version: cfg.version,
+        tvl: 0,
+        apyBase: null,
+        apyBoosted: null,
+        depositors: 0,
+        feesYtd: null,
+        utilization: 0,
+        lastHarvest: null,
+        apyBreakdown: null,
+        rewards: [],
+        allocation: [],
+        queues: { supplyQueueIndex: null, withdrawQueueIndex: null },
+        warnings: [],
+        metadata: {},
+        historicalData: { apy: [], netApy: [], totalAssets: [], totalAssetsUsd: [] },
+        roles: { owner: null, curator: null, guardian: null, timelock: null },
+        transactions: [],
+        parameters: {
+          performanceFeeBps: cfg.performanceFeeBps,
+          maxDeposit: null,
+          maxWithdrawal: null,
+          strategyNotes: cfg.description ?? 'No strategy notes available',
+        },
+      }, { headers: responseHeaders });
+    }
 
     // Fetch on-chain data from vault contract
     // Fallback to config/API values if on-chain reads fail
@@ -352,10 +398,8 @@ export async function GET(
       queues: {
         supplyQueueIndex: mv?.state?.allocationQueues?.supplyQueueIndex ?? null,
         withdrawQueueIndex: mv?.state?.allocationQueues?.withdrawQueueIndex ?? null,
-        supplyQueue: mv?.state?.supplyQueue || [],
-        withdrawQueue: mv?.state?.withdrawQueue || [],
       },
-      warnings: mv?.state?.warnings || [],
+      warnings: [],
       metadata: mv?.metadata || {},
       historicalData: {
         apy: mv?.historicalState?.apy || [],
