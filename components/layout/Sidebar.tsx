@@ -16,7 +16,7 @@ export function Sidebar() {
     pathname === href || (href !== '/' && pathname.startsWith(href));
 
   return (
-    <aside className="hidden w-64 shrink-0 border-r border-slate-200 bg-white/90 p-4 backdrop-blur md:flex md:flex-col">
+    <aside className="w-64 shrink-0 border-r border-slate-200 bg-white/90 p-4 backdrop-blur flex flex-col">
       <Link
         href="/"
         className="mb-6 flex items-center gap-2 text-lg font-semibold text-slate-900"
