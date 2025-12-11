@@ -1,15 +1,9 @@
 import { NextResponse } from 'next/server';
 import { vaults as configuredVaults } from '@/lib/config/vaults';
 import { 
-  executeDuneQueryAndWait, 
-  getLatestDuneQueryResults,
-  type DuneQueryParams 
-} from '@/lib/dune/service';
-import { 
   BASE_CHAIN_ID, 
   GRAPHQL_FIRST_LIMIT,
   DAYS_30_MS,
-  DUNE_QUERY_IDS
 } from '@/lib/constants';
 import { handleApiError } from '@/lib/utils/error-handler';
 import { createRateLimitMiddleware, RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS } from '@/lib/utils/rate-limit';
@@ -17,6 +11,13 @@ import { morphoGraphQLClient } from '@/lib/morpho/graphql-client';
 import { gql } from 'graphql-request';
 import type { Vault, VaultPosition, Maybe } from '@morpho-org/blue-api-sdk';
 import { logger } from '@/lib/utils/logger';
+import { 
+  fetchDefiLlamaFees, 
+  fetchDefiLlamaProtocol,
+  getCumulativeFeesChart,
+  getCumulativeRevenueChart,
+  getInflowsChart 
+} from '@/lib/defillama/service';
 
 // Type-safe response matching our query structure
 type ProtocolStatsQueryResponse = {
@@ -87,12 +88,9 @@ export async function GET(request: Request) {
     const totalDeposited = morphoVaults.reduce((sum, v) => sum + (v.state?.totalAssetsUsd ?? 0), 0);
     const activeVaults = configuredVaults.length;
     
-    // Calculate total fees from Morpho (fallback)
-    let totalFeesGenerated = morphoVaults.reduce((sum, v) => sum + (v.state?.fee ?? 0), 0);
-    
-    // Total interest generated is approximately the fees generated (in a MetaMorpho vault, fees = performance fees from interest)
-    // For more accurate calculation, we'd need historical APY data
-    const totalInterestGenerated = totalFeesGenerated;
+    // Initialize totals (will be updated from DefiLlama if available)
+    let totalFeesGenerated = 0;
+    let totalInterestGenerated = 0;
 
     // Unique depositors across our vaults
     const uniqueUsers = new Set<string>();
@@ -103,88 +101,76 @@ export async function GET(request: Request) {
       }
     }
 
-    // Minimal placeholder trends (current TVL as a flat series) to avoid mocks
-    const now = new Date();
-    const thirtyDaysAgo = new Date(now.getTime() - DAYS_30_MS);
-    const tvlTrend = Array.from({ length: 30 }, (_, i) => {
-      const date = new Date(thirtyDaysAgo.getTime() + i * DAYS_30_MS / 30);
-      return { date: date.toISOString(), value: totalDeposited };
-    });
-
-    // Try to fetch fees trend from Dune Analytics
+    // Fetch DefiLlama data for charts
     let feesTrend: Array<{ date: string; value: number }> = [];
-    let duneTotalFees = totalFeesGenerated;
+    let revenueTrend: Array<{ date: string; value: number }> = [];
+    let inflowsTrend: Array<{ date: string; value: number }> = [];
+    let tvlTrend: Array<{ date: string; value: number }> = [];
     
     try {
-      if (process.env.DUNE_API_KEY) {
-        // Fetch fees data for all active vaults in parallel
-        const activeVaults = configuredVaults.filter(v => v.status === 'active');
+      // Fetch DefiLlama fees and protocol data in parallel
+      const [feesData, protocolData] = await Promise.all([
+        fetchDefiLlamaFees(),
+        fetchDefiLlamaProtocol(),
+      ]);
+      
+      // Calculate average performance fee rate from vaults
+      let avgPerformanceFeeRate = 0.02; // Default 2%
+      const feeRates = morphoVaults
+        .map(v => v.state?.fee)
+        .filter((f): f is number => f !== null && f !== undefined && f > 0);
+      if (feeRates.length > 0) {
+        avgPerformanceFeeRate = feeRates.reduce((a, b) => a + b, 0) / feeRates.length;
+      }
+      
+      if (feesData) {
+        // Get cumulative fees (interest generated)
+        feesTrend = getCumulativeFeesChart(feesData);
         
-        // Parallelize Dune API calls
-        const dunePromises = activeVaults.map(async (vault) => {
-          try {
-            const vaultParamValue = `${vault.name} - base - ${vault.address}`;
-            const params: DuneQueryParams = {
-              vault_name_e15077: vaultParamValue,
-            };
-            
-            // Try to get latest results first
-            let duneResult = await getLatestDuneQueryResults(DUNE_QUERY_IDS.SINGLE_VAULT_PERFORMANCE, params);
-            
-            // If no latest results, execute and wait
-            if (!duneResult || duneResult.state !== 'QUERY_STATE_COMPLETED') {
-              duneResult = await executeDuneQueryAndWait(DUNE_QUERY_IDS.SINGLE_VAULT_PERFORMANCE, params);
-            }
-            
-            return duneResult?.result?.rows || [];
-          } catch (error) {
-            // Continue with other vaults if one fails
-            logger.error(`Error fetching Dune data for vault ${vault.address}`, error as Error, {
-              vaultAddress: vault.address,
-              vaultName: vault.name,
-            });
-            return [];
-          }
+        // Get cumulative revenue (curator fees)
+        revenueTrend = getCumulativeRevenueChart(feesData, avgPerformanceFeeRate);
+        
+        // Update totals from DefiLlama
+        if (feesData.totalAllTime) {
+          totalInterestGenerated = feesData.totalAllTime;
+          totalFeesGenerated = feesData.totalAllTime * avgPerformanceFeeRate;
+        }
+        
+        logger.info('DefiLlama fees data loaded', {
+          totalAllTime: feesData.totalAllTime,
+          chartPoints: feesTrend.length,
         });
+      }
+      
+      if (protocolData) {
+        // Get inflows chart from TVL changes
+        inflowsTrend = getInflowsChart(protocolData);
         
-        const duneResults = await Promise.all(dunePromises);
-        const allRows: Array<Record<string, unknown>> = duneResults.flat();
-        
-        // Transform Dune results
-        if (allRows.length > 0) {
-          // Calculate total fees
-          duneTotalFees = allRows.reduce((sum, row) => {
-            const feeAmount = row.total_fees || row.fees || row.amount || row.fee_amount || 0;
-            return sum + (typeof feeAmount === 'number' ? feeAmount : parseFloat(String(feeAmount)) || 0);
-          }, 0);
-          
-          // Create fees trend
-          const dailyFees = allRows.reduce((acc: Record<string, number>, row: Record<string, unknown>) => {
-            const date = row.date || row.timestamp || row.time || row.block_time;
-            const amount = row.total_fees || row.fees || row.amount || row.fee_amount || 0;
-            if (date) {
-              const dateKey = new Date(String(date)).toISOString().split('T')[0];
-              acc[dateKey] = (acc[dateKey] || 0) + (typeof amount === 'number' ? amount : parseFloat(String(amount)) || 0);
-            }
-            return acc;
-          }, {});
-          
-          feesTrend = Object.entries(dailyFees)
-            .map(([date, value]) => ({
-              date,
-              value: value as number,
-            }))
-            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        // Get TVL trend from DefiLlama
+        if (protocolData.tvl && protocolData.tvl.length > 0) {
+          tvlTrend = protocolData.tvl.map(point => ({
+            date: new Date(point.date * 1000).toISOString(),
+            value: point.totalLiquidityUSD,
+          }));
         }
         
-        // Use Dune total fees if available
-        if (duneTotalFees > 0) {
-          totalFeesGenerated = duneTotalFees;
-        }
+        logger.info('DefiLlama protocol data loaded', {
+          tvlPoints: tvlTrend.length,
+          inflowPoints: inflowsTrend.length,
+        });
       }
     } catch (error) {
-      // Silently fail - use empty array if Dune fetch fails
-      logger.error('Failed to fetch fees trend from Dune', error as Error);
+      logger.error('Failed to fetch DefiLlama data', error as Error);
+    }
+    
+    // Fallback to placeholder if no DefiLlama data
+    if (tvlTrend.length === 0) {
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now.getTime() - DAYS_30_MS);
+      tvlTrend = Array.from({ length: 30 }, (_, i) => {
+        const date = new Date(thirtyDaysAgo.getTime() + i * DAYS_30_MS / 30);
+        return { date: date.toISOString(), value: totalDeposited };
+      });
     }
 
     const stats = {
@@ -195,6 +181,8 @@ export async function GET(request: Request) {
       users: uniqueUsers.size,
       tvlTrend,
       feesTrend,
+      revenueTrend,
+      inflowsTrend,
     };
 
     const responseHeaders = new Headers(rateLimitResult.headers);

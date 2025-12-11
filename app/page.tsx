@@ -3,6 +3,8 @@
 import { KpiCard } from '@/components/KpiCard';
 import { ChartTvl } from '@/components/ChartTvl';
 import { ChartFees } from '@/components/ChartFees';
+import { ChartRevenue } from '@/components/ChartRevenue';
+import { ChartInflows } from '@/components/ChartInflows';
 import { useProtocolStats } from '@/lib/hooks/useProtocolStats';
 import { AppShell } from '@/components/layout/AppShell';
 
@@ -24,9 +26,16 @@ export default function Home() {
             format="usd"
           />
           <KpiCard
-            title="Total Fees Generated"
+            title="Total Interest Generated"
+            value={stats?.totalInterestGenerated || 0}
+            subtitle="Depositor earnings"
+            isLoading={isLoading}
+            format="usd"
+          />
+          <KpiCard
+            title="Total Revenue Generated"
             value={stats?.totalFeesGenerated || 0}
-            subtitle="Lifetime fees"
+            subtitle="Curator fees"
             isLoading={isLoading}
             format="usd"
           />
@@ -36,13 +45,6 @@ export default function Home() {
             subtitle="Currently active"
             isLoading={isLoading}
             format="number"
-          />
-          <KpiCard
-            title="Total Interest Generated"
-            value={stats?.totalInterestGenerated || 0}
-            subtitle="Across all vaults"
-            isLoading={isLoading}
-            format="usd"
           />
           <KpiCard
             title="Users"
@@ -59,10 +61,20 @@ export default function Home() {
             isLoading={isLoading}
             title="TVL Over Time"
           />
+          <ChartInflows
+            data={stats?.inflowsTrend || []}
+            isLoading={isLoading}
+            title="Inflows (Cumulative)"
+          />
           <ChartFees
             data={stats?.feesTrend || []}
             isLoading={isLoading}
-            title="Fees Over Time"
+            title="Fees (Cumulative)"
+          />
+          <ChartRevenue
+            data={stats?.revenueTrend || []}
+            isLoading={isLoading}
+            title="Revenue (Cumulative)"
           />
         </div>
       </div>

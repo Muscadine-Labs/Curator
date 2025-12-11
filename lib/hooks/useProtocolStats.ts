@@ -9,6 +9,8 @@ export interface ProtocolStats {
   users: number;
   tvlTrend: Array<{ date: string; value: number }>;
   feesTrend: Array<{ date: string; value: number }>;
+  revenueTrend: Array<{ date: string; value: number }>;
+  inflowsTrend: Array<{ date: string; value: number }>;
 }
 
 export interface VaultWithData {
