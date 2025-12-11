@@ -24,8 +24,8 @@ import { useVaultRisk } from '@/lib/hooks/useVaultRisk';
 
 export default function VaultDetailPage() {
   const params = useParams();
-  const vaultId = params.id as string;
-  const { data: vault, isLoading } = useVault(vaultId);
+  const vaultAddress = params.address as string;
+  const { data: vault, isLoading } = useVault(vaultAddress);
   const { data: morpho } = useMorphoMarkets();
   const { summary: riskSummary, isLoading: riskLoading } = useVaultRisk(vault);
 
