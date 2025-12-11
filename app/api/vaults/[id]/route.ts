@@ -348,9 +348,6 @@ export async function GET(
     // Get performance fee from Morpho API (decimal like 0.05 = 5%) or config fallback
     const performanceFeeBps = mv?.state?.fee ? Math.round(mv.state.fee * 10000) : cfg.performanceFeeBps;
 
-    // Get performance fee from Morpho API (decimal like 0.05 = 5%) or config fallback
-    const performanceFeeBps = mv?.state?.fee ? Math.round(mv.state.fee * 10000) : cfg.performanceFeeBps;
-
     // Fetch DefiLlama fees data and calculate this vault's share based on TVL proportion
     let vaultRevenueAllTime: number | null = null;
     let vaultFeesAllTime: number | null = null;
