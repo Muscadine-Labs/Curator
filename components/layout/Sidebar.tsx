@@ -75,6 +75,15 @@ export function Sidebar({ onClose }: SidebarProps) {
 
         <div className="space-y-2">
           <p className="px-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            V2 Vinyard Vaults
+          </p>
+          <div className="space-y-1">
+            {/* Empty section */}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <p className="px-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
             V2 Prime Vaults
           </p>
           <div className="space-y-1">
