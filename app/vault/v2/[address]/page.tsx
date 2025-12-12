@@ -11,14 +11,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { RatingBadge } from '@/components/morpho/RatingBadge';
-import { useVaultRisk } from '@/lib/hooks/useVaultRisk';
 
 export default function V2VaultPage() {
   const params = useParams();
   const address = params.address as string;
   const { data: vault, isLoading } = useVault(address);
-  const { summary: riskSummary, isLoading: riskLoading } = useVaultRisk(vault);
 
   if (isLoading) {
     return (
@@ -49,8 +46,6 @@ export default function V2VaultPage() {
       </AppShell>
     );
   }
-
-  const ratingLabel = vault.riskTier ? vault.riskTier.toUpperCase() : 'N/A';
 
   return (
     <AppShell
@@ -126,39 +121,11 @@ export default function V2VaultPage() {
           {/* Risk Management Tab */}
           <TabsContent value="risk" className="space-y-4">
             <Card>
-              <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <CardTitle>Risk Management Rating</CardTitle>
-                  <p className="text-sm text-slate-500">V2 enhanced risk controls and monitoring</p>
-                </div>
-                <RatingBadge rating={riskLoading ? null : riskSummary.rating} />
+              <CardHeader>
+                <CardTitle>Risk Management</CardTitle>
               </CardHeader>
-              <CardContent className="grid gap-4 md:grid-cols-3">
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-xs uppercase text-slate-500">Rating</p>
-                  <p className="text-lg font-semibold text-slate-900">
-                    {riskLoading
-                      ? 'Loading...'
-                      : riskSummary.rating !== null
-                        ? `${riskSummary.rating} / 100`
-                        : ratingLabel}
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    {riskSummary.marketsRated > 0
-                      ? `Averaged across ${riskSummary.marketsRated} rated markets`
-                      : 'Fallback to configured risk tier'}
-                  </p>
-                </div>
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-xs uppercase text-slate-500">Timelock Status</p>
-                  <p className="text-lg font-semibold text-slate-900">Active</p>
-                  <p className="text-xs text-slate-500">Pending actions in Timelock tab</p>
-                </div>
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-xs uppercase text-slate-500">Markets Allocated</p>
-                  <p className="text-lg font-semibold text-slate-900">—</p>
-                  <p className="text-xs text-slate-500">Active market allocations</p>
-                </div>
+              <CardContent>
+                <p className="text-center py-8 text-slate-500">Coming Soon</p>
               </CardContent>
             </Card>
           </TabsContent>

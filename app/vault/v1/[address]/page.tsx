@@ -11,15 +11,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { RatingBadge } from '@/components/morpho/RatingBadge';
 import { getVaultByAddress } from '@/lib/config/vaults';
-import { useVaultRisk } from '@/lib/hooks/useVaultRisk';
 
 export default function VaultDetailPage() {
   const params = useParams();
   const vaultAddress = params.address as string;
   const { data: vault, isLoading } = useVault(vaultAddress);
-  const { summary: riskSummary, isLoading: riskLoading } = useVaultRisk(vault);
 
   if (isLoading) {
     return (
@@ -51,7 +48,6 @@ export default function VaultDetailPage() {
     );
   }
 
-  const ratingLabel = vault.riskTier ? vault.riskTier.toUpperCase() : 'N/A';
   const vaultConfig = getVaultByAddress(vault.address);
   const vaultVersion = vaultConfig?.version ?? 'v2';
 
@@ -97,39 +93,11 @@ export default function VaultDetailPage() {
 
           <TabsContent value="risk" className="space-y-4">
             <Card>
-              <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <CardTitle>Risk management rating</CardTitle>
-                  <p className="text-sm text-slate-500">Curator risk posture and key signals</p>
-                </div>
-                <RatingBadge rating={riskLoading ? null : riskSummary.rating} />
+              <CardHeader>
+                <CardTitle>Risk Management</CardTitle>
               </CardHeader>
-              <CardContent className="grid gap-4 md:grid-cols-3">
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-xs uppercase text-slate-500">Rating</p>
-                  <p className="text-lg font-semibold text-slate-900">
-                    {riskLoading
-                      ? 'Loading...'
-                      : riskSummary.rating !== null
-                        ? `${riskSummary.rating} / 100`
-                        : ratingLabel}
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    {riskSummary.marketsRated > 0
-                      ? `Averaged across ${riskSummary.marketsRated} rated markets`
-                      : 'Fallback to configured risk tier'}
-                  </p>
-                </div>
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-xs uppercase text-slate-500">Vault Type</p>
-                  <p className="text-lg font-semibold text-slate-900">V1 MetaMorpho</p>
-                  <p className="text-xs text-slate-500">Standard vault configuration</p>
-                </div>
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-xs uppercase text-slate-500">Liquidity & caps</p>
-                  <p className="text-lg font-semibold text-slate-900">Monitored</p>
-                  <p className="text-xs text-slate-500">Idle, caps, utilization tracked</p>
-                </div>
+              <CardContent>
+                <p className="text-center py-8 text-slate-500">Coming Soon</p>
               </CardContent>
             </Card>
           </TabsContent>
