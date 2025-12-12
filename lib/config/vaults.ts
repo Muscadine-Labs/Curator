@@ -1,17 +1,8 @@
-export interface VaultConfig {
-  id: string;
-  name: string;
-  symbol: string;
-  asset: string;
+// Simplified vault config - only stores addresses
+// All other data (name, symbol, asset, performance fee, etc.) is fetched from GraphQL
+export interface VaultAddressConfig {
   address: string;
   chainId: number;
-  scanUrl: string;
-  performanceFeeBps: number;
-  status: 'active' | 'paused' | 'deprecated';
-  riskTier: 'low' | 'medium' | 'high';
-  createdAt: string;
-  description?: string;
-  version?: 'v1' | 'v2';
 }
 
 export interface RoleConfig {
@@ -25,114 +16,48 @@ export interface RoleConfig {
   }[];
 }
 
-import { BASE_CHAIN_ID, BASE_CHAIN_NAME, DEFAULT_PERFORMANCE_FEE_BPS } from '@/lib/constants';
+import { BASE_CHAIN_ID, BASE_CHAIN_NAME } from '@/lib/constants';
 
 export interface ProtocolConfig {
   chainId: number;
   chainName: string;
-  defaultPerformanceFeeBps: number;
   roles: RoleConfig;
 }
 
-// Hard-coded vault configurations
-export const vaults: VaultConfig[] = [
+// Vault addresses only - all other data fetched from GraphQL
+export const vaultAddresses: VaultAddressConfig[] = [
+  // V2 Prime Vaults
   {
-    id: 'usdc-vault-v2',
-    name: 'Muscadine USDC Prime',
-    symbol: 'mpUSDC',
-    asset: 'USDC',
-    address: process.env.NEXT_PUBLIC_VAULT_USDC_V2 || '0x89712980cb434ef5ae4ab29349419eb976b0b496',
+    address: process.env.NEXT_PUBLIC_VAULT_USDC_V2 || '0x89712980Cb434eF5aE4AB29349419eb976B0b496',
     chainId: BASE_CHAIN_ID,
-    scanUrl: 'https://basescan.org/address/0x89712980cb434ef5ae4ab29349419eb976b0b496',
-    performanceFeeBps: DEFAULT_PERFORMANCE_FEE_BPS,
-    status: 'active',
-    riskTier: 'low',
-    createdAt: '2024-11-01T00:00:00Z',
-    description: 'USDC Prime vault with Morpho V2 allocator flexibility',
-    version: 'v2'
   },
   {
-    id: 'weth-vault-v2',
-    name: 'Muscadine WETH Prime',
-    symbol: 'mpWETH',
-    asset: 'WETH',
     address: process.env.NEXT_PUBLIC_VAULT_WETH_V2 || '0xd6dcad2f7da91fbb27bda471540d9770c97a5a43',
     chainId: BASE_CHAIN_ID,
-    scanUrl: 'https://basescan.org/address/0xd6dcad2f7da91fbb27bda471540d9770c97a5a43',
-    performanceFeeBps: DEFAULT_PERFORMANCE_FEE_BPS,
-    status: 'active',
-    riskTier: 'medium',
-    createdAt: '2024-11-01T00:00:00Z',
-    description: 'WETH Prime vault with Morpho V2 allocator flexibility',
-    version: 'v2'
   },
   {
-    id: 'cbbtc-vault-v2',
-    name: 'Muscadine cbBTC Prime',
-    symbol: 'mpcbBTC',
-    asset: 'cbBTC',
     address: process.env.NEXT_PUBLIC_VAULT_CBBTC_V2 || '0x99dcd0d75822ba398f13b2a8852b07c7e137ec70',
     chainId: BASE_CHAIN_ID,
-    scanUrl: 'https://basescan.org/address/0x99dcd0d75822ba398f13b2a8852b07c7e137ec70',
-    performanceFeeBps: DEFAULT_PERFORMANCE_FEE_BPS,
-    status: 'active',
-    riskTier: 'medium',
-    createdAt: '2024-11-01T00:00:00Z',
-    description: 'cbBTC Prime vault with Morpho V2 allocator flexibility',
-    version: 'v2'
   },
+  // V1 Vaults
   {
-    id: 'usdc-vault',
-    name: 'Muscadine USDC Vault',
-    symbol: 'mvUSDC',
-    asset: 'USDC',
     address: process.env.NEXT_PUBLIC_VAULT_USDC || '0xf7e26Fa48A568b8b0038e104DfD8ABdf0f99074F',
     chainId: BASE_CHAIN_ID,
-    scanUrl: 'https://basescan.org/address/0xf7e26Fa48A568b8b0038e104DfD8ABdf0f99074F',
-    performanceFeeBps: DEFAULT_PERFORMANCE_FEE_BPS,
-    status: 'active',
-    riskTier: 'low',
-    createdAt: '2024-01-15T00:00:00Z',
-    description: 'USDC yield vault with low risk strategy',
-    version: 'v1'
   },
   {
-    id: 'cbbtc-vault',
-    name: 'Muscadine cbBTC Vault',
-    symbol: 'mvcbBTC',
-    asset: 'cbBTC',
     address: process.env.NEXT_PUBLIC_VAULT_CBBTC || '0xAeCc8113a7bD0CFAF7000EA7A31afFD4691ff3E9',
     chainId: BASE_CHAIN_ID,
-    scanUrl: 'https://basescan.org/address/0xaecc8113a7bd0cfaf7000ea7a31affd4691ff3e9',
-    performanceFeeBps: DEFAULT_PERFORMANCE_FEE_BPS,
-    status: 'active',
-    riskTier: 'medium',
-    createdAt: '2024-02-01T00:00:00Z',
-    description: 'cbBTC yield vault with medium risk strategy',
-    version: 'v1'
   },
   {
-    id: 'weth-vault',
-    name: 'Muscadine WETH Vault',
-    symbol: 'mvWETH',
-    asset: 'WETH',
     address: process.env.NEXT_PUBLIC_VAULT_WETH || '0x21e0d366272798da3A977FEBA699FCB91959d120',
     chainId: BASE_CHAIN_ID,
-    scanUrl: 'https://basescan.org/address/0x21e0d366272798da3A977FEBA699FCB91959d120',
-    performanceFeeBps: DEFAULT_PERFORMANCE_FEE_BPS,
-    status: 'active',
-    riskTier: 'medium',
-    createdAt: '2024-02-15T00:00:00Z',
-    description: 'WETH yield vault with medium risk strategy',
-    version: 'v1'
-  }
+  },
 ];
 
 // Protocol configuration
 export const protocolConfig: ProtocolConfig = {
   chainId: BASE_CHAIN_ID,
   chainName: BASE_CHAIN_NAME,
-  defaultPerformanceFeeBps: parseInt(process.env.NEXT_PUBLIC_DEFAULT_PERF_FEE_BPS || String(DEFAULT_PERFORMANCE_FEE_BPS)),
   roles: {
     owner: process.env.NEXT_PUBLIC_ROLE_OWNER || '0x4E5D3ef790C75682ac4f6d4C1dDCc08b36fC100A',
     guardian: process.env.NEXT_PUBLIC_ROLE_GUARDIAN || '0x64e804eEF4F5a53272A8623b563ad2724E98A0a9',
@@ -158,22 +83,33 @@ export const protocolConfig: ProtocolConfig = {
 };
 
 // Helper functions
-export const getVaultById = (id: string): VaultConfig | undefined => {
-  return vaults.find(vault => vault.id === id);
+export const getVaultByAddress = (address: string): VaultAddressConfig | undefined => {
+  return vaultAddresses.find(vault => vault.address.toLowerCase() === address.toLowerCase());
 };
 
-export const getVaultByAddress = (address: string): VaultConfig | undefined => {
-  return vaults.find(vault => vault.address.toLowerCase() === address.toLowerCase());
+export const getAllVaultAddresses = (): VaultAddressConfig[] => {
+  return vaultAddresses;
 };
 
-export const getActiveVaults = (): VaultConfig[] => {
-  return vaults.filter(vault => vault.status === 'active');
+// Categorize vaults by name pattern (works with GraphQL data)
+export type VaultCategory = 'prime' | 'vineyard' | 'v1';
+
+export const getVaultCategory = (vaultName: string | null | undefined): VaultCategory => {
+  if (!vaultName) {
+    return 'v1'; // Default to v1 if name is missing
+  }
+  const name = vaultName.toLowerCase();
+  if (name.includes('prime')) {
+    return 'prime';
+  }
+  if (name.includes('vineyard')) {
+    return 'vineyard';
+  }
+  return 'v1';
 };
 
-export const getVaultsByAsset = (asset: string): VaultConfig[] => {
-  return vaults.filter(vault => vault.asset.toLowerCase() === asset.toLowerCase());
-};
-
-export const getVaultsByRiskTier = (riskTier: string): VaultConfig[] => {
-  return vaults.filter(vault => vault.riskTier === riskTier);
+// Determine if vault should use v2 GraphQL query (Prime and Vineyard are both v2)
+export const shouldUseV2Query = (vaultName: string | null | undefined): boolean => {
+  const category = getVaultCategory(vaultName);
+  return category === 'prime' || category === 'vineyard';
 };

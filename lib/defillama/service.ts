@@ -23,9 +23,9 @@ export interface DefiLlamaProtocolResponse {
   id: string;
   name: string;
   tvl: Array<{ date: number; totalLiquidityUSD: number }> | null;
-  tokens: Array<{ date: number; tokens: Record<string, number> }> | null;
-  tokensInUsd: Array<{ date: number; tokens: Record<string, number> }> | null;
   chainTvls: Record<string, { tvl: Array<{ date: number; totalLiquidityUSD: number }> }> | null;
+  tokens?: Array<{ date: number; tokens: Record<string, number> }> | null;
+  tokensInUsd?: Array<{ date: number; tokens: Record<string, number> }> | null;
 }
 
 export interface ChartData {
@@ -102,6 +102,20 @@ export async function fetchDefiLlamaProtocol(): Promise<DefiLlamaProtocolRespons
 }
 
 /**
+ * Get daily fees chart data from DefiLlama
+ */
+export function getDailyFeesChart(response: DefiLlamaFeesResponse): ChartData[] {
+  if (!response.totalDataChart || response.totalDataChart.length === 0) {
+    return [];
+  }
+
+  return response.totalDataChart.map(([timestamp, dailyValue]) => ({
+    date: new Date(timestamp * 1000).toISOString(),
+    value: dailyValue || 0,
+  }));
+}
+
+/**
  * Get cumulative fees chart data from DefiLlama
  */
 export function getCumulativeFeesChart(response: DefiLlamaFeesResponse): ChartData[] {
@@ -117,6 +131,20 @@ export function getCumulativeFeesChart(response: DefiLlamaFeesResponse): ChartDa
       value: cumulative,
     };
   });
+}
+
+/**
+ * Get daily revenue chart data (curator fees = daily fees * performance fee rate)
+ */
+export function getDailyRevenueChart(response: DefiLlamaFeesResponse, performanceFeeRate: number = 0.02): ChartData[] {
+  if (!response.totalDataChart || response.totalDataChart.length === 0) {
+    return [];
+  }
+
+  return response.totalDataChart.map(([timestamp, dailyValue]) => ({
+    date: new Date(timestamp * 1000).toISOString(),
+    value: (dailyValue || 0) * performanceFeeRate,
+  }));
 }
 
 /**
@@ -138,65 +166,104 @@ export function getCumulativeRevenueChart(response: DefiLlamaFeesResponse, perfo
 }
 
 /**
- * Get daily USD inflows chart data
- * Calculates true inflows: (token quantity change) × (current price)
- * This separates actual deposits/withdrawals from price movements
+ * Get daily inflows chart data
+ * Formula: Inflows = Deposits - Withdrawals (net asset flow, excluding interest and price changes)
+ * 
+ * We calculate inflows by looking at token quantity changes and valuing them at previous day's prices.
+ * This excludes both interest gains and price appreciation/depreciation.
+ * 
+ * Inflows = Σ(quantity_change × previous_day_price) for each token
  */
-export function getDailyInflowsChart(response: DefiLlamaProtocolResponse): ChartData[] {
-  const tokens = response.tokens;
-  const tokensInUsd = response.tokensInUsd;
-
-  // If we have token data, calculate true USD inflows
-  // Formula: (token quantity change) × (current price per token)
-  // This separates actual deposits/withdrawals from price movements
-  if (tokens && tokensInUsd && tokens.length >= 2 && tokensInUsd.length >= 2) {
+export function getDailyInflowsChart(
+  protocolResponse: DefiLlamaProtocolResponse,
+  feesResponse?: DefiLlamaFeesResponse | null
+): ChartData[] {
+  // Use token-based calculation if available (more accurate)
+  if (protocolResponse.tokens && protocolResponse.tokensInUsd && protocolResponse.tokens.length >= 2) {
     const result: ChartData[] = [];
     
-    for (let i = 1; i < tokens.length; i++) {
-      const prevTokens = tokens[i - 1].tokens;
-      const currTokens = tokens[i].tokens;
-      const currTokensUsd = tokensInUsd[i].tokens;
+    // Sort by date to ensure correct order
+    const sortedTokens = [...protocolResponse.tokens].sort((a, b) => a.date - b.date);
+    const sortedTokensUsd = [...(protocolResponse.tokensInUsd || [])].sort((a, b) => a.date - b.date);
+    
+    for (let i = 1; i < sortedTokens.length; i++) {
+      const prevTokens = sortedTokens[i - 1];
+      const currTokens = sortedTokens[i];
       
-      let dailyInflow = 0;
+      // Find corresponding USD values
+      const prevTokensUsd = sortedTokensUsd.find(p => p.date === prevTokens.date);
       
-      // For each token, calculate: (quantity change) × (current price per token)
-      for (const symbol of Object.keys(currTokens)) {
-        const prevQty = prevTokens[symbol] || 0;
-        const currQty = currTokens[symbol] || 0;
-        const currUsdValue = currTokensUsd[symbol] || 0;
-        
-        // Calculate current price per token
-        const pricePerToken = currQty > 0 ? currUsdValue / currQty : 0;
-        
-        // USD inflow = quantity change × current price
-        const qtyChange = currQty - prevQty;
-        dailyInflow += qtyChange * pricePerToken;
-      }
+      if (!prevTokensUsd) continue;
       
+      // Calculate price per token on previous day
+      const prices: Record<string, number> = {};
+      Object.keys(prevTokens.tokens).forEach(token => {
+        const quantity = prevTokens.tokens[token];
+        const usdValue = prevTokensUsd.tokens[token];
+        if (quantity > 0) {
+          prices[token] = usdValue / quantity;
+        }
+      });
+      
+      // Calculate quantity changes and value at previous day's prices
+      let inflows = 0;
+      Object.keys(currTokens.tokens).forEach(token => {
+        const currQuantity = currTokens.tokens[token];
+        const prevQuantity = prevTokens.tokens[token] ?? 0; // Default to 0 if token didn't exist previously
+        const quantityChange = currQuantity - prevQuantity;
+        const price = prices[token] || 0;
+        inflows += quantityChange * price;
+      });
+      
+      // Inflows can be negative (net outflows when withdrawals > deposits)
       result.push({
-        date: new Date(tokens[i].date * 1000).toISOString(),
-        value: dailyInflow,
+        date: new Date(currTokens.date * 1000).toISOString(),
+        value: inflows,
       });
     }
     
     return result;
   }
   
-  // Fallback to TVL change if token data not available
-  if (!response.tvl || response.tvl.length < 2) {
+  // Fallback to TVL-based calculation if token data not available
+  if (!protocolResponse.tvl || protocolResponse.tvl.length < 2) {
     return [];
+  }
+
+  // Create a map of daily fees (interest) by date for quick lookup
+  const feesMap = new Map<number, number>();
+  if (feesResponse?.totalDataChart) {
+    feesResponse.totalDataChart.forEach(([timestamp, dailyFees]) => {
+      // Normalize timestamp to start of day for matching
+      const date = new Date(timestamp * 1000);
+      date.setHours(0, 0, 0, 0);
+      const dayTimestamp = Math.floor(date.getTime() / 1000);
+      feesMap.set(dayTimestamp, (dailyFees || 0));
+    });
   }
 
   const result: ChartData[] = [];
 
-  for (let i = 1; i < response.tvl.length; i++) {
-    const prev = response.tvl[i - 1];
-    const curr = response.tvl[i];
-    const change = curr.totalLiquidityUSD - prev.totalLiquidityUSD;
+  for (let i = 1; i < protocolResponse.tvl.length; i++) {
+    const prev = protocolResponse.tvl[i - 1];
+    const curr = protocolResponse.tvl[i];
+    
+    // Normalize date to start of day for matching
+    const currDate = new Date(curr.date * 1000);
+    currDate.setHours(0, 0, 0, 0);
+    const currDayTimestamp = Math.floor(currDate.getTime() / 1000);
+    
+    const tvlChange = curr.totalLiquidityUSD - prev.totalLiquidityUSD;
+    const interest = feesMap.get(currDayTimestamp) || 0;
+    
+    // Inflows = Deposits - Withdrawals = TVL Change - Interest
+    // Note: This doesn't account for price changes, so it's less accurate
+    // Inflows can be negative (net outflows when withdrawals > deposits)
+    const inflows = tvlChange - interest;
     
     result.push({
       date: new Date(curr.date * 1000).toISOString(),
-      value: change,
+      value: inflows,
     });
   }
 
@@ -204,27 +271,34 @@ export function getDailyInflowsChart(response: DefiLlamaProtocolResponse): Chart
 }
 
 /**
- * Get cumulative USD inflows chart data
- * Uses token quantity changes × current price, then accumulates
+ * Get cumulative inflows chart data
+ * Formula: Inflows = Deposits - Withdrawals (net asset flow, excluding interest and price changes)
+ * 
+ * Uses token quantity changes valued at previous day's prices to calculate inflows.
+ * Cumulative shows sum of all net flows over time (can be negative if cumulative outflows > cumulative inflows).
  */
-export function getCumulativeInflowsChart(response: DefiLlamaProtocolResponse): ChartData[] {
-  // First get the daily inflows
-  const dailyInflows = getDailyInflowsChart(response);
+export function getCumulativeInflowsChart(
+  protocolResponse: DefiLlamaProtocolResponse,
+  feesResponse?: DefiLlamaFeesResponse | null
+): ChartData[] {
+  // Get daily inflows first
+  const dailyInflows = getDailyInflowsChart(protocolResponse, feesResponse);
   
   if (dailyInflows.length === 0) {
     return [];
   }
-
+  
+  // Calculate cumulative (sum of all net flows, can go negative)
   const result: ChartData[] = [];
-  let cumulative = 0;
-
-  for (const day of dailyInflows) {
-    cumulative += day.value;
+  let cumulativeInflow = 0;
+  
+  for (const daily of dailyInflows) {
+    cumulativeInflow += daily.value; // Can be negative for net outflows
     result.push({
-      date: day.date,
-      value: cumulative,
+      date: daily.date,
+      value: cumulativeInflow,
     });
   }
-
+  
   return result;
 }

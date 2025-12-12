@@ -4,12 +4,22 @@ Modern Next.js dashboard for Muscadine vaults on Morpho. Live data is sourced fr
 
 ## Features
 
-- **Overview**: KPI snapshot (TVL, users, fees, interest) with historical trends
-- **Vaults**: Six vaults (3 V1, 3 V2 Prime) with version-specific pages
-- **V1 Vaults** (`/vault/v1/[address]`): Overview, Risk Management, Roles, Parameters, Allocation, Caps
-- **V2 Vaults** (`/vault/v2/[address]`): Overview, Risk Management, Roles, Adapters, Allocations, Caps, Timelock
-- **Risk Ratings**: Morpho market ratings (0–100) aggregated per vault
-- **Revenue & Fees**: All-time revenue and curator fees from DefiLlama
+- **Overview Dashboard**: KPI snapshot (TVL, users, fees, interest) with interactive charts
+  - TVL chart with toggle between Total and By Vault views
+  - Inflows chart with Daily/Cumulative toggle
+  - Fees chart with Daily/Cumulative toggle
+  - Revenue chart with Daily/Cumulative toggle
+- **Dynamic Vault System**: Vaults are automatically categorized and displayed based on names
+  - **V1 Vaults**: Automatically detected (vaults without "Prime" or "Vineyard" in name)
+  - **V2 Prime Vaults**: Automatically detected (vaults with "Prime" in name)
+  - **V2 Vineyard Vaults**: Automatically detected (vaults with "Vineyard" in name)
+- **Vault Detail Pages**:
+  - **V1 Vaults** (`/vault/v1/[address]`): Overview, Risk Management, Roles, Parameters, Allocation, Caps
+  - **V2 Vaults** (`/vault/v2/[address]`): Overview, Risk Management, Roles, Adapters, Allocations, Caps, Timelock
+  - All vault metadata (name, symbol, asset, TVL, APY, performance fee) fetched dynamically from GraphQL
+  - Direct links to Morpho UI for each vault
+- **Data Sources**: All vault data fetched dynamically from Morpho GraphQL API
+- **Revenue & Fees**: Historical data from DefiLlama API
 - **Wallet Integration**: Coinbase OnchainKit + wagmi + viem on Base
 - **Rate Limiting & Error Handling**: Production-safe API limits and standardized errors
 
@@ -37,11 +47,18 @@ If your wallet is on a different network, the app will prompt you to switch to B
 
 ## Latest Updates (Jan 2025)
 
-- **Vault Routes Reorganized**: V1 vaults at `/vault/v1/[address]`, V2 vaults at `/vault/v2/[address]`
-- **DefiLlama Integration**: All-time revenue and fees data from DefiLlama API
-- **Simplified Stats**: Single APY field, removed utilization from overview
-- **Historical Data**: TVL and fees trends from Morpho GraphQL and DefiLlama
-- **Sidebar Navigation**: Direct links to V1 and V2 vault pages
+- **Dynamic Vault Configuration**: Vault config simplified to only store addresses - all metadata (name, symbol, asset, performance fee, TVL, APY) fetched dynamically from GraphQL
+- **Automatic Vault Categorization**: Vaults automatically categorized as V1, V2 Prime, or V2 Vineyard based on their names
+- **Interactive Charts with Toggles**:
+  - TVL chart: Toggle between Total (aggregated) and By Vault (individual lines)
+  - Inflows chart: Toggle between Daily and Cumulative views
+  - Fees chart: Toggle between Daily and Cumulative views
+  - Revenue chart: Toggle between Daily and Cumulative views
+- **Vault Overview Enhancement**: Clean header with vault name (linked to Morpho UI), ticker, and asset badges
+- **DefiLlama Integration**: All-time revenue and fees data with daily/cumulative breakdowns
+- **Simplified Configuration**: Only vault addresses need to be configured - everything else is dynamic
+- **Vault Routes**: V1 vaults at `/vault/v1/[address]`, V2 vaults at `/vault/v2/[address]`
+- **Sidebar Navigation**: Dynamically categorizes and displays vaults in appropriate sections
 
 ## Setup
 
@@ -61,10 +78,12 @@ If your wallet is on a different network, the app will prompt you to switch to B
    Required environment variables:
    - Server: `ALCHEMY_API_KEY` (required)
    - Client: `NEXT_PUBLIC_ALCHEMY_API_KEY` (required), `NEXT_PUBLIC_ONCHAINKIT_API_KEY` (optional)
-   - Addresses:
+   - Vault Addresses (optional - defaults provided in code):
      - V1: `NEXT_PUBLIC_VAULT_USDC`, `NEXT_PUBLIC_VAULT_CBBTC`, `NEXT_PUBLIC_VAULT_WETH`
      - V2 Prime: `NEXT_PUBLIC_VAULT_USDC_V2`, `NEXT_PUBLIC_VAULT_WETH_V2`, `NEXT_PUBLIC_VAULT_CBBTC_V2`
-   - Optional: `NEXT_PUBLIC_DEFAULT_PERF_FEE_BPS`, `NEXT_PUBLIC_ROLE_OWNER`, `NEXT_PUBLIC_ROLE_GUARDIAN`, `NEXT_PUBLIC_ROLE_CURATOR`, `NEXT_PUBLIC_ALLOCATOR_HOT`, `NEXT_PUBLIC_ALLOCATOR_IGNAS`
+   - Optional Protocol Roles: `NEXT_PUBLIC_ROLE_OWNER`, `NEXT_PUBLIC_ROLE_GUARDIAN`, `NEXT_PUBLIC_ROLE_CURATOR`, `NEXT_PUBLIC_ALLOCATOR_HOT`, `NEXT_PUBLIC_ALLOCATOR_IGNAS`
+   
+   **Note**: All vault metadata (name, symbol, asset, performance fee, etc.) is fetched dynamically from GraphQL. Only addresses need to be configured.
 
 3. **Run development server**:
    ```bash
@@ -77,22 +96,51 @@ If your wallet is on a different network, the app will prompt you to switch to B
 
 ### Vaults
 
-Vault configurations are defined in `/lib/config/vaults.ts`. To add new vaults:
+Vault configurations are defined in `/lib/config/vaults.ts`. The system uses a simplified configuration where only vault addresses are stored - all other metadata is fetched dynamically from GraphQL.
 
-1. Add vault configuration to the `vaults` array
-2. Update environment variables if needed
-3. Restart the development server
+**To add new vaults:**
+
+1. Add the vault address to the `vaultAddresses` array in `/lib/config/vaults.ts`:
+   ```typescript
+   {
+     address: '0x...',  // Vault contract address
+     chainId: 8453,      // Base chain ID
+   }
+   ```
+2. The vault will be automatically categorized based on its name from GraphQL:
+   - Names containing "Prime" → V2 Prime Vaults
+   - Names containing "Vineyard" → V2 Vineyard Vaults
+   - All others → V1 Vaults
+3. All metadata (name, symbol, asset, TVL, APY, performance fee) is automatically fetched from GraphQL
+4. The vault will appear in the appropriate section of the sidebar
+5. No restart needed - changes take effect on next build/deployment
+
+**Current Vaults:**
+- 3 V1 Vaults: USDC, cbBTC, WETH
+- 3 V2 Prime Vaults: USDC Prime, WETH Prime, cbBTC Prime
 
 ### Data Sources
 
-- **Morpho GraphQL API**: Vault TVL, APY, allocations, positions, rewards, historical data
-- **DefiLlama API**: All-time revenue and fees (`/summary/fees/muscadine`)
-- **On-chain**: Vault roles, performance fees via viem RPC calls
+- **Morpho GraphQL API**: 
+  - Vault metadata (name, symbol, asset, performance fee)
+  - TVL, APY, depositors count
+  - Historical TVL data (for V1 vaults)
+  - Allocations, positions, rewards
+- **DefiLlama API**: 
+  - All-time revenue and fees (`/summary/fees/muscadine`)
+  - Protocol TVL trends
+  - Daily and cumulative breakdowns for fees, revenue, and inflows
+- **On-chain**: Protocol roles configuration (optional)
 
-API Endpoints:
-- `/api/vaults` - Vault list with TVL, APY, depositors
-- `/api/vaults/[id]` - Vault detail with allocations, roles, historical data, revenue/fees
-- `/api/protocol-stats` - Protocol aggregates (TVL, users, fees trends)
+### API Endpoints
+
+- `/api/vaults` - List all vaults with TVL, APY, depositors (fetched from GraphQL)
+- `/api/vaults/[id]` - Vault detail with historical data, allocations, roles (fetched from GraphQL)
+- `/api/protocol-stats` - Protocol aggregates with interactive chart data:
+  - Total TVL trend and per-vault TVL breakdown
+  - Daily and cumulative fees trends
+  - Daily and cumulative revenue trends
+  - Daily and cumulative inflows trends
 - `/api/morpho-markets` - Market-level risk ratings (0-100)
 
 References:
@@ -118,37 +166,42 @@ References:
 
 /components
   layout/AppShell.tsx       # Shared shell with sidebar/topbar
-  layout/Sidebar.tsx        # Sidebar with vault list
+  layout/Sidebar.tsx        # Sidebar with dynamically categorized vault list
   layout/Topbar.tsx         # Top bar with wallet/network
-  KpiCard.tsx               # KPI display
-  ChartTvl.tsx              # TVL chart
-  ChartFees.tsx             # Fees chart
+  KpiCard.tsx               # KPI display component
+  ChartTvl.tsx              # TVL chart with Total/By Vault toggle
+  ChartFees.tsx             # Fees chart with Daily/Cumulative toggle
+  ChartRevenue.tsx          # Revenue chart with Daily/Cumulative toggle
+  ChartInflows.tsx          # Inflows chart with Daily/Cumulative toggle
   AddressBadge.tsx          # Address display with copy/scan
-  RoleList.tsx              # Protocol roles
-  AllocatorList.tsx         # Allocators list
+  RoleList.tsx              # Protocol roles (Coming Soon)
+  AllocatorList.tsx         # Allocators list (Coming Soon)
   morpho/RatingBadge.tsx    # Risk rating badge
-  ui/*                      # UI primitives
+  ui/*                      # shadcn/ui components
 
 /lib
-  config/vaults.ts          # Vault configurations (V1/V2)
-  constants.ts              # Application constants
-  defillama/service.ts      # DefiLlama API client for fees/revenue
-  morpho/*                  # Morpho clients, queries, compute helpers
-  hooks/*                   # React Query hooks
+  config/vaults.ts          # Vault address configurations and categorization helpers
+  constants.ts              # Application constants (chain IDs, limits, etc.)
+  defillama/service.ts      # DefiLlama API client with chart data processors
+  morpho/*                  # Morpho GraphQL client and query helpers
+  hooks/*                   # React Query hooks (useProtocolStats, useVault, useVaultList)
   format/number.ts          # Number formatting utilities
-  wallet/config.ts          # Wallet configuration
-  onchain/*                 # Viem client and contracts
-  utils/*                   # Utilities (rate limit, error handling, etc.)
+  wallet/config.ts          # Wallet configuration (wagmi + OnchainKit)
+  onchain/*                 # Viem client and contract interfaces
+  utils/*                   # Utilities (rate limit, error handling, logger)
 ```
 
 ## Deployment
 
 Production checklist:
-1. Set `.env` with production keys and addresses
-2. `npm run build` succeeds
-3. `npm start` runs and pages load without 500s
-4. Verify wallet connection on Base network
-5. Monitor logs for Morpho API errors
+1. ✅ All tests passing (`npm test`)
+2. ✅ Lint checks passing (`npm run lint`)
+3. ✅ Build succeeds (`npm run build`)
+4. Set `.env` with production keys and addresses
+5. Verify vault addresses are correctly configured
+6. Test wallet connection on Base network
+7. Verify all charts load and toggles work correctly
+8. Monitor logs for Morpho GraphQL and DefiLlama API errors
 
 ## Development Notes
 

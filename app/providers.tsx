@@ -29,7 +29,11 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <WagmiProvider config={config}>
       {onchainApiKey ? (
-        <OnchainKitProvider apiKey={onchainApiKey} chain={base}>
+        <OnchainKitProvider
+          apiKey={onchainApiKey}
+          chain={base}
+          miniKit={{ enabled: true, autoConnect: true }}
+        >
           {appContent}
         </OnchainKitProvider>
       ) : (

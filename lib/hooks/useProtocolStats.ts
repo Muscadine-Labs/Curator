@@ -8,27 +8,34 @@ export interface ProtocolStats {
   totalInterestGenerated: number;
   users: number;
   tvlTrend: Array<{ date: string; value: number }>;
-  feesTrend: Array<{ date: string; value: number }>;
-  revenueTrend: Array<{ date: string; value: number }>;
+  tvlByVault?: Array<{
+    name: string;
+    address: string;
+    data: Array<{ date: string; value: number }>;
+  }>;
+  feesTrendDaily: Array<{ date: string; value: number }>;
+  feesTrendCumulative: Array<{ date: string; value: number }>;
+  revenueTrendDaily: Array<{ date: string; value: number }>;
+  revenueTrendCumulative: Array<{ date: string; value: number }>;
   inflowsTrendDaily: Array<{ date: string; value: number }>;
   inflowsTrendCumulative: Array<{ date: string; value: number }>;
 }
 
 export interface VaultWithData {
   id: string;
-  name: string;
-  symbol: string;
-  asset: string;
+  name: string | null;
+  symbol: string | null;
+  asset: string | null;
   address: string;
   chainId: number;
   scanUrl: string;
-  performanceFeeBps: number;
+  performanceFeeBps: number | null;
   status: 'active' | 'paused' | 'deprecated';
   riskTier: 'low' | 'medium' | 'high';
   createdAt: string;
   description?: string;
   version?: 'v1' | 'v2';
-  tvl: number;
+  tvl: number | null;
   apy: number | null;
   depositors: number;
   revenueAllTime: number | null;

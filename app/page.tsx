@@ -26,7 +26,7 @@ export default function Home() {
             format="usd"
           />
           <KpiCard
-            title="Total Fees Generated"
+            title="Total Interest Generated"
             value={stats?.totalInterestGenerated || 0}
             subtitle="Depositor earnings"
             isLoading={isLoading}
@@ -57,24 +57,28 @@ export default function Home() {
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <ChartTvl
-            data={stats?.tvlTrend || []}
+            totalData={stats?.tvlTrend}
+            vaultData={stats?.tvlByVault}
             isLoading={isLoading}
             title="TVL Over Time"
           />
           <ChartInflows
-            dailyData={stats?.inflowsTrendDaily || []}
-            cumulativeData={stats?.inflowsTrendCumulative || []}
+            dailyData={stats?.inflowsTrendDaily}
+            cumulativeData={stats?.inflowsTrendCumulative}
             isLoading={isLoading}
+            title="Inflows"
           />
           <ChartFees
-            data={stats?.feesTrend || []}
+            dailyData={stats?.feesTrendDaily}
+            cumulativeData={stats?.feesTrendCumulative}
             isLoading={isLoading}
-            title="Fees (Cumulative)"
+            title="Fees"
           />
           <ChartRevenue
-            data={stats?.revenueTrend || []}
+            dailyData={stats?.revenueTrendDaily}
+            cumulativeData={stats?.revenueTrendCumulative}
             isLoading={isLoading}
-            title="Revenue (Cumulative)"
+            title="Revenue"
           />
         </div>
       </div>

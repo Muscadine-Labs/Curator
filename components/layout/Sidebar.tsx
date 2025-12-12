@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Shield, X } from 'lucide-react';
-import { vaults } from '@/lib/config/vaults';
+import { getVaultCategory, shouldUseV2Query } from '@/lib/config/vaults';
+import { useVaultList } from '@/lib/hooks/useProtocolStats';
 import { Button } from '@/components/ui/button';
 
 const navBase = [{ label: 'Overview', href: '/', icon: Shield }];
@@ -14,8 +15,12 @@ type SidebarProps = {
 
 export function Sidebar({ onClose }: SidebarProps) {
   const pathname = usePathname();
-  const v2Vaults = vaults.filter((v) => v.version === 'v2');
-  const v1Vaults = vaults.filter((v) => v.version === 'v1');
+  const { data: vaults = [], isLoading } = useVaultList();
+
+  // Categorize vaults dynamically based on name
+  const primeVaults = vaults.filter(v => getVaultCategory(v.name) === 'prime');
+  const vineyardVaults = vaults.filter(v => getVaultCategory(v.name) === 'vineyard');
+  const v1Vaults = vaults.filter(v => getVaultCategory(v.name) === 'v1');
 
   const isActive = (href: string) =>
     pathname === href || (href !== '/' && pathname.startsWith(href));
@@ -75,10 +80,33 @@ export function Sidebar({ onClose }: SidebarProps) {
 
         <div className="space-y-2">
           <p className="px-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            V2 Vinyard Vaults
+            V2 Vineyard Vaults
           </p>
           <div className="space-y-1">
-            {/* Empty section */}
+            {isLoading ? (
+              <div className="px-2 py-2 text-slate-500">Loading...</div>
+            ) : vineyardVaults.length === 0 ? (
+              <div className="px-2 py-2 text-slate-500 text-xs">No vaults</div>
+            ) : (
+              vineyardVaults.map((vault) => {
+                const useV2Route = shouldUseV2Query(vault.name);
+                return (
+                  <Link
+                    key={vault.address}
+                    href={`/vault/${useV2Route ? 'v2' : 'v1'}/${vault.address}`}
+                    onClick={handleLinkClick}
+                    className={`flex items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 ${
+                      isActive(`/vault/${useV2Route ? 'v2' : 'v1'}/${vault.address}`) ? 'bg-slate-900 text-white' : ''
+                    }`}
+                  >
+                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs font-semibold text-blue-700">
+                      {(vault.asset ?? 'U').slice(0, 1)}
+                    </span>
+                    <span className="truncate">{vault.name ?? 'Unknown Vault'}</span>
+                  </Link>
+                );
+              })
+            )}
           </div>
         </div>
 
@@ -87,21 +115,30 @@ export function Sidebar({ onClose }: SidebarProps) {
             V2 Prime Vaults
           </p>
           <div className="space-y-1">
-            {v2Vaults.map((vault) => (
-              <Link
-                key={vault.id}
-                href={`/vault/v2/${vault.address}`}
-                onClick={handleLinkClick}
-                className={`flex items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 ${
-                  isActive(`/vault/v2/${vault.address}`) ? 'bg-slate-900 text-white' : ''
-                }`}
-              >
-                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs font-semibold text-blue-700">
-                  {vault.asset.slice(0, 1)}
-                </span>
-                <span className="truncate">{vault.name}</span>
-              </Link>
-            ))}
+            {isLoading ? (
+              <div className="px-2 py-2 text-slate-500">Loading...</div>
+            ) : primeVaults.length === 0 ? (
+              <div className="px-2 py-2 text-slate-500 text-xs">No vaults</div>
+            ) : (
+              primeVaults.map((vault) => {
+                const useV2Route = shouldUseV2Query(vault.name);
+                return (
+                  <Link
+                    key={vault.address}
+                    href={`/vault/${useV2Route ? 'v2' : 'v1'}/${vault.address}`}
+                    onClick={handleLinkClick}
+                    className={`flex items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 ${
+                      isActive(`/vault/${useV2Route ? 'v2' : 'v1'}/${vault.address}`) ? 'bg-slate-900 text-white' : ''
+                    }`}
+                  >
+                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs font-semibold text-blue-700">
+                      {(vault.asset ?? 'U').slice(0, 1)}
+                    </span>
+                    <span className="truncate">{vault.name ?? 'Unknown Vault'}</span>
+                  </Link>
+                );
+              })
+            )}
           </div>
         </div>
 
@@ -110,21 +147,27 @@ export function Sidebar({ onClose }: SidebarProps) {
             V1 Vaults
           </p>
           <div className="space-y-1">
-            {v1Vaults.map((vault) => (
-              <Link
-                key={vault.id}
-                href={`/vault/v1/${vault.address}`}
-                onClick={handleLinkClick}
-                className={`flex items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 ${
-                  isActive(`/vault/v1/${vault.address}`) ? 'bg-slate-900 text-white' : ''
-                }`}
-              >
-                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-700">
-                  {vault.asset.slice(0, 1)}
-                </span>
-                <span className="truncate">{vault.name}</span>
-              </Link>
-            ))}
+            {isLoading ? (
+              <div className="px-2 py-2 text-slate-500">Loading...</div>
+            ) : v1Vaults.length === 0 ? (
+              <div className="px-2 py-2 text-slate-500 text-xs">No vaults</div>
+            ) : (
+              v1Vaults.map((vault) => (
+                <Link
+                  key={vault.address}
+                  href={`/vault/v1/${vault.address}`}
+                  onClick={handleLinkClick}
+                  className={`flex items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 ${
+                    isActive(`/vault/v1/${vault.address}`) ? 'bg-slate-900 text-white' : ''
+                  }`}
+                >
+                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-700">
+                    {(vault.asset ?? 'U').slice(0, 1)}
+                  </span>
+                  <span className="truncate">{vault.name ?? 'Unknown Vault'}</span>
+                </Link>
+              ))
+            )}
           </div>
         </div>
       </nav>
