@@ -81,7 +81,16 @@ export async function GET(request: Request) {
         
         // graphql-request returns data directly: { vaultV2ByAddress: { ... } }
         // Access the property directly - it will be null if vault doesn't exist, or an object if it does
-        const vaultData = result.vaultV2ByAddress;
+        const vaultData = result?.vaultV2ByAddress;
+        
+        console.log(`V2 query for ${address}:`, {
+          hasResult: !!result,
+          resultType: typeof result,
+          resultKeys: result ? Object.keys(result) : [],
+          hasVaultV2ByAddress: !!vaultData,
+          vaultDataType: typeof vaultData,
+          vaultDataKeys: vaultData ? Object.keys(vaultData) : [],
+        });
         
         if (vaultData && vaultData.address) {
           console.log(`✓ V2 vault found for ${address}:`, {
@@ -92,7 +101,11 @@ export async function GET(request: Request) {
           });
           return vaultData;
         } else {
-          console.log(`✗ V2 vault not found for ${address} (vaultV2ByAddress is null/undefined or missing address)`);
+          console.log(`✗ V2 vault not found for ${address}:`, {
+            vaultDataIsNull: vaultData === null,
+            vaultDataIsUndefined: vaultData === undefined,
+            vaultDataValue: vaultData,
+          });
           return null;
         }
       } catch (error) {

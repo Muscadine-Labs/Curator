@@ -296,15 +296,16 @@ export async function GET(
         variables
       );
       // Debug logging for v2 vaults
+      const responseData = data as VaultDetailQueryResponse;
       console.log(`V2 vault query response for ${cfg.address}:`, {
         isV2,
-        hasVaultV2ByAddress: !!(data as any).vaultV2ByAddress,
-        responseKeys: Object.keys(data),
-        fullResponse: JSON.stringify(data, null, 2).substring(0, 500),
+        hasVaultV2ByAddress: !!responseData.vaultV2ByAddress,
+        responseKeys: Object.keys(responseData),
+        fullResponse: JSON.stringify(responseData, null, 2).substring(0, 500),
       });
       
       if (isV2) {
-        const vaultData = (data as any).vaultV2ByAddress;
+        const vaultData = responseData.vaultV2ByAddress as Record<string, unknown> | null | undefined;
         if (vaultData) {
           console.log(`✓ V2 vault data found for ${cfg.address}:`, {
             name: vaultData?.name,

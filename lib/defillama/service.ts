@@ -208,7 +208,9 @@ export function getDailyInflowsChart(
       // Calculate quantity changes and value at previous day's prices
       let inflows = 0;
       Object.keys(currTokens.tokens).forEach(token => {
-        const quantityChange = currTokens.tokens[token] - prevTokens.tokens[token];
+        const currQuantity = currTokens.tokens[token];
+        const prevQuantity = prevTokens.tokens[token] ?? 0; // Default to 0 if token didn't exist previously
+        const quantityChange = currQuantity - prevQuantity;
         const price = prices[token] || 0;
         inflows += quantityChange * price;
       });
