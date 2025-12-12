@@ -94,7 +94,10 @@ export const getAllVaultAddresses = (): VaultAddressConfig[] => {
 // Categorize vaults by name pattern (works with GraphQL data)
 export type VaultCategory = 'prime' | 'vineyard' | 'v1';
 
-export const getVaultCategory = (vaultName: string): VaultCategory => {
+export const getVaultCategory = (vaultName: string | null | undefined): VaultCategory => {
+  if (!vaultName) {
+    return 'v1'; // Default to v1 if name is missing
+  }
   const name = vaultName.toLowerCase();
   if (name.includes('prime')) {
     return 'prime';
@@ -106,7 +109,7 @@ export const getVaultCategory = (vaultName: string): VaultCategory => {
 };
 
 // Determine if vault should use v2 GraphQL query (Prime and Vineyard are both v2)
-export const shouldUseV2Query = (vaultName: string): boolean => {
+export const shouldUseV2Query = (vaultName: string | null | undefined): boolean => {
   const category = getVaultCategory(vaultName);
   return category === 'prime' || category === 'vineyard';
 };

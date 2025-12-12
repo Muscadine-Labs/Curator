@@ -331,6 +331,10 @@ export async function GET(
         
         return NextResponse.json({
           ...cfg,
+          address: address,
+          name: 'Unknown V2 Vault',
+          symbol: 'UNKNOWN',
+          asset: 'UNKNOWN',
           tvl: null,
           apy: null,
           depositors: 0,

@@ -53,6 +53,11 @@ export default function V2VaultPage() {
   const morphoUiUrl = vault.address 
     ? `https://app.morpho.org/base/vault/${vault.address.toLowerCase()}`
     : '#';
+  
+  // Safe defaults for missing data
+  const vaultName = vault.name || 'Unknown Vault';
+  const vaultSymbol = vault.symbol || 'UNKNOWN';
+  const vaultAsset = vault.asset || 'UNKNOWN';
 
   return (
     <AppShell
@@ -96,15 +101,15 @@ export default function V2VaultPage() {
                       rel="noreferrer"
                       className="text-2xl font-semibold text-slate-900 hover:text-blue-600 transition-colors"
                     >
-                      {vault.name}
+                      {vaultName}
                     </a>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant="outline" className="text-sm">
-                      {vault.symbol}
+                      {vaultSymbol}
                     </Badge>
                     <Badge variant="outline" className="text-sm">
-                      {vault.asset}
+                      {vaultAsset}
                     </Badge>
                   </div>
                 </div>
