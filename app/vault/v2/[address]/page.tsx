@@ -2,11 +2,11 @@
 
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { Shield, Wallet, Clock } from 'lucide-react';
+import { Shield, Clock } from 'lucide-react';
 import { useVault } from '@/lib/hooks/useProtocolStats';
+import { getVaultCategory } from '@/lib/config/vaults';
 import { AppShell } from '@/components/layout/AppShell';
 import { KpiCard } from '@/components/KpiCard';
-import { AddressBadge } from '@/components/AddressBadge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -47,14 +47,18 @@ export default function V2VaultPage() {
     );
   }
 
+  const category = getVaultCategory(vault.name);
+  const vaultBadge = category === 'prime' ? 'V2 Prime' : category === 'vineyard' ? 'V2 Vineyard' : 'V2';
+
+  const morphoUiUrl = `https://app.morpho.org/base/vault/${vault.address.toLowerCase()}`;
+
   return (
     <AppShell
-      title={vault.name}
-      description={`${vault.symbol} • ${vault.asset ?? ''}`}
+      title="Vault Details"
       actions={
         <div className="flex items-center gap-2">
           <Badge variant="default" className="flex items-center gap-1 bg-blue-600">
-            <Shield className="h-3 w-3" /> V2 Prime
+            <Shield className="h-3 w-3" /> {vaultBadge}
           </Badge>
           <Button variant="outline" size="sm" asChild>
             <a href={vault.scanUrl} target="_blank" rel="noreferrer">
@@ -65,18 +69,6 @@ export default function V2VaultPage() {
       }
     >
       <div className="space-y-6">
-        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-          <Badge variant="secondary" className="text-xs">
-            {vault.status}
-          </Badge>
-          <Badge variant="outline">{vault.asset}</Badge>
-          <AddressBadge address={vault.address} scanUrl={vault.scanUrl} />
-          <Badge variant="outline" className="flex items-center gap-1">
-            <Wallet className="h-3 w-3" />
-            Base
-          </Badge>
-        </div>
-
         {/* V2 Tabs: Overview, Risk Management, Roles, Adapters, Allocations, Caps, Timelock */}
         <Tabs defaultValue="overview" className="space-y-4">
           <TabsList className="w-full justify-start overflow-x-auto">
@@ -90,8 +82,35 @@ export default function V2VaultPage() {
           </TabsList>
 
           {/* Overview Tab */}
-          <TabsContent value="overview" className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <TabsContent value="overview" className="space-y-6">
+            {/* Header: Name, Ticker, Asset */}
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex flex-col gap-3">
+                  <div>
+                    <a
+                      href={morphoUiUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-2xl font-semibold text-slate-900 hover:text-blue-600 transition-colors"
+                    >
+                      {vault.name}
+                    </a>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="outline" className="text-sm">
+                      {vault.symbol}
+                    </Badge>
+                    <Badge variant="outline" className="text-sm">
+                      {vault.asset}
+                    </Badge>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Metrics Grid */}
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
               <KpiCard title="TVL" value={vault.tvl} subtitle="Total Value Locked" format="usd" />
               <KpiCard title="APY" value={vault.apy} subtitle="Current yield rate" format="percentage" />
               <KpiCard title="Depositors" value={vault.depositors} subtitle="Total depositors" format="number" />
@@ -101,18 +120,28 @@ export default function V2VaultPage() {
                 subtitle="Curator fee rate" 
                 format="percentage" 
               />
+              <Card>
+                <CardContent className="pt-6">
+                  <p className="text-sm text-slate-500 mb-1">Status</p>
+                  <Badge variant={vault.status === 'active' ? 'default' : 'secondary'} className="text-sm">
+                    {vault.status}
+                  </Badge>
+                </CardContent>
+              </Card>
             </div>
+
+            {/* Revenue and Fees */}
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <Card>
                 <CardContent className="pt-6">
-                  <p className="text-sm text-slate-500">Revenue (All Time)</p>
-                  <p className="text-2xl font-semibold text-slate-900">(coming soon)</p>
+                  <p className="text-sm text-slate-500 mb-1">Revenue (All Time)</p>
+                  <p className="text-2xl font-semibold text-slate-400">Coming Soon</p>
                 </CardContent>
               </Card>
               <Card>
                 <CardContent className="pt-6">
-                  <p className="text-sm text-slate-500">Fees (All Time)</p>
-                  <p className="text-2xl font-semibold text-slate-900">(coming soon)</p>
+                  <p className="text-sm text-slate-500 mb-1">Fees (All Time)</p>
+                  <p className="text-2xl font-semibold text-slate-400">Coming Soon</p>
                 </CardContent>
               </Card>
             </div>

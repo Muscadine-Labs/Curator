@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { vaults as configuredVaults } from '@/lib/config/vaults';
+import { vaultAddresses } from '@/lib/config/vaults';
 import { 
   BASE_CHAIN_ID, 
   GRAPHQL_FIRST_LIMIT,
@@ -9,6 +9,7 @@ import { handleApiError } from '@/lib/utils/error-handler';
 import { createRateLimitMiddleware, RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS } from '@/lib/utils/rate-limit';
 import { morphoGraphQLClient } from '@/lib/morpho/graphql-client';
 import { gql } from 'graphql-request';
+import { getAddress } from 'viem';
 import type { Vault, VaultPosition, Maybe } from '@morpho-org/blue-api-sdk';
 import { logger } from '@/lib/utils/logger';
 import { 
@@ -48,7 +49,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const addresses = configuredVaults.map(v => v.address.toLowerCase());
+    const addresses = vaultAddresses.map(v => getAddress(v.address));
 
     const query = gql`
       query FetchProtocolStats($addresses: [String!]) {
@@ -86,7 +87,7 @@ export async function GET(request: Request) {
     const positions = data.vaultPositions?.items?.filter((p): p is VaultPosition => p !== null) ?? [];
 
     const totalDeposited = morphoVaults.reduce((sum, v) => sum + (v.state?.totalAssetsUsd ?? 0), 0);
-    const activeVaults = configuredVaults.length;
+    const activeVaults = vaultAddresses.length;
     
     // Initialize totals (will be updated from DefiLlama if available)
     let totalFeesGenerated = 0;

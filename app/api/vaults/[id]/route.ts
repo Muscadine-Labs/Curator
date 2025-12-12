@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getVaultByAddress, getVaultById } from '@/lib/config/vaults';
+import { getVaultByAddress, shouldUseV2Query } from '@/lib/config/vaults';
 import { GRAPHQL_FIRST_LIMIT, GRAPHQL_TRANSACTIONS_LIMIT, getDaysAgoTimestamp } from '@/lib/constants';
 import { handleApiError, AppError } from '@/lib/utils/error-handler';
 import { createRateLimitMiddleware, RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS } from '@/lib/utils/rate-limit';
 import { morphoGraphQLClient } from '@/lib/morpho/graphql-client';
 import { gql } from 'graphql-request';
+import { getAddress, isAddress } from 'viem';
 // Types imported from SDK but not directly used in this file
 // import type { Vault, VaultPosition, Maybe } from '@morpho-org/blue-api-sdk';
 
@@ -31,22 +32,81 @@ export async function GET(
 
   try {
     const { id } = await params;
-    const cfg = getVaultById(id) ?? getVaultByAddress(id);
-    if (!cfg) {
-      throw new AppError('Vault not found', 404, 'VAULT_NOT_FOUND');
+    
+    // Check if id is a valid address
+    let address: string;
+    if (isAddress(id)) {
+      address = getAddress(id);
+    } else {
+      // Try to find by address in config
+      const cfg = getVaultByAddress(id);
+      if (!cfg) {
+        throw new AppError('Vault not found', 404, 'VAULT_NOT_FOUND');
+      }
+      address = getAddress(cfg.address);
     }
 
-    // V1 and V2 vaults use different GraphQL queries
-    const isV2 = cfg.version === 'v2';
+    // Check if address is in our configured list
+    const cfg = getVaultByAddress(address);
+    if (!cfg) {
+      throw new AppError('Vault not found in configuration', 404, 'VAULT_NOT_FOUND');
+    }
+
+    // Try to fetch vault name first to determine query type
+    // We'll try V2 first, then V1 if V2 fails
+    let vaultName: string | null = null;
+    let isV2 = false;
+    
+    try {
+      const v2CheckQuery = gql`
+        query CheckV2Vault($address: String!, $chainId: Int!) {
+          vaultV2ByAddress(address: $address, chainId: $chainId) {
+            name
+          }
+        }
+      `;
+      const v2Check = await morphoGraphQLClient.request<{ vaultV2ByAddress?: { name?: string } | null }>(v2CheckQuery, { address, chainId: cfg.chainId });
+      if (v2Check.vaultV2ByAddress?.name) {
+        vaultName = v2Check.vaultV2ByAddress.name;
+        isV2 = true;
+      }
+    } catch {
+      // V2 query failed, try V1
+      try {
+        const v1CheckQuery = gql`
+          query CheckV1Vault($address: String!, $chainId: Int!) {
+            vault: vaultByAddress(address: $address, chainId: $chainId) {
+              name
+            }
+          }
+        `;
+        const v1Check = await morphoGraphQLClient.request<{ vault?: { name?: string } | null }>(v1CheckQuery, { address, chainId: cfg.chainId });
+        if (v1Check.vault?.name) {
+          vaultName = v1Check.vault.name;
+          isV2 = false;
+        }
+      } catch {
+        throw new AppError('Vault not found in GraphQL', 404, 'VAULT_NOT_FOUND');
+      }
+    }
+
+    // If we couldn't determine from GraphQL, use the name-based check
+    if (!vaultName) {
+      // Fallback: try V2 query based on address pattern or default to V1
+      isV2 = false;
+    } else {
+      // Use the vault name to determine query type
+      isV2 = shouldUseV2Query(vaultName);
+    }
 
     // V2 vaults don't need options for historical data
     const variables = isV2
       ? {
-          address: cfg.address,
+          address,
           chainId: cfg.chainId,
         }
       : {
-          address: cfg.address,
+          address,
           chainId: cfg.chainId,
           options: {
             startTimestamp: getDaysAgoTimestamp(30),
@@ -79,6 +139,7 @@ export async function GET(
         vault: vaultByAddress(address: $address, chainId: $chainId) {
           address
           name
+          symbol
           whitelisted
           metadata {
             description
@@ -227,19 +288,20 @@ export async function GET(
         variables
       );
       // Debug logging for v2 vaults
-      if (isV2) {
+      if (isV2 && data.vaultV2ByAddress) {
+        const vaultData = data.vaultV2ByAddress as Record<string, unknown>;
         console.log(`V2 vault query successful for ${cfg.address}:`, {
           hasVaultV2ByAddress: !!data.vaultV2ByAddress,
-          hasVault: !!data.vault,
-          dataKeys: Object.keys(data),
-          vaultV2Data: data.vaultV2ByAddress ? 'exists' : 'null/undefined',
+          totalAssetsUsd: vaultData?.totalAssetsUsd,
+          totalAssets: vaultData?.totalAssets,
+          address: vaultData?.address,
         });
       }
     } catch (graphqlError) {
       // For v2 vaults, GraphQL API may not have indexed them yet
       // Check if this is a v2 vault and handle gracefully
-      if (cfg.version === 'v2') {
-        console.error(`GraphQL query failed for v2 vault ${cfg.address}:`, graphqlError);
+      if (isV2) {
+        console.error(`GraphQL query failed for v2 vault ${address}:`, graphqlError);
         // Return null vault to trigger fallback handling below
         data = { vaultV2ByAddress: null, positions: null, txs: null };
       } else {
@@ -251,8 +313,17 @@ export async function GET(
     // If vault not found in Morpho (v2 vaults may not be indexed yet)
     // V2 uses vaultV2ByAddress, V1 uses vault
     const vaultData = isV2 ? data.vaultV2ByAddress : data.vault;
+    if (!vaultData && isV2) {
+      // Log for debugging why v2 vault not found
+      console.log(`V2 vault not found in GraphQL response for ${cfg.address}:`, {
+        queryAddress: cfg.address,
+        chainId: cfg.chainId,
+        hasVaultV2ByAddress: !!data.vaultV2ByAddress,
+        responseKeys: Object.keys(data),
+      });
+    }
     if (!vaultData) {
-      if (cfg.version === 'v2') {
+      if (isV2) {
         // For v2 vaults that aren't indexed, return minimal data structure
         // The frontend will handle null values appropriately
         const responseHeaders = new Headers(rateLimitResult.headers);
@@ -280,7 +351,7 @@ export async function GET(
             performanceFeePercent: null,
             maxDeposit: null,
             maxWithdrawal: null,
-            strategyNotes: cfg.description || '',
+            strategyNotes: '',
           },
         }, { headers: responseHeaders });
       } else {
@@ -294,6 +365,7 @@ export async function GET(
     const mv = vaultData as {
       address?: string;
       name?: string | null;
+      symbol?: string | null;
       whitelisted?: boolean | null;
       metadata?: {
         description?: string | null;
@@ -450,6 +522,9 @@ export async function GET(
 
     const result = {
       ...cfg,
+      name: mv?.name || 'Unknown Vault',
+      symbol: mv?.symbol || mv?.asset?.symbol || 'UNKNOWN',
+      asset: mv?.asset?.symbol || 'UNKNOWN',
       tvl: tvlUsd,
       apy: apyPct,
       apyBase: apyBasePct,
@@ -530,7 +605,7 @@ export async function GET(
         performanceFeePercent: performanceFeeBps ? performanceFeeBps / 100 : null,
         maxDeposit: null,
         maxWithdrawal: null,
-        strategyNotes: cfg.description || '',
+        strategyNotes: '',
       },
     };
 
