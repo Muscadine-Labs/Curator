@@ -153,7 +153,6 @@ export async function GET(
             description
             forumLink
             image
-            curators { image name url }
           }
           allocators { address }
           asset { address symbol decimals yield { apr } }

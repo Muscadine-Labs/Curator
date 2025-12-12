@@ -29,6 +29,9 @@ export async function GET(request: Request) {
   try {
     // Get all configured vault addresses (checksummed for GraphQL)
     const addresses = vaultAddresses.map(v => getAddress(v.address));
+    const configuredAddressSet = new Set(addresses.map((a) => a.toLowerCase()));
+    // Known V2 addresses (prime/vineyard) are first entries in config
+    const v2Addresses = vaultAddresses.slice(0, 3).map((v) => getAddress(v.address));
 
     // Build queries for both V1 and V2 vaults
     const v1Query = gql`
@@ -57,7 +60,7 @@ export async function GET(request: Request) {
     // For V2 vaults, we need to query individually since there's no vaultsV2 list query
     // We'll fetch V2 vaults by trying each address with vaultV2ByAddress
     // V2 vaults have positions nested directly on the vault, not in a separate query
-    const v2VaultPromises = addresses.map(async (address) => {
+    const v2VaultPromises = v2Addresses.map(async (address) => {
       try {
         const v2Query = gql`
           query FetchV2Vault($address: String!, $chainId: Int!) {
@@ -235,8 +238,7 @@ export async function GET(request: Request) {
     ];
 
     // Filter to only include vaults from our configured addresses
-    const configuredAddresses = new Set(vaultAddresses.map(v => v.address.toLowerCase()));
-    const merged = allVaults.filter(v => configuredAddresses.has(v.address.toLowerCase()));
+    const merged = allVaults.filter(v => configuredAddressSet.has(v.address.toLowerCase()));
 
     const responseHeaders = new Headers(rateLimitResult.headers);
     responseHeaders.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');

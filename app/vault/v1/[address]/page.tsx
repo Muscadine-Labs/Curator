@@ -120,7 +120,7 @@ export default function VaultDetailPage() {
             </Card>
 
             {/* Metrics Grid */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <KpiCard title="TVL" value={vault.tvl} subtitle="Total Value Locked" format="usd" />
               <KpiCard title="APY" value={vault.apy} subtitle="Current yield rate" format="percentage" />
               <KpiCard title="Depositors" value={vault.depositors} subtitle="Total depositors" format="number" />
@@ -130,22 +130,8 @@ export default function VaultDetailPage() {
                 subtitle="Curator fee rate" 
                 format="percentage" 
               />
-            </div>
-
-            {/* Revenue and Fees */}
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <Card>
-                <CardContent className="pt-6">
-                  <p className="text-sm text-slate-500 mb-1">Revenue (All Time)</p>
-                  <p className="text-2xl font-semibold text-slate-400">Coming Soon</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-6">
-                  <p className="text-sm text-slate-500 mb-1">Fees (All Time)</p>
-                  <p className="text-2xl font-semibold text-slate-400">Coming Soon</p>
-                </CardContent>
-              </Card>
+              <KpiCard title="Revenue (All Time)" value="Coming Soon" subtitle="Total revenue generated" format="raw" />
+              <KpiCard title="Fees (All Time)" value="Coming Soon" subtitle="Total fees collected" format="raw" />
             </div>
           </TabsContent>
 
