@@ -213,9 +213,10 @@ export function getDailyInflowsChart(
         inflows += quantityChange * price;
       });
       
+      // Inflows can be negative (net outflows when withdrawals > deposits)
       result.push({
         date: new Date(currTokens.date * 1000).toISOString(),
-        value: inflows > 0 ? inflows : 0,
+        value: inflows,
       });
     }
     
@@ -255,12 +256,12 @@ export function getDailyInflowsChart(
     
     // Inflows = Deposits - Withdrawals = TVL Change - Interest
     // Note: This doesn't account for price changes, so it's less accurate
+    // Inflows can be negative (net outflows when withdrawals > deposits)
     const inflows = tvlChange - interest;
     
-    // Only show positive values (actual net inflows), negative values show as 0
     result.push({
       date: new Date(curr.date * 1000).toISOString(),
-      value: inflows > 0 ? inflows : 0,
+      value: inflows,
     });
   }
 
@@ -272,7 +273,7 @@ export function getDailyInflowsChart(
  * Formula: Inflows = Deposits - Withdrawals (net asset flow, excluding interest and price changes)
  * 
  * Uses token quantity changes valued at previous day's prices to calculate inflows.
- * Cumulative shows sum of all positive inflows over time.
+ * Cumulative shows sum of all net flows over time (can be negative if cumulative outflows > cumulative inflows).
  */
 export function getCumulativeInflowsChart(
   protocolResponse: DefiLlamaProtocolResponse,
@@ -285,12 +286,12 @@ export function getCumulativeInflowsChart(
     return [];
   }
   
-  // Calculate cumulative
+  // Calculate cumulative (sum of all net flows, can go negative)
   const result: ChartData[] = [];
   let cumulativeInflow = 0;
   
   for (const daily of dailyInflows) {
-    cumulativeInflow += daily.value;
+    cumulativeInflow += daily.value; // Can be negative for net outflows
     result.push({
       date: daily.date,
       value: cumulativeInflow,
