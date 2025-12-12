@@ -154,11 +154,11 @@ export default function V2VaultPage() {
               <KpiCard title="TVL" value={vault.tvl} subtitle="Total Value Locked" format="usd" />
               <KpiCard title="APY" value={vault.apy} subtitle="Current yield rate" format="percentage" />
               <KpiCard title="Depositors" value={vault.depositors} subtitle="Total depositors" format="number" />
-              <KpiCard 
-                title="Performance Fee" 
-                value={(vault.parameters?.performanceFeeBps ?? vaultConfig?.performanceFeeBps ?? 200) / 100} 
-                subtitle="Curator fee" 
-                format="percentage" 
+              <KpiCard
+                title="Performance Fee"
+                value={vault.parameters?.performanceFeeBps ? vault.parameters.performanceFeeBps / 100 : null}
+                subtitle="Curator fee rate"
+                format="percentage"
               />
             </div>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
