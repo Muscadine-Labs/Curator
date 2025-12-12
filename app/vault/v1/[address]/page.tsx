@@ -21,6 +21,7 @@ import { formatCompactUSD, formatPercentage } from '@/lib/format/number';
 import type { MorphoMarketMetrics } from '@/lib/morpho/types';
 import { getVaultByAddress } from '@/lib/config/vaults';
 import { useVaultRisk } from '@/lib/hooks/useVaultRisk';
+import { Address } from 'viem';
 
 export default function VaultDetailPage() {
   const params = useParams();
@@ -204,8 +205,8 @@ export default function VaultDetailPage() {
 
           <TabsContent value="roles">
             <div className="grid gap-6 md:grid-cols-2">
-              <RoleList />
-              <AllocatorList />
+              <RoleList vaultAddress={vault.address as Address} chainId={vault.chainId} />
+              <AllocatorList vaultAddress={vault.address as Address} chainId={vault.chainId} />
             </div>
           </TabsContent>
 

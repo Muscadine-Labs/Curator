@@ -65,7 +65,9 @@ export const readVaultRoles = async (vaultAddress: Address): Promise<VaultRoles>
   };
 };
 
-// Read allocator addresses from contract (if available)
+// Read allocator addresses from contract
+// MetaMorpho V1.1 uses a mapping, so we need to check known allocators or use events
+// For now, we'll try to read from GraphQL API first, then fallback to checking known addresses
 export const readVaultAllocators = async (vaultAddress: Address): Promise<Address[] | null> => {
   // Try different function names that might be used
   const allocators1 = await safeContractRead<Address[]>(vaultAddress, VAULT_ABI, 'allocators');
@@ -75,6 +77,19 @@ export const readVaultAllocators = async (vaultAddress: Address): Promise<Addres
   if (allocators2) return allocators2;
   
   return null;
+};
+
+// Check if an address is an allocator (for mapping-based storage)
+export const checkIsAllocator = async (
+  vaultAddress: Address,
+  allocatorAddress: Address
+): Promise<boolean | null> => {
+  return safeContractRead<boolean>(vaultAddress, VAULT_ABI, 'isAllocator', [allocatorAddress]);
+};
+
+// Read pending guardian
+export const readPendingGuardian = async (vaultAddress: Address): Promise<Address | null> => {
+  return safeContractRead<Address>(vaultAddress, VAULT_ABI, 'pendingGuardian');
 };
 
 // Read fee splitter address from vault contract (if available)
