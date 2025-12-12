@@ -296,18 +296,28 @@ export async function GET(
         variables
       );
       // Debug logging for v2 vaults
-      if (isV2 && data.vaultV2ByAddress) {
-        const vaultData = data.vaultV2ByAddress as Record<string, unknown>;
-        console.log(`V2 vault query successful for ${cfg.address}:`, {
-          hasVaultV2ByAddress: !!data.vaultV2ByAddress,
-          name: vaultData?.name,
-          totalAssetsUsd: vaultData?.totalAssetsUsd,
-          totalAssets: vaultData?.totalAssets,
-          avgApy: vaultData?.avgApy,
-          avgNetApy: vaultData?.avgNetApy,
-          maxApy: vaultData?.maxApy,
-          address: vaultData?.address,
-        });
+      console.log(`V2 vault query response for ${cfg.address}:`, {
+        isV2,
+        hasVaultV2ByAddress: !!(data as any).vaultV2ByAddress,
+        responseKeys: Object.keys(data),
+        fullResponse: JSON.stringify(data, null, 2).substring(0, 500),
+      });
+      
+      if (isV2) {
+        const vaultData = (data as any).vaultV2ByAddress;
+        if (vaultData) {
+          console.log(`✓ V2 vault data found for ${cfg.address}:`, {
+            name: vaultData?.name,
+            totalAssetsUsd: vaultData?.totalAssetsUsd,
+            totalAssets: vaultData?.totalAssets,
+            avgApy: vaultData?.avgApy,
+            avgNetApy: vaultData?.avgNetApy,
+            maxApy: vaultData?.maxApy,
+            address: vaultData?.address,
+          });
+        } else {
+          console.log(`✗ V2 vault data is null/undefined for ${cfg.address}`);
+        }
       }
     } catch (graphqlError) {
       // For v2 vaults, GraphQL API may not have indexed them yet

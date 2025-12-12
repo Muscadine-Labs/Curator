@@ -78,16 +78,21 @@ export async function GET(request: Request) {
           }
         `;
         const result = await morphoGraphQLClient.request<{ vaultV2ByAddress?: { address: string; name: string; symbol?: string; whitelisted?: boolean; asset?: { address?: string; symbol?: string; decimals?: number }; performanceFee?: number; totalAssetsUsd?: number; avgApy?: number; avgNetApy?: number; positions?: { items?: Array<{ user?: { address?: string } | null } | null> | null } | null } | null }>(v2Query, { address, chainId: BASE_CHAIN_ID });
-        console.log(`V2 query result for ${address}:`, JSON.stringify(result, null, 2));
-        if (result.vaultV2ByAddress) {
-          console.log(`V2 vault found for ${address}:`, {
-            name: result.vaultV2ByAddress.name,
-            totalAssetsUsd: result.vaultV2ByAddress.totalAssetsUsd,
-            avgApy: result.vaultV2ByAddress.avgApy,
+        
+        // graphql-request returns data directly: { vaultV2ByAddress: { ... } }
+        // Access the property directly - it will be null if vault doesn't exist, or an object if it does
+        const vaultData = result.vaultV2ByAddress;
+        
+        if (vaultData && vaultData.address) {
+          console.log(`✓ V2 vault found for ${address}:`, {
+            name: vaultData.name,
+            totalAssetsUsd: vaultData.totalAssetsUsd,
+            avgApy: vaultData.avgApy,
+            address: vaultData.address,
           });
-          return result.vaultV2ByAddress;
+          return vaultData;
         } else {
-          console.log(`V2 vault not found for ${address} (result.vaultV2ByAddress is null/undefined)`);
+          console.log(`✗ V2 vault not found for ${address} (vaultV2ByAddress is null/undefined or missing address)`);
           return null;
         }
       } catch (error) {
@@ -103,6 +108,10 @@ export async function GET(request: Request) {
     ]);
 
     const v2Vaults = v2Results.filter((v): v is NonNullable<typeof v> => v !== null);
+    console.log(`V2 vaults found: ${v2Vaults.length} out of ${v2Results.length} addresses queried`);
+    if (v2Vaults.length > 0) {
+      console.log(`V2 vault addresses found:`, v2Vaults.map(v => ({ address: v.address, name: v.name })));
+    }
 
     // Fetch positions for V1 vaults (V2 vaults already have positions in their query result)
     const positionsQuery = gql`
@@ -179,25 +188,37 @@ export async function GET(request: Request) {
         feesAllTime: null,
         lastHarvest: null,
       })),
-      ...v2Vaults.map(v => ({
-        address: v.address,
-        name: v.name ?? 'Unknown Vault',
-        symbol: v.symbol ?? v.asset?.symbol ?? 'UNKNOWN',
-        asset: v.asset?.symbol ?? 'UNKNOWN',
-        chainId: BASE_CHAIN_ID,
-        scanUrl: `https://basescan.org/address/${v.address}`,
-        performanceFeeBps: v.performanceFee ? Math.round(v.performanceFee * 10000) : null,
-        status: v.whitelisted ? 'active' as const : 'paused' as const,
-        riskTier: 'medium' as const,
-        createdAt: new Date().toISOString(),
-        tvl: v.totalAssetsUsd ?? null,
-        apy: v.avgNetApy != null ? v.avgNetApy * 100 : 
-             v.avgApy != null ? v.avgApy * 100 : null,
-        depositors: depositorCounts[v.address.toLowerCase()] ?? 0,
-        revenueAllTime: null,
-        feesAllTime: null,
-        lastHarvest: null,
-      })),
+      ...v2Vaults.map(v => {
+        const mapped = {
+          address: v.address,
+          name: v.name ?? 'Unknown Vault',
+          symbol: v.symbol ?? v.asset?.symbol ?? 'UNKNOWN',
+          asset: v.asset?.symbol ?? 'UNKNOWN',
+          chainId: BASE_CHAIN_ID,
+          scanUrl: `https://basescan.org/address/${v.address}`,
+          performanceFeeBps: v.performanceFee ? Math.round(v.performanceFee * 10000) : null,
+          status: v.whitelisted ? 'active' as const : 'paused' as const,
+          riskTier: 'medium' as const,
+          createdAt: new Date().toISOString(),
+          tvl: v.totalAssetsUsd ?? null,
+          apy: v.avgNetApy != null ? v.avgNetApy * 100 : 
+               v.avgApy != null ? v.avgApy * 100 : null,
+          depositors: depositorCounts[v.address.toLowerCase()] ?? 0,
+          revenueAllTime: null,
+          feesAllTime: null,
+          lastHarvest: null,
+        };
+        console.log(`Mapping V2 vault ${v.address}:`, {
+          name: mapped.name,
+          tvl: mapped.tvl,
+          apy: mapped.apy,
+          originalName: v.name,
+          originalTotalAssetsUsd: v.totalAssetsUsd,
+          originalAvgApy: v.avgApy,
+          originalAvgNetApy: v.avgNetApy,
+        });
+        return mapped;
+      }),
     ];
 
     // Filter to only include vaults from our configured addresses
