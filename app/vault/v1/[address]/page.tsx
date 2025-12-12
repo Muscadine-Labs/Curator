@@ -192,14 +192,24 @@ export default function VaultDetailPage() {
               <KpiCard title="Depositors" value={vault.depositors} subtitle="Total depositors" format="number" />
               <KpiCard 
                 title="Performance Fee" 
-                value={vault.parameters?.performanceFeeBps ? vault.parameters.performanceFeeBps / 100 : null} 
+                value={vault.parameters?.performanceFeePercent ?? (vault.parameters?.performanceFeeBps ? vault.parameters.performanceFeeBps / 100 : null)} 
                 subtitle="Curator fee rate" 
                 format="percentage" 
               />
             </div>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <KpiCard title="Revenue (All Time)" value={vault.revenueAllTime} subtitle="Interest generated for depositors" format="usd" />
-              <KpiCard title="Fees (All Time)" value={vault.feesAllTime} subtitle="Curator fees collected" format="usd" />
+              <Card>
+                <CardContent className="pt-6">
+                  <p className="text-sm text-slate-500">Revenue (All Time)</p>
+                  <p className="text-2xl font-semibold text-slate-900">(coming soon)</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-6">
+                  <p className="text-sm text-slate-500">Fees (All Time)</p>
+                  <p className="text-2xl font-semibold text-slate-900">(coming soon)</p>
+                </CardContent>
+              </Card>
             </div>
           </TabsContent>
 
@@ -262,11 +272,11 @@ export default function VaultDetailPage() {
                         {vaultMarkets.map((market) => (
                           <TableRow key={market.marketKey}>
                             <TableCell className="font-medium">
-                              <Link href={`/markets/${market.marketKey}`} className="flex items-center gap-2 hover:underline">
+                              <div className="flex items-center gap-2">
                                 <span>{market.collateralSymbol}</span>
                                 <span className="text-muted-foreground">/</span>
                                 <span>{market.loanSymbol}</span>
-                              </Link>
+                              </div>
                             </TableCell>
                             <TableCell>
                               {market.totalSupplyUsd !== null ? formatCompactUSD(market.totalSupplyUsd) : '—'}

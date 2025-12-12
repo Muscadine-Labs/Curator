@@ -19,7 +19,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { RatingBadge } from '@/components/morpho/RatingBadge';
 import { formatCompactUSD, formatPercentage } from '@/lib/format/number';
 import type { MorphoMarketMetrics } from '@/lib/morpho/types';
-import { getVaultByAddress } from '@/lib/config/vaults';
 import { useVaultRisk } from '@/lib/hooks/useVaultRisk';
 import { Address } from 'viem';
 
@@ -105,7 +104,6 @@ export default function V2VaultPage() {
   }
 
   const ratingLabel = vault.riskTier ? vault.riskTier.toUpperCase() : 'N/A';
-  const vaultConfig = getVaultByAddress(vault.address);
 
   return (
     <AppShell
@@ -157,14 +155,24 @@ export default function V2VaultPage() {
               <KpiCard title="Depositors" value={vault.depositors} subtitle="Total depositors" format="number" />
               <KpiCard 
                 title="Performance Fee" 
-                value={(vault.parameters?.performanceFeeBps ?? vaultConfig?.performanceFeeBps ?? 200) / 100} 
-                subtitle="Curator fee" 
+                value={vault.parameters?.performanceFeePercent ?? (vault.parameters?.performanceFeeBps ? vault.parameters.performanceFeeBps / 100 : null)} 
+                subtitle="Curator fee rate" 
                 format="percentage" 
               />
             </div>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <KpiCard title="Revenue (All Time)" value={vault.revenueAllTime} subtitle="Interest generated for depositors" format="usd" />
-              <KpiCard title="Fees (All Time)" value={vault.feesAllTime} subtitle="Curator fees collected" format="usd" />
+              <Card>
+                <CardContent className="pt-6">
+                  <p className="text-sm text-slate-500">Revenue (All Time)</p>
+                  <p className="text-2xl font-semibold text-slate-900">(coming soon)</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-6">
+                  <p className="text-sm text-slate-500">Fees (All Time)</p>
+                  <p className="text-2xl font-semibold text-slate-900">(coming soon)</p>
+                </CardContent>
+              </Card>
             </div>
           </TabsContent>
 
