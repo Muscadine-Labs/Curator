@@ -100,9 +100,9 @@ export function Sidebar({ onClose }: SidebarProps) {
                     }`}
                   >
                     <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs font-semibold text-blue-700">
-                      {vault.asset.slice(0, 1)}
+                      {(vault.asset ?? 'U').slice(0, 1)}
                     </span>
-                    <span className="truncate">{vault.name}</span>
+                    <span className="truncate">{vault.name ?? 'Unknown Vault'}</span>
                   </Link>
                 );
               })
@@ -132,9 +132,9 @@ export function Sidebar({ onClose }: SidebarProps) {
                     }`}
                   >
                     <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs font-semibold text-blue-700">
-                      {vault.asset.slice(0, 1)}
+                      {(vault.asset ?? 'U').slice(0, 1)}
                     </span>
-                    <span className="truncate">{vault.name}</span>
+                    <span className="truncate">{vault.name ?? 'Unknown Vault'}</span>
                   </Link>
                 );
               })
@@ -162,7 +162,7 @@ export function Sidebar({ onClose }: SidebarProps) {
                   }`}
                 >
                   <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-700">
-                    {vault.asset.slice(0, 1)}
+                    {(vault.asset ?? 'U').slice(0, 1)}
                   </span>
                   <span className="truncate">{vault.name}</span>
                 </Link>

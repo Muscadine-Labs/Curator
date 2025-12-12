@@ -78,8 +78,16 @@ export async function GET(request: Request) {
           }
         `;
         const result = await morphoGraphQLClient.request<{ vaultV2ByAddress?: { address: string; name: string; symbol?: string; whitelisted?: boolean; asset?: { address?: string; symbol?: string; decimals?: number }; performanceFee?: number; totalAssetsUsd?: number; avgApy?: number; avgNetApy?: number; positions?: { items?: Array<{ user?: { address?: string } | null } | null> | null } | null } | null }>(v2Query, { address, chainId: BASE_CHAIN_ID });
+        if (result.vaultV2ByAddress) {
+          console.log(`V2 vault found for ${address}:`, {
+            name: result.vaultV2ByAddress.name,
+            totalAssetsUsd: result.vaultV2ByAddress.totalAssetsUsd,
+            avgApy: result.vaultV2ByAddress.avgApy,
+          });
+        }
         return result.vaultV2ByAddress;
-      } catch {
+      } catch (error) {
+        console.error(`Error fetching V2 vault ${address}:`, error instanceof Error ? error.message : String(error));
         return null;
       }
     });
@@ -150,9 +158,9 @@ export async function GET(request: Request) {
     const allVaults = [
       ...v1Vaults.map(v => ({
         address: v.address,
-        name: v.name || 'Unknown Vault',
-        symbol: v.symbol || v.asset?.symbol || 'UNKNOWN',
-        asset: v.asset?.symbol || 'UNKNOWN',
+        name: v.name ?? 'Unknown Vault',
+        symbol: v.symbol ?? v.asset?.symbol ?? 'UNKNOWN',
+        asset: v.asset?.symbol ?? 'UNKNOWN',
         chainId: BASE_CHAIN_ID,
         scanUrl: `https://basescan.org/address/${v.address}`,
         performanceFeeBps: v.state?.fee ? Math.round(v.state.fee * 10000) : null,
@@ -160,7 +168,8 @@ export async function GET(request: Request) {
         riskTier: 'medium' as const,
         createdAt: new Date().toISOString(),
         tvl: v.state?.totalAssetsUsd ?? null,
-        apy: (v.state?.weeklyNetApy ?? v.state?.monthlyNetApy ?? 0) * 100,
+        apy: v.state?.weeklyNetApy != null ? v.state.weeklyNetApy * 100 :
+             v.state?.monthlyNetApy != null ? v.state.monthlyNetApy * 100 : null,
         depositors: depositorCounts[v.address.toLowerCase()] ?? 0,
         revenueAllTime: null,
         feesAllTime: null,
@@ -168,9 +177,9 @@ export async function GET(request: Request) {
       })),
       ...v2Vaults.map(v => ({
         address: v.address,
-        name: v.name || 'Unknown Vault',
-        symbol: v.symbol || v.asset?.symbol || 'UNKNOWN',
-        asset: v.asset?.symbol || 'UNKNOWN',
+        name: v.name ?? 'Unknown Vault',
+        symbol: v.symbol ?? v.asset?.symbol ?? 'UNKNOWN',
+        asset: v.asset?.symbol ?? 'UNKNOWN',
         chainId: BASE_CHAIN_ID,
         scanUrl: `https://basescan.org/address/${v.address}`,
         performanceFeeBps: v.performanceFee ? Math.round(v.performanceFee * 10000) : null,
@@ -178,7 +187,8 @@ export async function GET(request: Request) {
         riskTier: 'medium' as const,
         createdAt: new Date().toISOString(),
         tvl: v.totalAssetsUsd ?? null,
-        apy: (v.avgNetApy ?? v.avgApy ?? 0) * 100,
+        apy: v.avgNetApy != null ? v.avgNetApy * 100 : 
+             v.avgApy != null ? v.avgApy * 100 : null,
         depositors: depositorCounts[v.address.toLowerCase()] ?? 0,
         revenueAllTime: null,
         feesAllTime: null,

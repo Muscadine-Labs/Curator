@@ -55,9 +55,9 @@ export default function V2VaultPage() {
     : '#';
   
   // Safe defaults for missing data
-  const vaultName = vault.name || 'Unknown Vault';
-  const vaultSymbol = vault.symbol || 'UNKNOWN';
-  const vaultAsset = vault.asset || 'UNKNOWN';
+  const vaultName = vault.name ?? 'Unknown Vault';
+  const vaultSymbol = vault.symbol ?? 'UNKNOWN';
+  const vaultAsset = vault.asset ?? 'UNKNOWN';
 
   return (
     <AppShell

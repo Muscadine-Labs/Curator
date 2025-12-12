@@ -23,19 +23,19 @@ export interface ProtocolStats {
 
 export interface VaultWithData {
   id: string;
-  name: string;
-  symbol: string;
-  asset: string;
+  name: string | null;
+  symbol: string | null;
+  asset: string | null;
   address: string;
   chainId: number;
   scanUrl: string;
-  performanceFeeBps: number;
+  performanceFeeBps: number | null;
   status: 'active' | 'paused' | 'deprecated';
   riskTier: 'low' | 'medium' | 'high';
   createdAt: string;
   description?: string;
   version?: 'v1' | 'v2';
-  tvl: number;
+  tvl: number | null;
   apy: number | null;
   depositors: number;
   revenueAllTime: number | null;

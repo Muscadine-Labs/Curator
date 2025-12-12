@@ -66,12 +66,17 @@ export async function GET(
         }
       `;
       const v2Check = await morphoGraphQLClient.request<{ vaultV2ByAddress?: { name?: string } | null }>(v2CheckQuery, { address, chainId: cfg.chainId });
-      if (v2Check.vaultV2ByAddress?.name) {
-        vaultName = v2Check.vaultV2ByAddress.name;
+      if (v2Check.vaultV2ByAddress !== null && v2Check.vaultV2ByAddress !== undefined) {
+        // V2 vault exists (even if name is null)
+        vaultName = v2Check.vaultV2ByAddress.name ?? null;
         isV2 = true;
+        console.log(`V2 vault detected for ${address}: name=${vaultName}`);
+      } else {
+        console.log(`V2 vault check returned null for ${address}`);
       }
-    } catch {
+    } catch (error) {
       // V2 query failed, try V1
+      console.log(`V2 vault check failed for ${address}:`, error instanceof Error ? error.message : String(error));
       try {
         const v1CheckQuery = gql`
           query CheckV1Vault($address: String!, $chainId: Int!) {
@@ -81,8 +86,9 @@ export async function GET(
           }
         `;
         const v1Check = await morphoGraphQLClient.request<{ vault?: { name?: string } | null }>(v1CheckQuery, { address, chainId: cfg.chainId });
-        if (v1Check.vault?.name) {
-          vaultName = v1Check.vault.name;
+        if (v1Check.vault !== null && v1Check.vault !== undefined) {
+          // V1 vault exists
+          vaultName = v1Check.vault.name ?? null;
           isV2 = false;
         }
       } catch {
@@ -90,13 +96,15 @@ export async function GET(
       }
     }
 
-    // If we couldn't determine from GraphQL, use the name-based check
-    if (!vaultName) {
-      // Fallback: try V2 query based on address pattern or default to V1
-      isV2 = false;
-    } else {
-      // Use the vault name to determine query type
-      isV2 = shouldUseV2Query(vaultName);
+    // If we found a vault but name is null, use name-based check as fallback
+    // Otherwise, if we have a name, use it to confirm query type
+    if (vaultName) {
+      // Use the vault name to confirm query type (should match what we detected)
+      const nameBasedIsV2 = shouldUseV2Query(vaultName);
+      if (isV2 !== nameBasedIsV2) {
+        // Log warning if there's a mismatch, but trust the GraphQL result
+        console.warn(`Vault ${address}: GraphQL detection (isV2=${isV2}) doesn't match name-based detection (${nameBasedIsV2})`);
+      }
     }
 
     // V2 vaults don't need options for historical data
@@ -292,8 +300,12 @@ export async function GET(
         const vaultData = data.vaultV2ByAddress as Record<string, unknown>;
         console.log(`V2 vault query successful for ${cfg.address}:`, {
           hasVaultV2ByAddress: !!data.vaultV2ByAddress,
+          name: vaultData?.name,
           totalAssetsUsd: vaultData?.totalAssetsUsd,
           totalAssets: vaultData?.totalAssets,
+          avgApy: vaultData?.avgApy,
+          avgNetApy: vaultData?.avgNetApy,
+          maxApy: vaultData?.maxApy,
           address: vaultData?.address,
         });
       }
@@ -493,21 +505,28 @@ export async function GET(
     ).size;
 
     // V2 vaults have fields directly, V1 vaults have them in state object
+    // Preserve null values instead of converting to 0
     const tvlUsd = isV2 
-      ? (mv?.totalAssetsUsd ?? 0)
-      : (mv?.state?.totalAssetsUsd ?? 0);
+      ? (mv?.totalAssetsUsd ?? null)
+      : (mv?.state?.totalAssetsUsd ?? null);
     
+    // Calculate APY - preserve null if all values are null/undefined
     const apyPct = isV2
-      ? ((mv?.avgNetApy ?? mv?.avgApy ?? mv?.maxApy ?? 0) * 100)
-      : ((mv?.state?.netApy ?? mv?.state?.avgNetApy ?? mv?.state?.apy ?? 0) * 100);
+      ? (mv?.avgNetApy != null ? mv.avgNetApy * 100 : 
+         mv?.avgApy != null ? mv.avgApy * 100 : 
+         mv?.maxApy != null ? mv.maxApy * 100 : null)
+      : (mv?.state?.netApy != null ? mv.state.netApy * 100 :
+         mv?.state?.avgNetApy != null ? mv.state.avgNetApy * 100 :
+         mv?.state?.apy != null ? mv.state.apy * 100 : null);
     
     const apyBasePct = isV2
-      ? ((mv?.avgApy ?? mv?.maxApy ?? 0) * 100)
-      : ((mv?.state?.apy ?? 0) * 100);
+      ? (mv?.avgApy != null ? mv.avgApy * 100 : 
+         mv?.maxApy != null ? mv.maxApy * 100 : null)
+      : (mv?.state?.apy != null ? mv.state.apy * 100 : null);
     
     const apyBoostedPct = isV2
-      ? ((mv?.avgNetApy ?? 0) * 100)
-      : ((mv?.state?.netApy ?? 0) * 100);
+      ? (mv?.avgNetApy != null ? mv.avgNetApy * 100 : null)
+      : (mv?.state?.netApy != null ? mv.state.netApy * 100 : null);
     
     // V2 caps structure is different, skip utilization for now
     // V1 uses allocation
@@ -527,9 +546,9 @@ export async function GET(
     const result = {
       ...cfg,
       address: address, // Ensure address is explicitly set
-      name: mv?.name || 'Unknown Vault',
-      symbol: mv?.symbol || mv?.asset?.symbol || 'UNKNOWN',
-      asset: mv?.asset?.symbol || 'UNKNOWN',
+      name: mv?.name ?? 'Unknown Vault',
+      symbol: mv?.symbol ?? mv?.asset?.symbol ?? 'UNKNOWN',
+      asset: mv?.asset?.symbol ?? 'UNKNOWN',
       tvl: tvlUsd,
       apy: apyPct,
       apyBase: apyBasePct,
