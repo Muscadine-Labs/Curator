@@ -117,7 +117,7 @@ export default function V2VaultPage() {
             </Card>
 
             {/* Metrics Grid */}
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="grid grid-cols-2 gap-4">
               <KpiCard title="TVL" value={vault.tvl} subtitle="Total Value Locked" format="usd" />
               <KpiCard title="APY" value={vault.apy} subtitle="Current yield rate" format="percentage" />
               <KpiCard title="Depositors" value={vault.depositors} subtitle="Total depositors" format="number" />
