@@ -62,9 +62,9 @@ export default function Home() {
             title="TVL Over Time"
           />
           <ChartInflows
-            data={stats?.inflowsTrend || []}
+            dailyData={stats?.inflowsTrendDaily || []}
+            cumulativeData={stats?.inflowsTrendCumulative || []}
             isLoading={isLoading}
-            title="Inflows (Cumulative)"
           />
           <ChartFees
             data={stats?.feesTrend || []}

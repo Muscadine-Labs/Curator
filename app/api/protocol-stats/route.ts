@@ -16,7 +16,8 @@ import {
   fetchDefiLlamaProtocol,
   getCumulativeFeesChart,
   getCumulativeRevenueChart,
-  getInflowsChart 
+  getDailyInflowsChart,
+  getCumulativeInflowsChart
 } from '@/lib/defillama/service';
 
 // Type-safe response matching our query structure
@@ -104,7 +105,8 @@ export async function GET(request: Request) {
     // Fetch DefiLlama data for charts
     let feesTrend: Array<{ date: string; value: number }> = [];
     let revenueTrend: Array<{ date: string; value: number }> = [];
-    let inflowsTrend: Array<{ date: string; value: number }> = [];
+    let inflowsTrendDaily: Array<{ date: string; value: number }> = [];
+    let inflowsTrendCumulative: Array<{ date: string; value: number }> = [];
     let tvlTrend: Array<{ date: string; value: number }> = [];
     
     try {
@@ -143,8 +145,9 @@ export async function GET(request: Request) {
       }
       
       if (protocolData) {
-        // Get inflows chart from TVL changes
-        inflowsTrend = getInflowsChart(protocolData);
+        // Get inflows charts from TVL changes (both daily and cumulative)
+        inflowsTrendDaily = getDailyInflowsChart(protocolData);
+        inflowsTrendCumulative = getCumulativeInflowsChart(protocolData);
         
         // Get TVL trend from DefiLlama
         if (protocolData.tvl && protocolData.tvl.length > 0) {
@@ -156,7 +159,8 @@ export async function GET(request: Request) {
         
         logger.info('DefiLlama protocol data loaded', {
           tvlPoints: tvlTrend.length,
-          inflowPoints: inflowsTrend.length,
+          inflowPointsDaily: inflowsTrendDaily.length,
+          inflowPointsCumulative: inflowsTrendCumulative.length,
         });
       }
     } catch (error) {
@@ -182,7 +186,8 @@ export async function GET(request: Request) {
       tvlTrend,
       feesTrend,
       revenueTrend,
-      inflowsTrend,
+      inflowsTrendDaily,
+      inflowsTrendCumulative,
     };
 
     const responseHeaders = new Headers(rateLimitResult.headers);

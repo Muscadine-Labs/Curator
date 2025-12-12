@@ -136,10 +136,35 @@ export function getCumulativeRevenueChart(response: DefiLlamaFeesResponse, perfo
 }
 
 /**
- * Get inflows chart data from TVL changes
+ * Get daily inflows chart data from TVL changes
+ * Shows the daily change in TVL (positive = inflow, negative = outflow)
+ */
+export function getDailyInflowsChart(response: DefiLlamaProtocolResponse): ChartData[] {
+  if (!response.tvl || response.tvl.length < 2) {
+    return [];
+  }
+
+  const result: ChartData[] = [];
+
+  for (let i = 1; i < response.tvl.length; i++) {
+    const prev = response.tvl[i - 1];
+    const curr = response.tvl[i];
+    const change = curr.totalLiquidityUSD - prev.totalLiquidityUSD;
+    
+    result.push({
+      date: new Date(curr.date * 1000).toISOString(),
+      value: change,
+    });
+  }
+
+  return result;
+}
+
+/**
+ * Get cumulative inflows chart data from TVL changes
  * Positive changes = inflows, negative = outflows
  */
-export function getInflowsChart(response: DefiLlamaProtocolResponse): ChartData[] {
+export function getCumulativeInflowsChart(response: DefiLlamaProtocolResponse): ChartData[] {
   if (!response.tvl || response.tvl.length < 2) {
     return [];
   }
