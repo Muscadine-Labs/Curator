@@ -254,7 +254,6 @@ export async function GET(
             description
             forumLink
             image
-            curators { image name url }
           }
           asset { address symbol decimals }
           curator { address }
