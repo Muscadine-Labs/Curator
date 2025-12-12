@@ -258,54 +258,56 @@ export default function V2VaultPage() {
                   <p className="text-sm text-slate-500">Current distribution across Morpho markets</p>
                 </CardHeader>
                 <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="min-w-[180px]">Market Pair</TableHead>
-                        <TableHead className="min-w-[140px]">Supply</TableHead>
-                        <TableHead className="min-w-[140px]">Borrow</TableHead>
-                        <TableHead className="min-w-[120px]">Supply APY</TableHead>
-                        <TableHead className="min-w-[120px]">Borrow APY</TableHead>
-                        <TableHead className="min-w-[120px]">Utilization</TableHead>
-                        <TableHead className="min-w-[140px]">Rating</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {vaultMarkets.map((market) => (
-                        <TableRow key={market.marketKey}>
-                          <TableCell className="font-medium">
-                            <div className="flex items-center gap-2">
-                              <span>{market.collateralSymbol}</span>
-                              <span className="text-muted-foreground">/</span>
-                              <span>{market.loanSymbol}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            {market.totalSupplyUsd !== null ? formatCompactUSD(market.totalSupplyUsd) : '—'}
-                          </TableCell>
-                          <TableCell>
-                            {market.totalBorrowUsd !== null ? formatCompactUSD(market.totalBorrowUsd) : '—'}
-                          </TableCell>
-                          <TableCell className="text-green-600 dark:text-green-400">
-                            {market.supplyApyPercent !== null ? formatPercentage(market.supplyApyPercent, 2) : '—'}
-                          </TableCell>
-                          <TableCell className="text-orange-600 dark:text-orange-400">
-                            {market.borrowApyPercent !== null ? formatPercentage(market.borrowApyPercent, 2) : '—'}
-                          </TableCell>
-                          <TableCell>
-                            {market.utilizationPercent !== null ? formatPercentage(market.utilizationPercent, 2) : '—'}
-                          </TableCell>
-                          <TableCell>
-                            {market.rating !== null ? (
-                              <RatingBadge rating={market.rating} />
-                            ) : (
-                              <span className="text-xs text-muted-foreground">N/A</span>
-                            )}
-                          </TableCell>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="min-w-[180px]">Market Pair</TableHead>
+                          <TableHead className="min-w-[140px]">Supply</TableHead>
+                          <TableHead className="min-w-[140px]">Borrow</TableHead>
+                          <TableHead className="min-w-[120px]">Supply APY</TableHead>
+                          <TableHead className="min-w-[120px]">Borrow APY</TableHead>
+                          <TableHead className="min-w-[120px]">Utilization</TableHead>
+                          <TableHead className="min-w-[140px]">Rating</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {vaultMarkets.map((market) => (
+                          <TableRow key={market.marketKey}>
+                            <TableCell className="font-medium">
+                              <div className="flex items-center gap-2">
+                                <span>{market.collateralSymbol}</span>
+                                <span className="text-muted-foreground">/</span>
+                                <span>{market.loanSymbol}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {market.totalSupplyUsd !== null ? formatCompactUSD(market.totalSupplyUsd) : '—'}
+                            </TableCell>
+                            <TableCell>
+                              {market.totalBorrowUsd !== null ? formatCompactUSD(market.totalBorrowUsd) : '—'}
+                            </TableCell>
+                            <TableCell className="text-green-600 dark:text-green-400">
+                              {market.supplyApyPercent !== null ? formatPercentage(market.supplyApyPercent, 2) : '—'}
+                            </TableCell>
+                            <TableCell className="text-orange-600 dark:text-orange-400">
+                              {market.borrowApyPercent !== null ? formatPercentage(market.borrowApyPercent, 2) : '—'}
+                            </TableCell>
+                            <TableCell>
+                              {market.utilizationPercent !== null ? formatPercentage(market.utilizationPercent, 2) : '—'}
+                            </TableCell>
+                            <TableCell>
+                              {market.rating !== null ? (
+                                <RatingBadge rating={market.rating} />
+                              ) : (
+                                <span className="text-xs text-muted-foreground">N/A</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </CardContent>
               </Card>
             ) : (
@@ -329,36 +331,38 @@ export default function V2VaultPage() {
               </CardHeader>
               <CardContent>
                 {vaultMarkets.length > 0 ? (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Market</TableHead>
-                        <TableHead>Current Supply</TableHead>
-                        <TableHead>Supply Cap</TableHead>
-                        <TableHead>Cap Utilization</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {vaultMarkets.map((market) => (
-                        <TableRow key={market.marketKey}>
-                          <TableCell className="font-medium">
-                            {market.collateralSymbol}/{market.loanSymbol}
-                          </TableCell>
-                          <TableCell>
-                            {market.supplyAssetsUsd !== null ? formatCompactUSD(market.supplyAssetsUsd) : '—'}
-                          </TableCell>
-                          <TableCell>
-                            {market.supplyCap !== null ? formatCompactUSD(market.supplyCap) : 'Unlimited'}
-                          </TableCell>
-                          <TableCell>
-                            {market.supplyCap && market.supplyAssetsUsd
-                              ? formatPercentage((market.supplyAssetsUsd / market.supplyCap) * 100, 1)
-                              : '—'}
-                          </TableCell>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Market</TableHead>
+                          <TableHead>Current Supply</TableHead>
+                          <TableHead>Supply Cap</TableHead>
+                          <TableHead>Cap Utilization</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {vaultMarkets.map((market) => (
+                          <TableRow key={market.marketKey}>
+                            <TableCell className="font-medium">
+                              {market.collateralSymbol}/{market.loanSymbol}
+                            </TableCell>
+                            <TableCell>
+                              {market.supplyAssetsUsd !== null ? formatCompactUSD(market.supplyAssetsUsd) : '—'}
+                            </TableCell>
+                            <TableCell>
+                              {market.supplyCap !== null ? formatCompactUSD(market.supplyCap) : 'Unlimited'}
+                            </TableCell>
+                            <TableCell>
+                              {market.supplyCap && market.supplyAssetsUsd
+                                ? formatPercentage((market.supplyAssetsUsd / market.supplyCap) * 100, 1)
+                                : '—'}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
                 ) : (
                   <p className="text-sm text-slate-600">No market allocations to display caps for.</p>
                 )}

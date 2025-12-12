@@ -244,54 +244,56 @@ export default function VaultDetailPage() {
                   <CardTitle>Market Allocation</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="min-w-[180px]">Market Pair</TableHead>
-                        <TableHead className="min-w-[140px]">Total Supply</TableHead>
-                        <TableHead className="min-w-[140px]">Total Borrow</TableHead>
-                        <TableHead className="min-w-[120px]">Supply APY</TableHead>
-                        <TableHead className="min-w-[120px]">Borrow APY</TableHead>
-                        <TableHead className="min-w-[120px]">Utilization</TableHead>
-                        <TableHead className="min-w-[140px]">Curator Rating</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {vaultMarkets.map((market) => (
-                        <TableRow key={market.marketKey}>
-                          <TableCell className="font-medium">
-                            <Link href={`/markets/${market.marketKey}`} className="flex items-center gap-2 hover:underline">
-                              <span>{market.collateralSymbol}</span>
-                              <span className="text-muted-foreground">/</span>
-                              <span>{market.loanSymbol}</span>
-                            </Link>
-                          </TableCell>
-                          <TableCell>
-                            {market.totalSupplyUsd !== null ? formatCompactUSD(market.totalSupplyUsd) : '—'}
-                          </TableCell>
-                          <TableCell>
-                            {market.totalBorrowUsd !== null ? formatCompactUSD(market.totalBorrowUsd) : '—'}
-                          </TableCell>
-                          <TableCell className="text-green-600 dark:text-green-400">
-                            {market.supplyApyPercent !== null ? formatPercentage(market.supplyApyPercent, 2) : '—'}
-                          </TableCell>
-                          <TableCell className="text-orange-600 dark:text-orange-400">
-                            {market.borrowApyPercent !== null ? formatPercentage(market.borrowApyPercent, 2) : '—'}
-                          </TableCell>
-                          <TableCell>
-                            {market.utilizationPercent !== null ? formatPercentage(market.utilizationPercent, 2) : '—'}
-                          </TableCell>
-                          <TableCell>
-                            {market.rating !== null ? (
-                              <RatingBadge rating={market.rating} />
-                            ) : (
-                              <span className="text-xs text-muted-foreground">N/A</span>
-                            )}
-                          </TableCell>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="min-w-[180px]">Market Pair</TableHead>
+                          <TableHead className="min-w-[140px]">Total Supply</TableHead>
+                          <TableHead className="min-w-[140px]">Total Borrow</TableHead>
+                          <TableHead className="min-w-[120px]">Supply APY</TableHead>
+                          <TableHead className="min-w-[120px]">Borrow APY</TableHead>
+                          <TableHead className="min-w-[120px]">Utilization</TableHead>
+                          <TableHead className="min-w-[140px]">Curator Rating</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {vaultMarkets.map((market) => (
+                          <TableRow key={market.marketKey}>
+                            <TableCell className="font-medium">
+                              <Link href={`/markets/${market.marketKey}`} className="flex items-center gap-2 hover:underline">
+                                <span>{market.collateralSymbol}</span>
+                                <span className="text-muted-foreground">/</span>
+                                <span>{market.loanSymbol}</span>
+                              </Link>
+                            </TableCell>
+                            <TableCell>
+                              {market.totalSupplyUsd !== null ? formatCompactUSD(market.totalSupplyUsd) : '—'}
+                            </TableCell>
+                            <TableCell>
+                              {market.totalBorrowUsd !== null ? formatCompactUSD(market.totalBorrowUsd) : '—'}
+                            </TableCell>
+                            <TableCell className="text-green-600 dark:text-green-400">
+                              {market.supplyApyPercent !== null ? formatPercentage(market.supplyApyPercent, 2) : '—'}
+                            </TableCell>
+                            <TableCell className="text-orange-600 dark:text-orange-400">
+                              {market.borrowApyPercent !== null ? formatPercentage(market.borrowApyPercent, 2) : '—'}
+                            </TableCell>
+                            <TableCell>
+                              {market.utilizationPercent !== null ? formatPercentage(market.utilizationPercent, 2) : '—'}
+                            </TableCell>
+                            <TableCell>
+                              {market.rating !== null ? (
+                                <RatingBadge rating={market.rating} />
+                              ) : (
+                                <span className="text-xs text-muted-foreground">N/A</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </CardContent>
               </Card>
             ) : (
