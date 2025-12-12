@@ -156,7 +156,7 @@ export async function GET(
             curators { image name url }
           }
           allocators { address }
-          asset { address decimals yield { apr } }
+          asset { address symbol decimals yield { apr } }
           state {
             owner
             curator
