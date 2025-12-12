@@ -216,8 +216,9 @@ export async function GET(request: Request) {
       
       if (protocolData) {
         // Get daily and cumulative inflows charts from TVL changes
-        inflowsTrendDaily = getDailyInflowsChart(protocolData);
-        inflowsTrendCumulative = getCumulativeInflowsChart(protocolData);
+        // Pass fees data to properly calculate net inflows (excluding performance gains)
+        inflowsTrendDaily = getDailyInflowsChart(protocolData, feesData);
+        inflowsTrendCumulative = getCumulativeInflowsChart(protocolData, feesData);
         
         // Get TVL trend from DefiLlama
         if (protocolData.tvl && protocolData.tvl.length > 0) {

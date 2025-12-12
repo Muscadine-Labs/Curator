@@ -24,6 +24,8 @@ export interface DefiLlamaProtocolResponse {
   name: string;
   tvl: Array<{ date: number; totalLiquidityUSD: number }> | null;
   chainTvls: Record<string, { tvl: Array<{ date: number; totalLiquidityUSD: number }> }> | null;
+  tokens?: Array<{ date: number; tokens: Record<string, number> }> | null;
+  tokensInUsd?: Array<{ date: number; tokens: Record<string, number> }> | null;
 }
 
 export interface ChartData {
@@ -164,25 +166,101 @@ export function getCumulativeRevenueChart(response: DefiLlamaFeesResponse, perfo
 }
 
 /**
- * Get daily inflows chart data from TVL changes
- * Positive changes = inflows, negative = outflows
+ * Get daily inflows chart data
+ * Formula: Inflows = Deposits - Withdrawals (net asset flow, excluding interest and price changes)
+ * 
+ * We calculate inflows by looking at token quantity changes and valuing them at previous day's prices.
+ * This excludes both interest gains and price appreciation/depreciation.
+ * 
+ * Inflows = Σ(quantity_change × previous_day_price) for each token
  */
-export function getDailyInflowsChart(response: DefiLlamaProtocolResponse): ChartData[] {
-  if (!response.tvl || response.tvl.length < 2) {
+export function getDailyInflowsChart(
+  protocolResponse: DefiLlamaProtocolResponse,
+  feesResponse?: DefiLlamaFeesResponse | null
+): ChartData[] {
+  // Use token-based calculation if available (more accurate)
+  if (protocolResponse.tokens && protocolResponse.tokensInUsd && protocolResponse.tokens.length >= 2) {
+    const result: ChartData[] = [];
+    
+    // Sort by date to ensure correct order
+    const sortedTokens = [...protocolResponse.tokens].sort((a, b) => a.date - b.date);
+    const sortedTokensUsd = [...(protocolResponse.tokensInUsd || [])].sort((a, b) => a.date - b.date);
+    
+    for (let i = 1; i < sortedTokens.length; i++) {
+      const prevTokens = sortedTokens[i - 1];
+      const currTokens = sortedTokens[i];
+      
+      // Find corresponding USD values
+      const prevTokensUsd = sortedTokensUsd.find(p => p.date === prevTokens.date);
+      
+      if (!prevTokensUsd) continue;
+      
+      // Calculate price per token on previous day
+      const prices: Record<string, number> = {};
+      Object.keys(prevTokens.tokens).forEach(token => {
+        const quantity = prevTokens.tokens[token];
+        const usdValue = prevTokensUsd.tokens[token];
+        if (quantity > 0) {
+          prices[token] = usdValue / quantity;
+        }
+      });
+      
+      // Calculate quantity changes and value at previous day's prices
+      let inflows = 0;
+      Object.keys(currTokens.tokens).forEach(token => {
+        const quantityChange = currTokens.tokens[token] - prevTokens.tokens[token];
+        const price = prices[token] || 0;
+        inflows += quantityChange * price;
+      });
+      
+      result.push({
+        date: new Date(currTokens.date * 1000).toISOString(),
+        value: inflows > 0 ? inflows : 0,
+      });
+    }
+    
+    return result;
+  }
+  
+  // Fallback to TVL-based calculation if token data not available
+  if (!protocolResponse.tvl || protocolResponse.tvl.length < 2) {
     return [];
+  }
+
+  // Create a map of daily fees (interest) by date for quick lookup
+  const feesMap = new Map<number, number>();
+  if (feesResponse?.totalDataChart) {
+    feesResponse.totalDataChart.forEach(([timestamp, dailyFees]) => {
+      // Normalize timestamp to start of day for matching
+      const date = new Date(timestamp * 1000);
+      date.setHours(0, 0, 0, 0);
+      const dayTimestamp = Math.floor(date.getTime() / 1000);
+      feesMap.set(dayTimestamp, (dailyFees || 0));
+    });
   }
 
   const result: ChartData[] = [];
 
-  for (let i = 1; i < response.tvl.length; i++) {
-    const prev = response.tvl[i - 1];
-    const curr = response.tvl[i];
-    const change = curr.totalLiquidityUSD - prev.totalLiquidityUSD;
+  for (let i = 1; i < protocolResponse.tvl.length; i++) {
+    const prev = protocolResponse.tvl[i - 1];
+    const curr = protocolResponse.tvl[i];
     
-    // Only show positive changes (inflows), negative values show as 0
+    // Normalize date to start of day for matching
+    const currDate = new Date(curr.date * 1000);
+    currDate.setHours(0, 0, 0, 0);
+    const currDayTimestamp = Math.floor(currDate.getTime() / 1000);
+    
+    const tvlChange = curr.totalLiquidityUSD - prev.totalLiquidityUSD;
+    const interest = feesMap.get(currDayTimestamp) || 0;
+    
+    // Inflows = Deposits - Withdrawals = TVL Change - Interest
+    // Note: This doesn't account for price changes, so it's less accurate
+    const inflows = tvlChange - interest;
+    
+    // Only show positive values (actual net inflows), negative values show as 0
     result.push({
       date: new Date(curr.date * 1000).toISOString(),
-      value: change > 0 ? change : 0,
+      value: inflows > 0 ? inflows : 0,
     });
   }
 
@@ -190,32 +268,34 @@ export function getDailyInflowsChart(response: DefiLlamaProtocolResponse): Chart
 }
 
 /**
- * Get cumulative inflows chart data from TVL changes
- * Positive changes = inflows, negative = outflows
+ * Get cumulative inflows chart data
+ * Formula: Inflows = Deposits - Withdrawals (net asset flow, excluding interest and price changes)
+ * 
+ * Uses token quantity changes valued at previous day's prices to calculate inflows.
+ * Cumulative shows sum of all positive inflows over time.
  */
-export function getCumulativeInflowsChart(response: DefiLlamaProtocolResponse): ChartData[] {
-  if (!response.tvl || response.tvl.length < 2) {
+export function getCumulativeInflowsChart(
+  protocolResponse: DefiLlamaProtocolResponse,
+  feesResponse?: DefiLlamaFeesResponse | null
+): ChartData[] {
+  // Get daily inflows first
+  const dailyInflows = getDailyInflowsChart(protocolResponse, feesResponse);
+  
+  if (dailyInflows.length === 0) {
     return [];
   }
-
+  
+  // Calculate cumulative
   const result: ChartData[] = [];
   let cumulativeInflow = 0;
-
-  for (let i = 1; i < response.tvl.length; i++) {
-    const prev = response.tvl[i - 1];
-    const curr = response.tvl[i];
-    const change = curr.totalLiquidityUSD - prev.totalLiquidityUSD;
-    
-    // Track cumulative inflows (only positive changes)
-    if (change > 0) {
-      cumulativeInflow += change;
-    }
-    
+  
+  for (const daily of dailyInflows) {
+    cumulativeInflow += daily.value;
     result.push({
-      date: new Date(curr.date * 1000).toISOString(),
+      date: daily.date,
       value: cumulativeInflow,
     });
   }
-
+  
   return result;
 }
