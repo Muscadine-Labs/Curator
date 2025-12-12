@@ -78,14 +78,18 @@ export async function GET(request: Request) {
           }
         `;
         const result = await morphoGraphQLClient.request<{ vaultV2ByAddress?: { address: string; name: string; symbol?: string; whitelisted?: boolean; asset?: { address?: string; symbol?: string; decimals?: number }; performanceFee?: number; totalAssetsUsd?: number; avgApy?: number; avgNetApy?: number; positions?: { items?: Array<{ user?: { address?: string } | null } | null> | null } | null } | null }>(v2Query, { address, chainId: BASE_CHAIN_ID });
+        console.log(`V2 query result for ${address}:`, JSON.stringify(result, null, 2));
         if (result.vaultV2ByAddress) {
           console.log(`V2 vault found for ${address}:`, {
             name: result.vaultV2ByAddress.name,
             totalAssetsUsd: result.vaultV2ByAddress.totalAssetsUsd,
             avgApy: result.vaultV2ByAddress.avgApy,
           });
+          return result.vaultV2ByAddress;
+        } else {
+          console.log(`V2 vault not found for ${address} (result.vaultV2ByAddress is null/undefined)`);
+          return null;
         }
-        return result.vaultV2ByAddress;
       } catch (error) {
         console.error(`Error fetching V2 vault ${address}:`, error instanceof Error ? error.message : String(error));
         return null;
