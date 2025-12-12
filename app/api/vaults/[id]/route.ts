@@ -5,9 +5,6 @@ import { handleApiError, AppError } from '@/lib/utils/error-handler';
 import { createRateLimitMiddleware, RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS } from '@/lib/utils/rate-limit';
 import { morphoGraphQLClient } from '@/lib/morpho/graphql-client';
 import { gql } from 'graphql-request';
-import { readVaultRoles } from '@/lib/onchain/contracts';
-import { Address } from 'viem';
-import { fetchDefiLlamaFees } from '@/lib/defillama/service';
 // Types imported from SDK but not directly used in this file
 // import type { Vault, VaultPosition, Maybe } from '@morpho-org/blue-api-sdk';
 
@@ -39,24 +36,35 @@ export async function GET(
       throw new AppError('Vault not found', 404, 'VAULT_NOT_FOUND');
     }
 
-    const variables = {
-      address: cfg.address,
-      chainId: cfg.chainId,
-      options: {
-        startTimestamp: getDaysAgoTimestamp(30),
-        endTimestamp: Math.floor(Date.now() / 1000),
-        interval: 'DAY'
-      }
-    };
+    // V1 and V2 vaults use different GraphQL queries
+    const isV2 = cfg.version === 'v2';
+
+    // V2 vaults don't need options for historical data
+    const variables = isV2
+      ? {
+          address: cfg.address,
+          chainId: cfg.chainId,
+        }
+      : {
+          address: cfg.address,
+          chainId: cfg.chainId,
+          options: {
+            startTimestamp: getDaysAgoTimestamp(30),
+            endTimestamp: Math.floor(Date.now() / 1000),
+            interval: 'DAY'
+          }
+        };
 
     // Response type - complex nested structure from GraphQL
     // Using unknown for vault since it has deeply nested structure that matches our query
+    // V2 uses vaultV2ByAddress, V1 uses vaultByAddress
     type VaultDetailQueryResponse = {
-      vault: unknown;
-      positions: {
+      vault?: unknown;
+      vaultV2ByAddress?: unknown;
+      positions?: {
         items: Array<{ user: { address: string } } | null> | null;
       } | null;
-      txs: {
+      txs?: {
         items: Array<{
           blockNumber: number;
           hash: string;
@@ -65,8 +73,8 @@ export async function GET(
         } | null> | null;
       } | null;
     };
-
-    const query = gql`
+    
+    const v1Query = gql`
       query VaultDetail($address: String!, $chainId: Int!, $options: TimeseriesOptions) {
         vault: vaultByAddress(address: $address, chainId: $chainId) {
           address
@@ -166,78 +174,124 @@ export async function GET(
       }
     `;
 
+    const v2Query = gql`
+      query VaultV2Detail($address: String!, $chainId: Int!) {
+        vaultV2ByAddress(address: $address, chainId: $chainId) {
+          address
+          name
+          symbol
+          whitelisted
+          metadata {
+            description
+            forumLink
+            image
+            curators { image name url }
+          }
+          asset { address symbol decimals }
+          curator { address }
+          owner { address }
+          totalAssets
+          totalAssetsUsd
+          totalSupply
+          performanceFee
+          managementFee
+          maxApy
+          avgApy
+          avgNetApy
+          rewards {
+            asset { address chain { id } }
+            supplyApr
+            yearlySupplyTokens
+          }
+          positions(first: ${GRAPHQL_FIRST_LIMIT}) {
+            items { user { address } }
+          }
+        }
+        txs: transactions(
+          first: ${GRAPHQL_TRANSACTIONS_LIMIT},
+          orderBy: Timestamp,
+          orderDirection: Desc,
+          where: { vaultAddress_in: [$address] }
+        ) {
+          items { blockNumber hash type user { address } }
+        }
+      }
+    `;
+
+    const query = isV2 ? v2Query : v1Query;
+
     let data: VaultDetailQueryResponse;
     try {
       data = await morphoGraphQLClient.request<VaultDetailQueryResponse>(
         query,
         variables
       );
-    } catch (graphqlError) {
-      // If GraphQL fails (e.g., vault not indexed), return minimal response from config
-      console.warn(`GraphQL query failed for vault ${cfg.address}, returning config-based response:`, graphqlError);
-      data = { vault: null, positions: null, txs: null };
-    }
-
-    // If vault not found in Morpho (e.g., V2 vaults not indexed yet), return config-based response
-    if (!data.vault) {
-      const responseHeaders = new Headers(rateLimitResult.headers);
-      responseHeaders.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=120');
-      
-      return NextResponse.json({
-        id: cfg.id,
-        name: cfg.name,
-        symbol: cfg.symbol,
-        asset: cfg.asset,
-        address: cfg.address,
-        chainId: cfg.chainId,
-        scanUrl: cfg.scanUrl,
-        performanceFeeBps: cfg.performanceFeeBps,
-        status: cfg.status,
-        riskTier: cfg.riskTier,
-        createdAt: cfg.createdAt,
-        description: cfg.description,
-        version: cfg.version,
-        tvl: 0,
-        apy: null,
-        depositors: 0,
-        revenueAllTime: null,
-        feesAllTime: null,
-        lastHarvest: null,
-        apyBreakdown: null,
-        rewards: [],
-        allocation: [],
-        queues: { supplyQueueIndex: null, withdrawQueueIndex: null },
-        warnings: [],
-        metadata: {},
-        historicalData: { apy: [], netApy: [], totalAssets: [], totalAssetsUsd: [] },
-        roles: { owner: null, curator: null, guardian: null, timelock: null },
-        transactions: [],
-        parameters: {
-          performanceFeeBps: cfg.performanceFeeBps,
-          maxDeposit: null,
-          maxWithdrawal: null,
-          strategyNotes: cfg.description ?? 'No strategy notes available',
-        },
-      }, { headers: responseHeaders });
-    }
-
-    // Fetch on-chain roles from vault contract
-    let onChainRoles: { owner: Address | null; curator: Address | null; guardian: Address | null; timelock: Address | null } | null = null;
-    
-    try {
-      const roles = await readVaultRoles(cfg.address as Address);
-      
-      // Only use on-chain roles if at least one is successfully read
-      if (roles.owner || roles.curator || roles.guardian || roles.timelock) {
-        onChainRoles = roles;
+      // Debug logging for v2 vaults
+      if (isV2) {
+        console.log(`V2 vault query successful for ${cfg.address}:`, {
+          hasVaultV2ByAddress: !!data.vaultV2ByAddress,
+          hasVault: !!data.vault,
+          dataKeys: Object.keys(data),
+          vaultV2Data: data.vaultV2ByAddress ? 'exists' : 'null/undefined',
+        });
       }
-    } catch (error) {
-      // If on-chain reads fail, use API values as fallback
-      console.warn(`Failed to fetch on-chain roles from contract ${cfg.address}:`, error);
+    } catch (graphqlError) {
+      // For v2 vaults, GraphQL API may not have indexed them yet
+      // Check if this is a v2 vault and handle gracefully
+      if (cfg.version === 'v2') {
+        console.error(`GraphQL query failed for v2 vault ${cfg.address}:`, graphqlError);
+        // Return null vault to trigger fallback handling below
+        data = { vaultV2ByAddress: null, positions: null, txs: null };
+      } else {
+        // For v1 vaults, re-throw the error
+        throw graphqlError;
+      }
+    }
+
+    // If vault not found in Morpho (v2 vaults may not be indexed yet)
+    // V2 uses vaultV2ByAddress, V1 uses vault
+    const vaultData = isV2 ? data.vaultV2ByAddress : data.vault;
+    if (!vaultData) {
+      if (cfg.version === 'v2') {
+        // For v2 vaults that aren't indexed, return minimal data structure
+        // The frontend will handle null values appropriately
+        const responseHeaders = new Headers(rateLimitResult.headers);
+        responseHeaders.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=120');
+        
+        return NextResponse.json({
+          ...cfg,
+          tvl: null,
+          apy: null,
+          depositors: 0,
+          revenueAllTime: null,
+          feesAllTime: null,
+          lastHarvest: null,
+          apyBreakdown: null,
+          rewards: [],
+          allocation: [],
+          queues: { supplyQueueIndex: null, withdrawQueueIndex: null },
+          warnings: [],
+          metadata: {},
+          historicalData: { apy: [], netApy: [], totalAssets: [], totalAssetsUsd: [] },
+          roles: { owner: null, curator: null, guardian: null, timelock: null },
+          transactions: [],
+          parameters: {
+            performanceFeeBps: null,
+            performanceFeePercent: null,
+            maxDeposit: null,
+            maxWithdrawal: null,
+            strategyNotes: cfg.description || '',
+          },
+        }, { headers: responseHeaders });
+      } else {
+        // For v1 vaults, return 404 if not found
+        throw new AppError('Vault not found in Morpho API', 404, 'VAULT_NOT_FOUND');
+      }
     }
 
     // Type assertion for vault data - structure matches our query
-    const mv = data.vault as {
+    // V2 vaults have fields directly on the vault, V1 vaults have them in a state object
+    const mv = vaultData as {
       address?: string;
       name?: string | null;
       whitelisted?: boolean | null;
@@ -250,9 +304,29 @@ export async function GET(
       allocators?: Array<{ address: string }>;
       asset?: {
         address?: string;
+        symbol?: string;
         decimals?: number;
         yield?: { apr?: number | null } | null;
       } | null;
+      // V2 vault fields (direct on vault)
+      totalAssetsUsd?: number | null;
+      performanceFee?: number | null;
+      managementFee?: number | null;
+      maxApy?: number | null;
+      avgApy?: number | null;
+      avgNetApy?: number | null;
+      curator?: { address?: string | null } | null;
+      owner?: { address?: string | null } | null;
+      positions?: {
+        items?: Array<{ user?: { address?: string | null } | null } | null> | null;
+      } | null;
+      // V2 vault rewards (direct on vault, not in state)
+      rewards?: Array<{
+        asset?: { address?: string; chain?: { id?: number } | null } | null;
+        supplyApr?: number | null;
+        yearlySupplyTokens?: number | null;
+      }>;
+      // V1 vault fields (in state object)
       state?: {
         owner?: string | null;
         curator?: string | null;
@@ -317,9 +391,12 @@ export async function GET(
         totalAssetsUsd?: Array<{ x?: number; y?: number }>;
       } | null;
     } | null;
-    const positions = (data.positions?.items || []).filter(
-      (p): p is { user: { address: string } } => p !== null && p.user !== null && p.user.address !== undefined
-    );
+    // Handle positions - v2 has positions on vault, v1 has them in separate query
+    const v2Positions = mv?.positions?.items || [];
+    const v1Positions = (data.positions?.items || []);
+    const allPositions = isV2 ? v2Positions : v1Positions;
+    
+    // Handle transactions - both v1 and v2 use the same transactions query
     const txs = (data.txs?.items || []).filter(
       (t): t is {
         blockNumber: number;
@@ -329,44 +406,47 @@ export async function GET(
       } => t !== null
     );
     
+    const positions = allPositions.filter(
+      (p): p is { user: { address: string } } => p !== null && p?.user !== null && p?.user !== undefined && p.user.address !== undefined
+    );
+    
     const depositors = new Set(
       positions
         .map((p) => p.user.address.toLowerCase())
         .filter((addr): addr is string => addr !== undefined && addr !== null)
     ).size;
 
-    const tvlUsd = mv?.state?.totalAssetsUsd ?? 0;
-    const apyPct = (mv?.state?.netApy ?? mv?.state?.avgNetApy ?? mv?.state?.apy ?? 0) * 100;
-    const apyBasePct = (mv?.state?.apy ?? 0) * 100;
-    const apyBoostedPct = (mv?.state?.netApy ?? 0) * 100;
-    const utilization = mv?.state?.allocation?.reduce((sum, a) => {
-      const cap = a.supplyCap ? (typeof a.supplyCap === 'bigint' ? Number(a.supplyCap) : Number(a.supplyCap)) : 0;
-      const assets = a.supplyAssets ? (typeof a.supplyAssets === 'bigint' ? Number(a.supplyAssets) : Number(a.supplyAssets)) : 0;
-      return cap > 0 ? sum + (assets / cap) : sum;
-    }, 0) ?? 0;
+    // V2 vaults have fields directly, V1 vaults have them in state object
+    const tvlUsd = isV2 
+      ? (mv?.totalAssetsUsd ?? 0)
+      : (mv?.state?.totalAssetsUsd ?? 0);
     
-    // Get performance fee from Morpho API (decimal like 0.05 = 5%) or config fallback
-    const performanceFeeBps = mv?.state?.fee ? Math.round(mv.state.fee * 10000) : cfg.performanceFeeBps;
-
-    // Fetch DefiLlama fees data and calculate this vault's share based on TVL proportion
-    let vaultRevenueAllTime: number | null = null;
-    let vaultFeesAllTime: number | null = null;
+    const apyPct = isV2
+      ? ((mv?.avgNetApy ?? mv?.avgApy ?? mv?.maxApy ?? 0) * 100)
+      : ((mv?.state?.netApy ?? mv?.state?.avgNetApy ?? mv?.state?.apy ?? 0) * 100);
     
-    try {
-      const defiLlamaData = await fetchDefiLlamaFees();
-      if (defiLlamaData && defiLlamaData.totalAllTime && tvlUsd > 0) {
-        // Calculate this vault's share based on TVL proportion
-        // Estimate protocol total TVL (~$534K based on recent data)
-        const estimatedProtocolTvl = 534000;
-        const vaultShare = tvlUsd / estimatedProtocolTvl;
-        
-        // Calculate this vault's estimated all-time revenue and fees
-        vaultRevenueAllTime = defiLlamaData.totalAllTime * vaultShare;
-        vaultFeesAllTime = vaultRevenueAllTime * (performanceFeeBps / 10000);
-      }
-    } catch {
-      // DefiLlama fetch failed, leave as null
-    }
+    const apyBasePct = isV2
+      ? ((mv?.avgApy ?? mv?.maxApy ?? 0) * 100)
+      : ((mv?.state?.apy ?? 0) * 100);
+    
+    const apyBoostedPct = isV2
+      ? ((mv?.avgNetApy ?? 0) * 100)
+      : ((mv?.state?.netApy ?? 0) * 100);
+    
+    // V2 caps structure is different, skip utilization for now
+    // V1 uses allocation
+    const utilization = isV2
+      ? 0 // V2 caps structure needs to be investigated separately
+      : (mv?.state?.allocation?.reduce((sum, a) => {
+          const cap = a.supplyCap ? (typeof a.supplyCap === 'bigint' ? Number(a.supplyCap) : Number(a.supplyCap)) : 0;
+          const assets = a.supplyAssets ? (typeof a.supplyAssets === 'bigint' ? Number(a.supplyAssets) : Number(a.supplyAssets)) : 0;
+          return cap > 0 ? sum + (assets / cap) : sum;
+        }, 0) ?? 0);
+    
+    // Get performance fee from Morpho API (decimal like 0.05 = 5%)
+    const performanceFeeBps = isV2
+      ? (mv?.performanceFee ? Math.round(mv.performanceFee * 10000) : null)
+      : (mv?.state?.fee ? Math.round(mv.state.fee * 10000) : null);
 
     const result = {
       ...cfg,
@@ -374,13 +454,26 @@ export async function GET(
       apy: apyPct,
       apyBase: apyBasePct,
       apyBoosted: apyBoostedPct,
-      feesYtd: vaultRevenueAllTime,
+      feesYtd: null,
       utilization: utilization,
       depositors,
-      revenueAllTime: vaultRevenueAllTime,
-      feesAllTime: vaultFeesAllTime,
+      revenueAllTime: null,
+      feesAllTime: null,
       lastHarvest: null,
-      apyBreakdown: {
+      apyBreakdown: isV2 ? {
+        apy: (mv?.avgApy ?? mv?.maxApy ?? 0) * 100,
+        netApy: (mv?.avgNetApy ?? 0) * 100,
+        netApyWithoutRewards: (mv?.avgNetApy ?? 0) * 100,
+        avgApy: (mv?.avgApy ?? 0) * 100,
+        avgNetApy: (mv?.avgNetApy ?? 0) * 100,
+        dailyApy: null,
+        dailyNetApy: null,
+        weeklyApy: null,
+        weeklyNetApy: null,
+        monthlyApy: null,
+        monthlyNetApy: null,
+        underlyingYieldApr: null,
+      } : {
         apy: (mv?.state?.apy ?? 0) * 100,
         netApy: (mv?.state?.netApy ?? 0) * 100,
         netApyWithoutRewards: (mv?.state?.netApyWithoutRewards ?? 0) * 100,
@@ -394,32 +487,23 @@ export async function GET(
         monthlyNetApy: (mv?.state?.monthlyNetApy ?? 0) * 100,
         underlyingYieldApr: (mv?.asset?.yield?.apr ?? 0) * 100,
       },
-      rewards: (mv?.state?.rewards || []).map((r) => ({
-        assetAddress: r.asset?.address ?? '',
-        chainId: r.asset?.chain?.id ?? null,
-        supplyApr: (r.supplyApr ?? 0) * 100,
-        yearlySupplyTokens: r.yearlySupplyTokens ? (typeof r.yearlySupplyTokens === 'bigint' ? Number(r.yearlySupplyTokens) : r.yearlySupplyTokens) : 0,
-      })),
-      allocation: (mv?.state?.allocation || []).map((a) => ({
-        marketKey: a.market?.uniqueKey ?? null,
-        loanAssetName: a.market?.loanAsset?.name ?? null,
-        collateralAssetName: a.market?.collateralAsset?.name ?? null,
-        oracleAddress: a.market?.oracleAddress ?? null,
-        irmAddress: a.market?.irmAddress ?? null,
-        lltv: a.market?.lltv ? (typeof a.market.lltv === 'bigint' ? Number(a.market.lltv) / 1e18 : typeof a.market.lltv === 'string' ? Number(a.market.lltv) / 1e18 : a.market.lltv / 1e18) : null,
-        supplyCap: a.supplyCap ? (typeof a.supplyCap === 'bigint' ? Number(a.supplyCap) : typeof a.supplyCap === 'string' ? Number(a.supplyCap) : a.supplyCap) : null,
-        supplyAssets: a.supplyAssets ? (typeof a.supplyAssets === 'bigint' ? Number(a.supplyAssets) : typeof a.supplyAssets === 'string' ? Number(a.supplyAssets) : a.supplyAssets) : null,
-        supplyAssetsUsd: a.supplyAssetsUsd ?? null,
-        marketRewards: (a.market?.state?.rewards || []).map((mr) => ({
-          assetAddress: mr.asset?.address ?? '',
-          chainId: mr.asset?.chain?.id ?? null,
-          supplyApr: (mr.supplyApr ?? 0) * 100,
-          borrowApr: mr.borrowApr != null ? (mr.borrowApr * 100) : null,
-        })),
-      })),
+      rewards: isV2
+        ? (mv?.rewards || []).map((r: { asset?: { address?: string; chain?: { id?: number } | null } | null; supplyApr?: number | null; yearlySupplyTokens?: number | null }) => ({
+            assetAddress: r.asset?.address ?? '',
+            chainId: r.asset?.chain?.id ?? null,
+            supplyApr: (r.supplyApr ?? 0) * 100,
+            yearlySupplyTokens: r.yearlySupplyTokens ? (typeof r.yearlySupplyTokens === 'bigint' ? Number(r.yearlySupplyTokens) : r.yearlySupplyTokens) : 0,
+          }))
+        : (mv?.state?.rewards || []).map((r) => ({
+            assetAddress: r.asset?.address ?? '',
+            chainId: r.asset?.chain?.id ?? null,
+            supplyApr: (r.supplyApr ?? 0) * 100,
+            yearlySupplyTokens: r.yearlySupplyTokens ? (typeof r.yearlySupplyTokens === 'bigint' ? Number(r.yearlySupplyTokens) : r.yearlySupplyTokens) : 0,
+          })),
+      allocation: [],
       queues: {
-        supplyQueueIndex: mv?.state?.allocationQueues?.supplyQueueIndex ?? null,
-        withdrawQueueIndex: mv?.state?.allocationQueues?.withdrawQueueIndex ?? null,
+        supplyQueueIndex: isV2 ? null : (mv?.state?.allocationQueues?.supplyQueueIndex ?? null),
+        withdrawQueueIndex: isV2 ? null : (mv?.state?.allocationQueues?.withdrawQueueIndex ?? null),
       },
       warnings: [],
       metadata: mv?.metadata || {},
@@ -430,11 +514,10 @@ export async function GET(
         totalAssetsUsd: mv?.historicalState?.totalAssetsUsd || [],
       },
       roles: {
-        // Prefer on-chain values, fallback to Morpho API, then null
-        owner: onChainRoles?.owner ?? mv?.state?.owner ?? null,
-        curator: onChainRoles?.curator ?? mv?.state?.curator ?? null,
-        guardian: onChainRoles?.guardian ?? mv?.state?.guardian ?? null,
-        timelock: onChainRoles?.timelock ?? mv?.state?.timelock ?? null,
+        owner: null,
+        curator: null,
+        guardian: null,
+        timelock: null,
       },
       transactions: txs.map((t) => ({
         blockNumber: t.blockNumber,
@@ -443,7 +526,8 @@ export async function GET(
         userAddress: t.user?.address ?? null,
       })),
       parameters: {
-        performanceFeeBps: mv?.state?.fee ? Math.round(mv.state.fee * 10000) : cfg.performanceFeeBps, // From Morpho API (fee is decimal, convert to bps)
+        performanceFeeBps: performanceFeeBps,
+        performanceFeePercent: performanceFeeBps ? performanceFeeBps / 100 : null,
         maxDeposit: null,
         maxWithdrawal: null,
         strategyNotes: cfg.description || '',

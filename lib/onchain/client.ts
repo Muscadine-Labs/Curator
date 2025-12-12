@@ -114,6 +114,68 @@ export const VAULT_ABI = [
     inputs: [],
     outputs: [{ name: '', type: 'address' }],
   },
+  // MetaMorpho V1.1 write functions for role management
+  {
+    name: 'setCurator',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'newCurator', type: 'address' }],
+    outputs: [],
+  },
+  {
+    name: 'submitGuardian',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'newGuardian', type: 'address' }],
+    outputs: [],
+  },
+  {
+    name: 'acceptGuardian',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [],
+    outputs: [],
+  },
+  {
+    name: 'setIsAllocator',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'allocator', type: 'address' },
+      { name: 'newIsAllocator', type: 'bool' },
+    ],
+    outputs: [],
+  },
+  {
+    name: 'transferOwnership',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'newOwner', type: 'address' }],
+    outputs: [],
+  },
+  {
+    name: 'renounceOwnership',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [],
+    outputs: [],
+  },
+  // Check if allocator is enabled (mapping-based)
+  {
+    name: 'isAllocator',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'allocator', type: 'address' }],
+    outputs: [{ name: '', type: 'bool' }],
+  },
+  // Pending guardian functions
+  {
+    name: 'pendingGuardian',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'address' }],
+  },
 ] as const;
 
 // Morpho Blue Vault Allocator ABI
