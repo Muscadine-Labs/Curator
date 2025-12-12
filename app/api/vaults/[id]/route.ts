@@ -522,6 +522,7 @@ export async function GET(
 
     const result = {
       ...cfg,
+      address: address, // Ensure address is explicitly set
       name: mv?.name || 'Unknown Vault',
       symbol: mv?.symbol || mv?.asset?.symbol || 'UNKNOWN',
       asset: mv?.asset?.symbol || 'UNKNOWN',

@@ -4,7 +4,9 @@ import {
   BASE_CHAIN_ID, 
   GRAPHQL_FIRST_LIMIT,
   DAYS_30_MS,
+  getDaysAgoTimestamp,
 } from '@/lib/constants';
+import { shouldUseV2Query } from '@/lib/config/vaults';
 import { handleApiError } from '@/lib/utils/error-handler';
 import { createRateLimitMiddleware, RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS } from '@/lib/utils/rate-limit';
 import { morphoGraphQLClient } from '@/lib/morpho/graphql-client';
@@ -15,9 +17,12 @@ import { logger } from '@/lib/utils/logger';
 import { 
   fetchDefiLlamaFees, 
   fetchDefiLlamaProtocol,
+  getDailyFeesChart,
   getCumulativeFeesChart,
+  getDailyRevenueChart,
   getCumulativeRevenueChart,
-  getInflowsChart 
+  getDailyInflowsChart,
+  getCumulativeInflowsChart 
 } from '@/lib/defillama/service';
 
 // Type-safe response matching our query structure
@@ -88,6 +93,66 @@ export async function GET(request: Request) {
 
     const totalDeposited = morphoVaults.reduce((sum, v) => sum + (v.state?.totalAssetsUsd ?? 0), 0);
     const activeVaults = vaultAddresses.length;
+
+    // Fetch historical TVL data per vault (only for V1 vaults as V2 doesn't have historical data yet)
+    const tvlByVaultPromises = addresses.map(async (address) => {
+      // Check if this is a V1 vault by querying its name
+      try {
+        const checkQuery = gql`
+          query CheckVault($address: String!, $chainId: Int!) {
+            vault: vaultByAddress(address: $address, chainId: $chainId) {
+              name
+              address
+            }
+          }
+        `;
+        const result = await morphoGraphQLClient.request<{ vault?: { name?: string; address?: string } | null }>(checkQuery, { address, chainId: BASE_CHAIN_ID });
+        
+        if (result.vault?.name && !shouldUseV2Query(result.vault.name)) {
+          // This is a V1 vault, fetch historical data
+          const historicalQuery = gql`
+            query VaultHistoricalTvl($address: String!, $chainId: Int!, $options: TimeseriesOptions) {
+              vault: vaultByAddress(address: $address, chainId: $chainId) {
+                name
+                address
+                historicalState {
+                  totalAssetsUsd(options: $options) {
+                    x
+                    y
+                  }
+                }
+              }
+            }
+          `;
+          const histResult = await morphoGraphQLClient.request<{ vault?: { name?: string; address?: string; historicalState?: { totalAssetsUsd?: Array<{ x?: number; y?: number }> } } | null }>(historicalQuery, {
+            address,
+            chainId: BASE_CHAIN_ID,
+            options: {
+              startTimestamp: getDaysAgoTimestamp(30),
+              endTimestamp: Math.floor(Date.now() / 1000),
+              interval: 'DAY'
+            }
+          });
+          
+          if (histResult.vault?.name && histResult.vault?.historicalState?.totalAssetsUsd) {
+            return {
+              name: histResult.vault.name,
+              address: address.toLowerCase(),
+              data: histResult.vault.historicalState.totalAssetsUsd.map(point => ({
+                date: point.x ? new Date(point.x * 1000).toISOString() : '',
+                value: point.y || 0,
+              })).filter(p => p.date)
+            };
+          }
+        }
+      } catch {
+        // Vault not found or error fetching, skip it
+      }
+      return null;
+    });
+
+    const tvlByVaultResults = await Promise.all(tvlByVaultPromises);
+    const tvlByVault = tvlByVaultResults.filter((v): v is NonNullable<typeof v> => v !== null);
     
     // Initialize totals (will be updated from DefiLlama if available)
     let totalFeesGenerated = 0;
@@ -103,9 +168,12 @@ export async function GET(request: Request) {
     }
 
     // Fetch DefiLlama data for charts
-    let feesTrend: Array<{ date: string; value: number }> = [];
-    let revenueTrend: Array<{ date: string; value: number }> = [];
-    let inflowsTrend: Array<{ date: string; value: number }> = [];
+    let feesTrendDaily: Array<{ date: string; value: number }> = [];
+    let feesTrendCumulative: Array<{ date: string; value: number }> = [];
+    let revenueTrendDaily: Array<{ date: string; value: number }> = [];
+    let revenueTrendCumulative: Array<{ date: string; value: number }> = [];
+    let inflowsTrendDaily: Array<{ date: string; value: number }> = [];
+    let inflowsTrendCumulative: Array<{ date: string; value: number }> = [];
     let tvlTrend: Array<{ date: string; value: number }> = [];
     
     try {
@@ -125,11 +193,13 @@ export async function GET(request: Request) {
       }
       
       if (feesData) {
-        // Get cumulative fees (interest generated)
-        feesTrend = getCumulativeFeesChart(feesData);
+        // Get daily and cumulative fees (interest generated)
+        feesTrendDaily = getDailyFeesChart(feesData);
+        feesTrendCumulative = getCumulativeFeesChart(feesData);
         
-        // Get cumulative revenue (curator fees)
-        revenueTrend = getCumulativeRevenueChart(feesData, avgPerformanceFeeRate);
+        // Get daily and cumulative revenue (curator fees)
+        revenueTrendDaily = getDailyRevenueChart(feesData, avgPerformanceFeeRate);
+        revenueTrendCumulative = getCumulativeRevenueChart(feesData, avgPerformanceFeeRate);
         
         // Update totals from DefiLlama
         if (feesData.totalAllTime) {
@@ -139,13 +209,15 @@ export async function GET(request: Request) {
         
         logger.info('DefiLlama fees data loaded', {
           totalAllTime: feesData.totalAllTime,
-          chartPoints: feesTrend.length,
+          chartPointsDaily: feesTrendDaily.length,
+          chartPointsCumulative: feesTrendCumulative.length,
         });
       }
       
       if (protocolData) {
-        // Get inflows chart from TVL changes
-        inflowsTrend = getInflowsChart(protocolData);
+        // Get daily and cumulative inflows charts from TVL changes
+        inflowsTrendDaily = getDailyInflowsChart(protocolData);
+        inflowsTrendCumulative = getCumulativeInflowsChart(protocolData);
         
         // Get TVL trend from DefiLlama
         if (protocolData.tvl && protocolData.tvl.length > 0) {
@@ -157,7 +229,8 @@ export async function GET(request: Request) {
         
         logger.info('DefiLlama protocol data loaded', {
           tvlPoints: tvlTrend.length,
-          inflowPoints: inflowsTrend.length,
+          inflowPointsDaily: inflowsTrendDaily.length,
+          inflowPointsCumulative: inflowsTrendCumulative.length,
         });
       }
     } catch (error) {
@@ -181,9 +254,17 @@ export async function GET(request: Request) {
       totalInterestGenerated,
       users: uniqueUsers.size,
       tvlTrend,
-      feesTrend,
-      revenueTrend,
-      inflowsTrend,
+      tvlByVault: tvlByVault.map(v => ({
+        name: v.name,
+        address: v.address,
+        data: v.data,
+      })),
+      feesTrendDaily,
+      feesTrendCumulative,
+      revenueTrendDaily,
+      revenueTrendCumulative,
+      inflowsTrendDaily,
+      inflowsTrendCumulative,
     };
 
     const responseHeaders = new Headers(rateLimitResult.headers);

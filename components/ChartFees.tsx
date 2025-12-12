@@ -1,15 +1,25 @@
+'use client';
+
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { formatCompactUSD } from '@/lib/format/number';
 
 interface ChartFeesProps {
-  data: Array<{ date: string; value: number }>;
+  dailyData?: Array<{ date: string; value: number }>;
+  cumulativeData?: Array<{ date: string; value: number }>;
   isLoading?: boolean;
   title?: string;
 }
 
-export function ChartFees({ data, isLoading = false, title = "Fees Over Time" }: ChartFeesProps) {
+export function ChartFees({ dailyData, cumulativeData, isLoading = false, title = "Fees" }: ChartFeesProps) {
+  const [viewMode, setViewMode] = useState<'daily' | 'cumulative'>('cumulative');
+  
+  // Use the selected view mode data, fallback to cumulative if daily is not available
+  const data = viewMode === 'daily' && dailyData ? dailyData : (cumulativeData || dailyData || []);
+
   if (isLoading) {
     return (
       <Card>
@@ -44,10 +54,32 @@ export function ChartFees({ data, isLoading = false, title = "Fees Over Time" }:
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
+  const showToggle = dailyData && cumulativeData;
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{title}</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle>{title}</CardTitle>
+          {showToggle && (
+            <div className="flex gap-2">
+              <Button
+                variant={viewMode === 'daily' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('daily')}
+              >
+                Daily
+              </Button>
+              <Button
+                variant={viewMode === 'cumulative' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('cumulative')}
+              >
+                Cumulative
+              </Button>
+            </div>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={300}>
@@ -63,7 +95,7 @@ export function ChartFees({ data, isLoading = false, title = "Fees Over Time" }:
               tick={{ fontSize: 12 }}
             />
             <Tooltip 
-              formatter={(value: number) => [formatTooltipValue(value), 'Fees']}
+              formatter={(value: number) => [formatTooltipValue(value), viewMode === 'daily' ? 'Daily Fees' : 'Cumulative Fees']}
               labelFormatter={(label) => new Date(label).toLocaleDateString()}
             />
             <Line 

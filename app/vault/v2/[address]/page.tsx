@@ -50,7 +50,9 @@ export default function V2VaultPage() {
   const category = getVaultCategory(vault.name);
   const vaultBadge = category === 'prime' ? 'V2 Prime' : category === 'vineyard' ? 'V2 Vineyard' : 'V2';
 
-  const morphoUiUrl = `https://app.morpho.org/base/vault/${vault.address.toLowerCase()}`;
+  const morphoUiUrl = vault.address 
+    ? `https://app.morpho.org/base/vault/${vault.address.toLowerCase()}`
+    : '#';
 
   return (
     <AppShell
@@ -110,7 +112,7 @@ export default function V2VaultPage() {
             </Card>
 
             {/* Metrics Grid */}
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <KpiCard title="TVL" value={vault.tvl} subtitle="Total Value Locked" format="usd" />
               <KpiCard title="APY" value={vault.apy} subtitle="Current yield rate" format="percentage" />
               <KpiCard title="Depositors" value={vault.depositors} subtitle="Total depositors" format="number" />
@@ -120,14 +122,6 @@ export default function V2VaultPage() {
                 subtitle="Curator fee rate" 
                 format="percentage" 
               />
-              <Card>
-                <CardContent className="pt-6">
-                  <p className="text-sm text-slate-500 mb-1">Status</p>
-                  <Badge variant={vault.status === 'active' ? 'default' : 'secondary'} className="text-sm">
-                    {vault.status}
-                  </Badge>
-                </CardContent>
-              </Card>
             </div>
 
             {/* Revenue and Fees */}

@@ -8,9 +8,17 @@ export interface ProtocolStats {
   totalInterestGenerated: number;
   users: number;
   tvlTrend: Array<{ date: string; value: number }>;
-  feesTrend: Array<{ date: string; value: number }>;
-  revenueTrend: Array<{ date: string; value: number }>;
-  inflowsTrend: Array<{ date: string; value: number }>;
+  tvlByVault?: Array<{
+    name: string;
+    address: string;
+    data: Array<{ date: string; value: number }>;
+  }>;
+  feesTrendDaily: Array<{ date: string; value: number }>;
+  feesTrendCumulative: Array<{ date: string; value: number }>;
+  revenueTrendDaily: Array<{ date: string; value: number }>;
+  revenueTrendCumulative: Array<{ date: string; value: number }>;
+  inflowsTrendDaily: Array<{ date: string; value: number }>;
+  inflowsTrendCumulative: Array<{ date: string; value: number }>;
 }
 
 export interface VaultWithData {

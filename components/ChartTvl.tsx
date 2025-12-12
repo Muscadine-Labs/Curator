@@ -1,15 +1,66 @@
+'use client';
+
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Button } from '@/components/ui/button';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { formatCompactUSD } from '@/lib/format/number';
 
 interface ChartTvlProps {
-  data: Array<{ date: string; value: number }>;
+  totalData?: Array<{ date: string; value: number }>;
+  vaultData?: Array<{
+    name: string;
+    address: string;
+    data: Array<{ date: string; value: number }>;
+  }>;
   isLoading?: boolean;
   title?: string;
 }
 
-export function ChartTvl({ data, isLoading = false, title = "TVL Over Time" }: ChartTvlProps) {
+// Color palette for vault lines
+const VAULT_COLORS = [
+  '#3b82f6', // blue
+  '#10b981', // green
+  '#f59e0b', // amber
+  '#ef4444', // red
+  '#8b5cf6', // purple
+  '#ec4899', // pink
+  '#06b6d4', // cyan
+  '#84cc16', // lime
+];
+
+export function ChartTvl({ totalData, vaultData, isLoading = false, title = "TVL Over Time" }: ChartTvlProps) {
+  const [viewMode, setViewMode] = useState<'total' | 'byVault'>('total');
+  
+  // Process vault data into chart format when "By Vault" is selected
+  const chartData = useMemo(() => {
+    if (viewMode === 'total' || !vaultData || vaultData.length === 0) {
+      return totalData || [];
+    }
+
+    // Combine all vault data by date
+    const dateMap = new Map<string, Record<string, number | string>>();
+    
+    vaultData.forEach((vault) => {
+      vault.data.forEach((point) => {
+        if (!dateMap.has(point.date)) {
+          dateMap.set(point.date, { date: point.date });
+        }
+        const entry = dateMap.get(point.date)!;
+        entry[vault.name] = point.value;
+      });
+    });
+
+    // Convert map to array and sort by date
+    return Array.from(dateMap.values()).sort((a, b) => 
+      new Date(a.date as string).getTime() - new Date(b.date as string).getTime()
+    ) as Array<{ date: string; [key: string]: number | string }>;
+  }, [viewMode, totalData, vaultData]);
+
+  const data = chartData;
+  const showToggle = totalData && vaultData && vaultData.length > 0;
+
   if (isLoading) {
     return (
       <Card>
@@ -44,10 +95,35 @@ export function ChartTvl({ data, isLoading = false, title = "TVL Over Time" }: C
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
+  // Get unique vault names for lines
+  const vaultNames = viewMode === 'byVault' && vaultData 
+    ? vaultData.map(v => v.name)
+    : [];
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{title}</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle>{title}</CardTitle>
+          {showToggle && (
+            <div className="flex gap-2">
+              <Button
+                variant={viewMode === 'total' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('total')}
+              >
+                Total
+              </Button>
+              <Button
+                variant={viewMode === 'byVault' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('byVault')}
+              >
+                By Vault
+              </Button>
+            </div>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={300}>
@@ -63,16 +139,33 @@ export function ChartTvl({ data, isLoading = false, title = "TVL Over Time" }: C
               tick={{ fontSize: 12 }}
             />
             <Tooltip 
-              formatter={(value: number) => [formatTooltipValue(value), 'TVL']}
+              formatter={(value: number, name: string) => [formatTooltipValue(value), name || 'TVL']}
               labelFormatter={(label) => new Date(label).toLocaleDateString()}
             />
-            <Line 
-              type="monotone" 
-              dataKey="value" 
-              stroke="#3b82f6" 
-              strokeWidth={2}
-              dot={false}
-            />
+            {viewMode === 'total' ? (
+              <Line 
+                type="monotone" 
+                dataKey="value" 
+                stroke="#3b82f6" 
+                strokeWidth={2}
+                dot={false}
+              />
+            ) : (
+              <>
+                {vaultNames.map((vaultName, index) => (
+                  <Line
+                    key={vaultName}
+                    type="monotone"
+                    dataKey={vaultName}
+                    stroke={VAULT_COLORS[index % VAULT_COLORS.length]}
+                    strokeWidth={2}
+                    dot={false}
+                    name={vaultName}
+                  />
+                ))}
+                <Legend />
+              </>
+            )}
           </LineChart>
         </ResponsiveContainer>
       </CardContent>

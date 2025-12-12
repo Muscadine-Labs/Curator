@@ -100,6 +100,20 @@ export async function fetchDefiLlamaProtocol(): Promise<DefiLlamaProtocolRespons
 }
 
 /**
+ * Get daily fees chart data from DefiLlama
+ */
+export function getDailyFeesChart(response: DefiLlamaFeesResponse): ChartData[] {
+  if (!response.totalDataChart || response.totalDataChart.length === 0) {
+    return [];
+  }
+
+  return response.totalDataChart.map(([timestamp, dailyValue]) => ({
+    date: new Date(timestamp * 1000).toISOString(),
+    value: dailyValue || 0,
+  }));
+}
+
+/**
  * Get cumulative fees chart data from DefiLlama
  */
 export function getCumulativeFeesChart(response: DefiLlamaFeesResponse): ChartData[] {
@@ -115,6 +129,20 @@ export function getCumulativeFeesChart(response: DefiLlamaFeesResponse): ChartDa
       value: cumulative,
     };
   });
+}
+
+/**
+ * Get daily revenue chart data (curator fees = daily fees * performance fee rate)
+ */
+export function getDailyRevenueChart(response: DefiLlamaFeesResponse, performanceFeeRate: number = 0.02): ChartData[] {
+  if (!response.totalDataChart || response.totalDataChart.length === 0) {
+    return [];
+  }
+
+  return response.totalDataChart.map(([timestamp, dailyValue]) => ({
+    date: new Date(timestamp * 1000).toISOString(),
+    value: (dailyValue || 0) * performanceFeeRate,
+  }));
 }
 
 /**
@@ -136,10 +164,36 @@ export function getCumulativeRevenueChart(response: DefiLlamaFeesResponse, perfo
 }
 
 /**
- * Get inflows chart data from TVL changes
+ * Get daily inflows chart data from TVL changes
  * Positive changes = inflows, negative = outflows
  */
-export function getInflowsChart(response: DefiLlamaProtocolResponse): ChartData[] {
+export function getDailyInflowsChart(response: DefiLlamaProtocolResponse): ChartData[] {
+  if (!response.tvl || response.tvl.length < 2) {
+    return [];
+  }
+
+  const result: ChartData[] = [];
+
+  for (let i = 1; i < response.tvl.length; i++) {
+    const prev = response.tvl[i - 1];
+    const curr = response.tvl[i];
+    const change = curr.totalLiquidityUSD - prev.totalLiquidityUSD;
+    
+    // Only show positive changes (inflows), negative values show as 0
+    result.push({
+      date: new Date(curr.date * 1000).toISOString(),
+      value: change > 0 ? change : 0,
+    });
+  }
+
+  return result;
+}
+
+/**
+ * Get cumulative inflows chart data from TVL changes
+ * Positive changes = inflows, negative = outflows
+ */
+export function getCumulativeInflowsChart(response: DefiLlamaProtocolResponse): ChartData[] {
   if (!response.tvl || response.tvl.length < 2) {
     return [];
   }
