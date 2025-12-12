@@ -19,7 +19,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { RatingBadge } from '@/components/morpho/RatingBadge';
 import { formatCompactUSD, formatPercentage } from '@/lib/format/number';
 import type { MorphoMarketMetrics } from '@/lib/morpho/types';
-import { getVaultByAddress } from '@/lib/config/vaults';
 import { useVaultRisk } from '@/lib/hooks/useVaultRisk';
 
 export default function V2VaultPage() {
@@ -104,7 +103,6 @@ export default function V2VaultPage() {
   }
 
   const ratingLabel = vault.riskTier ? vault.riskTier.toUpperCase() : 'N/A';
-  const vaultConfig = getVaultByAddress(vault.address);
 
   return (
     <AppShell
