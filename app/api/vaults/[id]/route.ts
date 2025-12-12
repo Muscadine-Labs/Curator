@@ -5,8 +5,6 @@ import { handleApiError, AppError } from '@/lib/utils/error-handler';
 import { createRateLimitMiddleware, RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS } from '@/lib/utils/rate-limit';
 import { morphoGraphQLClient } from '@/lib/morpho/graphql-client';
 import { gql } from 'graphql-request';
-import { readVaultRoles } from '@/lib/onchain/contracts';
-import { Address } from 'viem';
 // Types imported from SDK but not directly used in this file
 // import type { Vault, VaultPosition, Maybe } from '@morpho-org/blue-api-sdk';
 
@@ -291,21 +289,6 @@ export async function GET(
       }
     }
 
-    // Fetch on-chain roles from vault contract
-    let onChainRoles: { owner: Address | null; curator: Address | null; guardian: Address | null; timelock: Address | null } | null = null;
-    
-    try {
-      const roles = await readVaultRoles(cfg.address as Address);
-      
-      // Only use on-chain roles if at least one is successfully read
-      if (roles.owner || roles.curator || roles.guardian || roles.timelock) {
-        onChainRoles = roles;
-      }
-    } catch (error) {
-      // If on-chain reads fail, use API values as fallback
-      console.warn(`Failed to fetch on-chain roles from contract ${cfg.address}:`, error);
-    }
-
     // Type assertion for vault data - structure matches our query
     // V2 vaults have fields directly on the vault, V1 vaults have them in a state object
     const mv = vaultData as {
@@ -517,25 +500,7 @@ export async function GET(
             supplyApr: (r.supplyApr ?? 0) * 100,
             yearlySupplyTokens: r.yearlySupplyTokens ? (typeof r.yearlySupplyTokens === 'bigint' ? Number(r.yearlySupplyTokens) : r.yearlySupplyTokens) : 0,
           })),
-      allocation: isV2
-        ? [] // V2 caps structure is different, return empty for now
-        : (mv?.state?.allocation || []).map((a) => ({
-            marketKey: a.market?.uniqueKey ?? null,
-            loanAssetName: a.market?.loanAsset?.name ?? null,
-            collateralAssetName: a.market?.collateralAsset?.name ?? null,
-            oracleAddress: a.market?.oracleAddress ?? null,
-            irmAddress: a.market?.irmAddress ?? null,
-            lltv: a.market?.lltv ? (typeof a.market.lltv === 'bigint' ? Number(a.market.lltv) / 1e18 : typeof a.market.lltv === 'string' ? Number(a.market.lltv) / 1e18 : a.market.lltv / 1e18) : null,
-            supplyCap: a.supplyCap ? (typeof a.supplyCap === 'bigint' ? Number(a.supplyCap) : typeof a.supplyCap === 'string' ? Number(a.supplyCap) : a.supplyCap) : null,
-            supplyAssets: a.supplyAssets ? (typeof a.supplyAssets === 'bigint' ? Number(a.supplyAssets) : typeof a.supplyAssets === 'string' ? Number(a.supplyAssets) : a.supplyAssets) : null,
-            supplyAssetsUsd: a.supplyAssetsUsd ?? null,
-            marketRewards: (a.market?.state?.rewards || []).map((mr) => ({
-              assetAddress: mr.asset?.address ?? '',
-              chainId: mr.asset?.chain?.id ?? null,
-              supplyApr: (mr.supplyApr ?? 0) * 100,
-              borrowApr: mr.borrowApr != null ? (mr.borrowApr * 100) : null,
-            })),
-          })),
+      allocation: [],
       queues: {
         supplyQueueIndex: isV2 ? null : (mv?.state?.allocationQueues?.supplyQueueIndex ?? null),
         withdrawQueueIndex: isV2 ? null : (mv?.state?.allocationQueues?.withdrawQueueIndex ?? null),
@@ -549,11 +514,10 @@ export async function GET(
         totalAssetsUsd: mv?.historicalState?.totalAssetsUsd || [],
       },
       roles: {
-        // Prefer on-chain values, fallback to Morpho API, then null
-        owner: onChainRoles?.owner ?? (isV2 ? (mv?.owner?.address ?? null) : (mv?.state?.owner ?? null)),
-        curator: onChainRoles?.curator ?? (isV2 ? (mv?.curator?.address ?? null) : (mv?.state?.curator ?? null)),
-        guardian: onChainRoles?.guardian ?? (isV2 ? null : (mv?.state?.guardian ?? null)),
-        timelock: onChainRoles?.timelock ?? (isV2 ? null : (mv?.state?.timelock ?? null)),
+        owner: null,
+        curator: null,
+        guardian: null,
+        timelock: null,
       },
       transactions: txs.map((t) => ({
         blockNumber: t.blockNumber,

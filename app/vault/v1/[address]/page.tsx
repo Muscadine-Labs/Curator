@@ -1,76 +1,25 @@
 'use client';
 
-import { useMemo } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Shield, Wallet } from 'lucide-react';
 import { useVault } from '@/lib/hooks/useProtocolStats';
-import { useMorphoMarkets } from '@/lib/hooks/useMorphoMarkets';
 import { AppShell } from '@/components/layout/AppShell';
 import { KpiCard } from '@/components/KpiCard';
-import { RoleList } from '@/components/RoleList';
-import { AllocatorList } from '@/components/AllocatorList';
 import { AddressBadge } from '@/components/AddressBadge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { RatingBadge } from '@/components/morpho/RatingBadge';
-import { formatCompactUSD, formatPercentage } from '@/lib/format/number';
-import type { MorphoMarketMetrics } from '@/lib/morpho/types';
 import { getVaultByAddress } from '@/lib/config/vaults';
 import { useVaultRisk } from '@/lib/hooks/useVaultRisk';
-import { Address } from 'viem';
 
 export default function VaultDetailPage() {
   const params = useParams();
   const vaultAddress = params.address as string;
   const { data: vault, isLoading } = useVault(vaultAddress);
-  const { data: morpho } = useMorphoMarkets();
   const { summary: riskSummary, isLoading: riskLoading } = useVaultRisk(vault);
-
-  const vaultMarkets = useMemo(() => {
-    if (!vault?.allocation) return [];
-
-    const metricsByUniqueKey = new Map<string, MorphoMarketMetrics>();
-    const metricsById = new Map<string, MorphoMarketMetrics>();
-
-    morpho?.markets?.forEach((market) => {
-      if (market.raw?.uniqueKey) {
-        metricsByUniqueKey.set(market.raw.uniqueKey, market);
-      }
-      metricsById.set(market.id, market);
-    });
-
-    return vault.allocation
-      .filter((allocation) => allocation.marketKey)
-      .map((allocation) => {
-        let metrics = metricsByUniqueKey.get(allocation.marketKey!);
-        if (!metrics && allocation.marketKey) {
-          metrics = metricsById.get(allocation.marketKey);
-        }
-
-        const morphoState = metrics?.raw?.state;
-        const totalSupplyUsd = morphoState?.supplyAssetsUsd ?? allocation.supplyAssetsUsd ?? null;
-        const totalBorrowUsd = morphoState?.borrowAssetsUsd ?? null;
-        const supplyApyValue = morphoState?.supplyApy ?? metrics?.supplyRate ?? null;
-        const borrowApyValue = morphoState?.borrowApy ?? metrics?.borrowRate ?? null;
-        const utilizationValue = morphoState?.utilization ?? metrics?.utilization ?? null;
-
-        return {
-          marketKey: allocation.marketKey!,
-          collateralSymbol: metrics?.raw?.collateralAsset?.symbol ?? allocation.collateralAssetName ?? 'Unknown',
-          loanSymbol: metrics?.raw?.loanAsset?.symbol ?? allocation.loanAssetName ?? 'Unknown',
-          totalSupplyUsd,
-          totalBorrowUsd,
-          supplyApyPercent: supplyApyValue !== null ? supplyApyValue * 100 : null,
-          borrowApyPercent: borrowApyValue !== null ? borrowApyValue * 100 : null,
-          utilizationPercent: utilizationValue !== null ? utilizationValue * 100 : null,
-          rating: metrics?.rating ?? null,
-        };
-      });
-  }, [vault?.allocation, morpho?.markets]);
 
   if (isLoading) {
     return (
@@ -214,116 +163,45 @@ export default function VaultDetailPage() {
           </TabsContent>
 
           <TabsContent value="roles">
-            <div className="grid gap-6 md:grid-cols-2">
-              <RoleList vaultAddress={vault.address as Address} chainId={vault.chainId} />
-              <AllocatorList vaultAddress={vault.address as Address} chainId={vault.chainId} />
-            </div>
+            <Card>
+              <CardHeader>
+                <CardTitle>Roles</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-center py-8 text-slate-500">Coming Soon</p>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="parameters" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Vault Parameters</CardTitle>
+                <CardTitle>Parameters</CardTitle>
               </CardHeader>
-              <CardContent className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-xs uppercase text-slate-500">Performance Fee</p>
-                  <p className="text-lg font-semibold text-slate-900">
-                    {vault.parameters?.performanceFeeBps ? `${vault.parameters.performanceFeeBps / 100}%` : 'N/A'}
-                  </p>
-                </div>
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-xs uppercase text-slate-500">Asset</p>
-                  <p className="text-lg font-semibold text-slate-900">{vault.asset}</p>
-                </div>
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-xs uppercase text-slate-500">Chain</p>
-                  <p className="text-lg font-semibold text-slate-900">Base</p>
-                </div>
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-xs uppercase text-slate-500">Version</p>
-                  <p className="text-lg font-semibold text-slate-900">V1 (MetaMorpho)</p>
-                </div>
+              <CardContent>
+                <p className="text-center py-8 text-slate-500">Coming Soon</p>
               </CardContent>
             </Card>
           </TabsContent>
 
           <TabsContent value="allocation" className="space-y-4">
-            {vaultMarkets.length > 0 ? (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Market Allocation</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="min-w-[180px]">Market Pair</TableHead>
-                          <TableHead className="min-w-[140px]">Total Supply</TableHead>
-                          <TableHead className="min-w-[140px]">Total Borrow</TableHead>
-                          <TableHead className="min-w-[120px]">Supply APY</TableHead>
-                          <TableHead className="min-w-[120px]">Borrow APY</TableHead>
-                          <TableHead className="min-w-[120px]">Utilization</TableHead>
-                          <TableHead className="min-w-[140px]">Curator Rating</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {vaultMarkets.map((market) => (
-                          <TableRow key={market.marketKey}>
-                            <TableCell className="font-medium">
-                              <div className="flex items-center gap-2">
-                                <span>{market.collateralSymbol}</span>
-                                <span className="text-muted-foreground">/</span>
-                                <span>{market.loanSymbol}</span>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              {market.totalSupplyUsd !== null ? formatCompactUSD(market.totalSupplyUsd) : '—'}
-                            </TableCell>
-                            <TableCell>
-                              {market.totalBorrowUsd !== null ? formatCompactUSD(market.totalBorrowUsd) : '—'}
-                            </TableCell>
-                            <TableCell className="text-green-600 dark:text-green-400">
-                              {market.supplyApyPercent !== null ? formatPercentage(market.supplyApyPercent, 2) : '—'}
-                            </TableCell>
-                            <TableCell className="text-orange-600 dark:text-orange-400">
-                              {market.borrowApyPercent !== null ? formatPercentage(market.borrowApyPercent, 2) : '—'}
-                            </TableCell>
-                            <TableCell>
-                              {market.utilizationPercent !== null ? formatPercentage(market.utilizationPercent, 2) : '—'}
-                            </TableCell>
-                            <TableCell>
-                              {market.rating !== null ? (
-                                <RatingBadge rating={market.rating} />
-                              ) : (
-                                <span className="text-xs text-muted-foreground">N/A</span>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
-              <Card>
-                <CardHeader>
-                  <CardTitle>No allocations found</CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm text-slate-600">This vault has no allocations yet.</CardContent>
-              </Card>
-            )}
+            <Card>
+              <CardHeader>
+                <CardTitle>Allocation</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-center py-8 text-slate-500">Coming Soon</p>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="caps" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Supply Caps</CardTitle>
+                <CardTitle>Caps</CardTitle>
               </CardHeader>
-              <CardContent className="text-sm text-slate-600">
-                Supply caps are configured per market allocation. V1 vaults use MetaMorpho cap settings.
+              <CardContent>
+                <p className="text-center py-8 text-slate-500">Coming Soon</p>
               </CardContent>
             </Card>
           </TabsContent>
