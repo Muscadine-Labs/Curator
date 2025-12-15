@@ -95,19 +95,21 @@ export async function GET(request: Request) {
     const activeVaults = vaultAddresses.length;
 
     // Fetch historical TVL data per vault (V1 has historical, V2 has current only)
+    // Also collect V2 performance fees for revenue calculation
     const tvlByVaultPromises = addresses.map(async (address) => {
       try {
-        // First check if it's a V2 vault
+        // First check if it's a V2 vault (also fetch performanceFee for revenue calculation)
         const v2CheckQuery = gql`
           query CheckV2Vault($address: String!, $chainId: Int!) {
             vaultV2ByAddress(address: $address, chainId: $chainId) {
               name
               address
+              performanceFee
               totalAssetsUsd
             }
           }
         `;
-        const v2Result = await morphoGraphQLClient.request<{ vaultV2ByAddress?: { name?: string; address?: string; totalAssetsUsd?: number } | null }>(v2CheckQuery, { address, chainId: BASE_CHAIN_ID });
+        const v2Result = await morphoGraphQLClient.request<{ vaultV2ByAddress?: { name?: string; address?: string; performanceFee?: number; totalAssetsUsd?: number } | null }>(v2CheckQuery, { address, chainId: BASE_CHAIN_ID });
         
         if (v2Result.vaultV2ByAddress?.name) {
           // This is a V2 vault, use current TVL as a single data point
@@ -118,7 +120,8 @@ export async function GET(request: Request) {
             data: v2Result.vaultV2ByAddress.totalAssetsUsd != null ? [{
               date: currentDate,
               value: v2Result.vaultV2ByAddress.totalAssetsUsd,
-            }] : []
+            }] : [],
+            performanceFee: v2Result.vaultV2ByAddress.performanceFee ?? null,
           };
         }
         
@@ -166,7 +169,8 @@ export async function GET(request: Request) {
               data: histResult.vault.historicalState.totalAssetsUsd.map(point => ({
                 date: point.x ? new Date(point.x * 1000).toISOString() : '',
                 value: point.y || 0,
-              })).filter(p => p.date)
+              })).filter(p => p.date),
+              performanceFee: null, // V1 vaults don't contribute performanceFee here (they're already in morphoVaults)
             };
           }
         }
@@ -177,7 +181,17 @@ export async function GET(request: Request) {
     });
 
     const tvlByVaultResults = await Promise.all(tvlByVaultPromises);
-    const tvlByVault = tvlByVaultResults.filter((v): v is NonNullable<typeof v> => v !== null);
+    
+    // Extract V2 performance fees before filtering out the performanceFee field
+    const v2PerformanceFees = tvlByVaultResults
+      .filter((v): v is { name: string; address: string; data: Array<{ date: string; value: number }>; performanceFee: number | null } => 
+        v !== null && v.performanceFee != null && v.performanceFee !== null)
+      .map(v => ({ performanceFee: v.performanceFee as number }));
+    
+    // Extract TVL data (remove performanceFee field)
+    const tvlByVault = tvlByVaultResults
+      .filter((v): v is NonNullable<typeof v> => v !== null)
+      .map(({ performanceFee: _performanceFee, ...rest }) => rest); // eslint-disable-line @typescript-eslint/no-unused-vars
     
     // Initialize totals (will be updated from DefiLlama if available)
     let totalFeesGenerated = 0;
@@ -208,13 +222,24 @@ export async function GET(request: Request) {
         fetchDefiLlamaProtocol(),
       ]);
       
-      // Calculate average performance fee rate from vaults
+      // Calculate average performance fee rate from all vaults (V1 + V2)
       let avgPerformanceFeeRate = 0.02; // Default 2%
-      const feeRates = morphoVaults
+      
+      // Collect V1 vault performance fees
+      const v1FeeRates = morphoVaults
         .map(v => v.state?.fee)
         .filter((f): f is number => f !== null && f !== undefined && f > 0);
-      if (feeRates.length > 0) {
-        avgPerformanceFeeRate = feeRates.reduce((a, b) => a + b, 0) / feeRates.length;
+      
+      // Collect V2 vault performance fees (already collected during TVL fetch)
+      const v2FeeRates = v2PerformanceFees
+        .map(v => v.performanceFee)
+        .filter((f): f is number => f !== null && f !== undefined && f > 0 && !Number.isNaN(f));
+      
+      // Combine all fee rates
+      const allFeeRates = [...v1FeeRates, ...v2FeeRates];
+      
+      if (allFeeRates.length > 0) {
+        avgPerformanceFeeRate = allFeeRates.reduce((a, b) => a + b, 0) / allFeeRates.length;
       }
       
       if (feesData) {
