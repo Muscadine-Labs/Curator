@@ -6,6 +6,7 @@ import { createRateLimitMiddleware, RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS } 
 import { morphoGraphQLClient } from '@/lib/morpho/graphql-client';
 import { gql } from 'graphql-request';
 import { getAddress, isAddress } from 'viem';
+import { logger } from '@/lib/utils/logger';
 // Types imported from SDK but not directly used in this file
 // import type { Vault, VaultPosition, Maybe } from '@morpho-org/blue-api-sdk';
 
@@ -70,13 +71,14 @@ export async function GET(
         // V2 vault exists (even if name is null)
         vaultName = v2Check.vaultV2ByAddress.name ?? null;
         isV2 = true;
-        console.log(`V2 vault detected for ${address}: name=${vaultName}`);
-      } else {
-        console.log(`V2 vault check returned null for ${address}`);
+        logger.debug('V2 vault detected', { address, name: vaultName });
       }
     } catch (error) {
-      // V2 query failed, try V1
-      console.log(`V2 vault check failed for ${address}:`, error instanceof Error ? error.message : String(error));
+      // V2 query failed, try V1 (expected for V1 vaults)
+      logger.debug('V2 vault check failed, trying V1', {
+        address,
+        error: error instanceof Error ? error.message : String(error),
+      });
       try {
         const v1CheckQuery = gql`
           query CheckV1Vault($address: String!, $chainId: Int!) {
@@ -103,7 +105,11 @@ export async function GET(
       const nameBasedIsV2 = shouldUseV2Query(vaultName);
       if (isV2 !== nameBasedIsV2) {
         // Log warning if there's a mismatch, but trust the GraphQL result
-        console.warn(`Vault ${address}: GraphQL detection (isV2=${isV2}) doesn't match name-based detection (${nameBasedIsV2})`);
+        logger.warn('Vault type detection mismatch', {
+          address,
+          graphqlDetection: isV2,
+          nameBasedDetection: nameBasedIsV2,
+        });
       }
     }
 
@@ -293,36 +299,21 @@ export async function GET(
         query,
         variables
       );
-      // Debug logging for v2 vaults
-      const responseData = data as VaultDetailQueryResponse;
-      console.log(`V2 vault query response for ${cfg.address}:`, {
-        isV2,
-        hasVaultV2ByAddress: !!responseData.vaultV2ByAddress,
-        responseKeys: Object.keys(responseData),
-        fullResponse: JSON.stringify(responseData, null, 2).substring(0, 500),
-      });
-      
-      if (isV2) {
-        const vaultData = responseData.vaultV2ByAddress as Record<string, unknown> | null | undefined;
-        if (vaultData) {
-          console.log(`✓ V2 vault data found for ${cfg.address}:`, {
-            name: vaultData?.name,
-            totalAssetsUsd: vaultData?.totalAssetsUsd,
-            totalAssets: vaultData?.totalAssets,
-            avgApy: vaultData?.avgApy,
-            avgNetApy: vaultData?.avgNetApy,
-            maxApy: vaultData?.maxApy,
-            address: vaultData?.address,
-          });
-        } else {
-          console.log(`✗ V2 vault data is null/undefined for ${cfg.address}`);
-        }
+      if (isV2 && data.vaultV2ByAddress) {
+        logger.debug('V2 vault data found', {
+          address: cfg.address,
+          name: (data.vaultV2ByAddress as Record<string, unknown>)?.name,
+          totalAssetsUsd: (data.vaultV2ByAddress as Record<string, unknown>)?.totalAssetsUsd,
+          avgApy: (data.vaultV2ByAddress as Record<string, unknown>)?.avgApy,
+        });
       }
     } catch (graphqlError) {
       // For v2 vaults, GraphQL API may not have indexed them yet
       // Check if this is a v2 vault and handle gracefully
       if (isV2) {
-        console.error(`GraphQL query failed for v2 vault ${address}:`, graphqlError);
+        logger.error('GraphQL query failed for v2 vault', graphqlError instanceof Error ? graphqlError : new Error(String(graphqlError)), {
+          address,
+        });
         // Return null vault to trigger fallback handling below
         data = { vaultV2ByAddress: null, positions: null, txs: null };
       } else {
@@ -335,12 +326,10 @@ export async function GET(
     // V2 uses vaultV2ByAddress, V1 uses vault
     const vaultData = isV2 ? data.vaultV2ByAddress : data.vault;
     if (!vaultData && isV2) {
-      // Log for debugging why v2 vault not found
-      console.log(`V2 vault not found in GraphQL response for ${cfg.address}:`, {
-        queryAddress: cfg.address,
+      logger.debug('V2 vault not found in GraphQL response', {
+        address: cfg.address,
         chainId: cfg.chainId,
         hasVaultV2ByAddress: !!data.vaultV2ByAddress,
-        responseKeys: Object.keys(data),
       });
     }
     if (!vaultData) {

@@ -6,6 +6,7 @@ import { createRateLimitMiddleware, RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS } 
 import { morphoGraphQLClient } from '@/lib/morpho/graphql-client';
 import { gql } from 'graphql-request';
 import { getAddress } from 'viem';
+import { logger } from '@/lib/utils/logger';
 
 
 export async function GET(request: Request) {
@@ -30,8 +31,6 @@ export async function GET(request: Request) {
     // Get all configured vault addresses (checksummed for GraphQL)
     const addresses = vaultAddresses.map(v => getAddress(v.address));
     const configuredAddressSet = new Set(addresses.map((a) => a.toLowerCase()));
-    // Known V2 addresses (prime/vineyard) are first entries in config
-    const v2Addresses = vaultAddresses.slice(0, 3).map((v) => getAddress(v.address));
 
     // Build queries for both V1 and V2 vaults
     const v1Query = gql`
@@ -58,9 +57,9 @@ export async function GET(request: Request) {
     `;
 
     // For V2 vaults, we need to query individually since there's no vaultsV2 list query
-    // We'll fetch V2 vaults by trying each address with vaultV2ByAddress
+    // We'll try all addresses - non-V2 vaults will return null and be filtered out
     // V2 vaults have positions nested directly on the vault, not in a separate query
-    const v2VaultPromises = v2Addresses.map(async (address) => {
+    const v2VaultPromises = addresses.map(async (address) => {
       try {
         const v2Query = gql`
           query FetchV2Vault($address: String!, $chainId: Int!) {
@@ -86,33 +85,22 @@ export async function GET(request: Request) {
         // Access the property directly - it will be null if vault doesn't exist, or an object if it does
         const vaultData = result?.vaultV2ByAddress;
         
-        console.log(`V2 query for ${address}:`, {
-          hasResult: !!result,
-          resultType: typeof result,
-          resultKeys: result ? Object.keys(result) : [],
-          hasVaultV2ByAddress: !!vaultData,
-          vaultDataType: typeof vaultData,
-          vaultDataKeys: vaultData ? Object.keys(vaultData) : [],
-        });
-        
         if (vaultData && vaultData.address) {
-          console.log(`✓ V2 vault found for ${address}:`, {
+          logger.debug('V2 vault found', {
+            address: vaultData.address,
             name: vaultData.name,
             totalAssetsUsd: vaultData.totalAssetsUsd,
             avgApy: vaultData.avgApy,
-            address: vaultData.address,
           });
           return vaultData;
-        } else {
-          console.log(`✗ V2 vault not found for ${address}:`, {
-            vaultDataIsNull: vaultData === null,
-            vaultDataIsUndefined: vaultData === undefined,
-            vaultDataValue: vaultData,
-          });
-          return null;
         }
+        return null;
       } catch (error) {
-        console.error(`Error fetching V2 vault ${address}:`, error instanceof Error ? error.message : String(error));
+        // Silently skip non-V2 vaults - errors are expected for V1 addresses
+        logger.debug('V2 vault query failed (expected for V1 vaults)', {
+          address,
+          error: error instanceof Error ? error.message : String(error),
+        });
         return null;
       }
     });
@@ -124,10 +112,10 @@ export async function GET(request: Request) {
     ]);
 
     const v2Vaults = v2Results.filter((v): v is NonNullable<typeof v> => v !== null);
-    console.log(`V2 vaults found: ${v2Vaults.length} out of ${v2Results.length} addresses queried`);
-    if (v2Vaults.length > 0) {
-      console.log(`V2 vault addresses found:`, v2Vaults.map(v => ({ address: v.address, name: v.name })));
-    }
+    logger.debug('V2 vaults fetched', {
+      found: v2Vaults.length,
+      queried: v2Results.length,
+    });
 
     // Fetch positions for V1 vaults (V2 vaults already have positions in their query result)
     const positionsQuery = gql`
@@ -224,15 +212,6 @@ export async function GET(request: Request) {
           feesAllTime: null,
           lastHarvest: null,
         };
-        console.log(`Mapping V2 vault ${v.address}:`, {
-          name: mapped.name,
-          tvl: mapped.tvl,
-          apy: mapped.apy,
-          originalName: v.name,
-          originalTotalAssetsUsd: v.totalAssetsUsd,
-          originalAvgApy: v.avgApy,
-          originalAvgNetApy: v.avgNetApy,
-        });
         return mapped;
       }),
     ];
