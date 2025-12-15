@@ -94,11 +94,36 @@ export async function GET(request: Request) {
     const totalDeposited = morphoVaults.reduce((sum, v) => sum + (v.state?.totalAssetsUsd ?? 0), 0);
     const activeVaults = vaultAddresses.length;
 
-    // Fetch historical TVL data per vault (only for V1 vaults as V2 doesn't have historical data yet)
+    // Fetch historical TVL data per vault (V1 has historical, V2 has current only)
     const tvlByVaultPromises = addresses.map(async (address) => {
-      // Check if this is a V1 vault by querying its name
       try {
-        const checkQuery = gql`
+        // First check if it's a V2 vault
+        const v2CheckQuery = gql`
+          query CheckV2Vault($address: String!, $chainId: Int!) {
+            vaultV2ByAddress(address: $address, chainId: $chainId) {
+              name
+              address
+              totalAssetsUsd
+            }
+          }
+        `;
+        const v2Result = await morphoGraphQLClient.request<{ vaultV2ByAddress?: { name?: string; address?: string; totalAssetsUsd?: number } | null }>(v2CheckQuery, { address, chainId: BASE_CHAIN_ID });
+        
+        if (v2Result.vaultV2ByAddress?.name) {
+          // This is a V2 vault, use current TVL as a single data point
+          const currentDate = new Date().toISOString();
+          return {
+            name: v2Result.vaultV2ByAddress.name,
+            address: address.toLowerCase(),
+            data: v2Result.vaultV2ByAddress.totalAssetsUsd != null ? [{
+              date: currentDate,
+              value: v2Result.vaultV2ByAddress.totalAssetsUsd,
+            }] : []
+          };
+        }
+        
+        // Check if it's a V1 vault
+        const v1CheckQuery = gql`
           query CheckVault($address: String!, $chainId: Int!) {
             vault: vaultByAddress(address: $address, chainId: $chainId) {
               name
@@ -106,9 +131,9 @@ export async function GET(request: Request) {
             }
           }
         `;
-        const result = await morphoGraphQLClient.request<{ vault?: { name?: string; address?: string } | null }>(checkQuery, { address, chainId: BASE_CHAIN_ID });
+        const v1Result = await morphoGraphQLClient.request<{ vault?: { name?: string; address?: string } | null }>(v1CheckQuery, { address, chainId: BASE_CHAIN_ID });
         
-        if (result.vault?.name && !shouldUseV2Query(result.vault.name)) {
+        if (v1Result.vault?.name && !shouldUseV2Query(v1Result.vault.name)) {
           // This is a V1 vault, fetch historical data
           const historicalQuery = gql`
             query VaultHistoricalTvl($address: String!, $chainId: Int!, $options: TimeseriesOptions) {
