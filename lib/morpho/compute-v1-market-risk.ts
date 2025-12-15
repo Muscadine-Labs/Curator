@@ -20,52 +20,35 @@ export interface MarketRiskScores {
   grade: MarketRiskGrade;
 }
 
-// Known Chainlink oracle addresses on Base (can be expanded)
-const CHAINLINK_ORACLES = new Set<string>([
-  '0x4aDC67696bA383F43DD60A9e78F2C97Fbbfc7cb1', // Chainlink ETH/USD
-  '0x7f8847242a530E809E17b2dC8A3b6d3E1c9F5A8f', // Chainlink BTC/USD
-  // Add more Chainlink oracle addresses as needed
-]);
-
-// Volatile collateral assets (need stricter oracle requirements)
-const VOLATILE_COLLATERAL = new Set<string>([
-  'BTC',
-  'ETH',
-  // Add more volatile assets as needed
-]);
-
 /**
  * Compute Oracle Score (0-5)
  * 
  * Inputs:
- * - oracle.address
- * - oracle.lastUpdateTimestamp
+ * - oracleAddress
  * - collateralAsset.symbol
  * 
+ * Note: GraphQL doesn't provide oracle type or lastUpdateTimestamp,
+ * so we score based on whether oracle address exists.
+ * 
  * Score:
- * - 5 = Chainlink oracle AND stalenessRatio ≤ 0.5
- * - 4 = Chainlink oracle AND stalenessRatio ≤ 1.2
- * - 3 = Custom oracle AND stalenessRatio ≤ 1.0
- * - 2 = Custom oracle (stale)
- * - 1 = Fixed / opaque oracle
- * - 0 = Stale oracle + volatile collateral
+ * - 3 = Valid oracle address exists (moderate trust - cannot verify staleness or type)
+ * - 1 = No oracle address or zero address (opaque/fixed oracle)
+ * 
+ * Without timestamp data, we can't check staleness or differentiate
+ * between Chainlink and custom oracles dynamically.
  */
 function computeOracleScore(market: V1VaultMarketData): number {
   const oracleAddress = market.oracleAddress;
 
-  // If no oracle address, treat as opaque (score 1)
-  if (!oracleAddress) {
+  // If no oracle address or zero address, treat as opaque (score 1)
+  if (!oracleAddress || oracleAddress.toLowerCase() === '0x0000000000000000000000000000000000000000') {
     return 1;
   }
 
-  const isChainlink = CHAINLINK_ORACLES.has(oracleAddress.toLowerCase());
-
-  // Without timestamp, we can't check staleness, so we score based on oracle type
-  // Chainlink oracles are generally more trusted even without timestamp data
-  if (isChainlink) {
-    return 3; // Chainlink but no timestamp - assume moderate trust
-  }
-  return 1; // Opaque/custom oracle without timestamp
+  // Valid oracle address exists - give moderate score
+  // Without timestamp data, we can't check staleness or oracle type
+  // All valid oracles get the same score since we can't differentiate dynamically
+  return 3;
 }
 
 /**
@@ -81,12 +64,9 @@ function computeOracleScore(market: V1VaultMarketData): number {
  * - 3 = lltv < 95%
  * - 2 = lltv < 97%
  * - 1 = lltv ≥ 97%
- * - 0 = high volatility AND lltv > 95%
  */
 function computeLtvScore(market: V1VaultMarketData): number {
   const lltvRaw = market.lltv;
-  const collateralSymbol = market.collateralAsset?.symbol || '';
-  const isVolatile = VOLATILE_COLLATERAL.has(collateralSymbol.toUpperCase());
 
   if (!lltvRaw) {
     return 0; // No LTV = highest risk
@@ -99,11 +79,6 @@ function computeLtvScore(market: V1VaultMarketData): number {
   // 90% is the gold standard - score 5
   if (lltvPercent >= 89.95 && lltvPercent <= 90.05) {
     return 5;
-  }
-
-  // High volatility + LTV > 95% = score 0
-  if (isVolatile && lltvPercent > 95) {
-    return 0;
   }
 
   // Upper bounds only (no lower bounds)

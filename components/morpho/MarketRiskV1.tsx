@@ -127,13 +127,20 @@ export function MarketRiskV1({ vaultAddress }: MarketRiskV1Props) {
     );
   }
 
+  // Sort markets by vault allocation (most allocated first)
+  const sortedMarkets = [...data.markets].sort((a, b) => {
+    const aSupply = a.market.vaultSupplyAssetsUsd ?? 0;
+    const bSupply = b.market.vaultSupplyAssetsUsd ?? 0;
+    return bSupply - aSupply; // Descending order (most to least)
+  });
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Market Risk</CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        {data.markets.map(({ market, scores }) => {
+        {sortedMarkets.map(({ market, scores }) => {
           const marketName = formatMarketIdentifier(
             market.loanAsset?.symbol,
             market.collateralAsset?.symbol
