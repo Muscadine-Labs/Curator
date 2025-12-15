@@ -76,7 +76,7 @@ If your wallet is on a different network, the app will prompt you to switch to B
    **Note**: The `.env.example` file is blocked by gitignore. See the file structure below for required variables.
 
    Required environment variables:
-   - Server: `ALCHEMY_API_KEY` (required)
+   - Server: `COINBASE_CDP_API_KEY` OR `ALCHEMY_API_KEY` (one required, Coinbase CDP preferred)
    - Client: `NEXT_PUBLIC_ALCHEMY_API_KEY` (required), `NEXT_PUBLIC_ONCHAINKIT_API_KEY` (optional)
    - Vault Addresses (optional - defaults provided in code):
      - V1: `NEXT_PUBLIC_VAULT_USDC`, `NEXT_PUBLIC_VAULT_CBBTC`, `NEXT_PUBLIC_VAULT_WETH`

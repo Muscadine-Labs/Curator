@@ -1,4 +1,5 @@
 import type { V1VaultMarketData } from './query-v1-vault-markets';
+import type { OracleTimestampData } from './oracle-utils';
 
 /**
  * Market Risk Scoring for Morpho V1 - Market Level Only
@@ -25,19 +26,18 @@ export interface MarketRiskScores {
  * 
  * Inputs:
  * - oracleAddress
- * - collateralAsset.symbol
- * 
- * Note: GraphQL doesn't provide oracle type or lastUpdateTimestamp,
- * so we score based on whether oracle address exists.
+ * - oracleTimestampData (optional) - timestamp data from Chainlink oracle
  * 
  * Score:
- * - 3 = Valid oracle address exists (moderate trust - cannot verify staleness or type)
+ * - 5 = Chainlink oracle with recent update (< 1 hour old)
+ * - 4 = Chainlink oracle with fresh update (< 24 hours old)
+ * - 3 = Valid oracle address exists but no timestamp data or stale (> 24 hours)
  * - 1 = No oracle address or zero address (opaque/fixed oracle)
- * 
- * Without timestamp data, we can't check staleness or differentiate
- * between Chainlink and custom oracles dynamically.
  */
-function computeOracleScore(market: V1VaultMarketData): number {
+function computeOracleScore(
+  market: V1VaultMarketData,
+  oracleTimestampData?: OracleTimestampData | null
+): number {
   const oracleAddress = market.oracleAddress;
 
   // If no oracle address or zero address, treat as opaque (score 1)
@@ -45,9 +45,26 @@ function computeOracleScore(market: V1VaultMarketData): number {
     return 1;
   }
 
-  // Valid oracle address exists - give moderate score
-  // Without timestamp data, we can't check staleness or oracle type
-  // All valid oracles get the same score since we can't differentiate dynamically
+  // If we have timestamp data from Chainlink oracle, score based on freshness
+  if (oracleTimestampData?.updatedAt && oracleTimestampData.ageSeconds !== null) {
+    const ageHours = oracleTimestampData.ageSeconds / 3600;
+    
+    // Recent update (< 1 hour) - best score
+    if (ageHours < 1) {
+      return 5;
+    }
+    
+    // Fresh update (< 24 hours) - good score
+    if (ageHours < 24) {
+      return 4;
+    }
+    
+    // Stale (> 24 hours) - moderate score
+    return 3;
+  }
+
+  // Valid oracle address exists but no timestamp data available
+  // This could be a custom oracle or Chainlink feed we couldn't resolve
   return 3;
 }
 
@@ -299,8 +316,11 @@ export function isMarketIdle(market: V1VaultMarketData): boolean {
 /**
  * Compute all market risk scores for a V1 vault market
  */
-export function computeV1MarketRiskScores(market: V1VaultMarketData): MarketRiskScores {
-  const oracleScore = computeOracleScore(market);
+export function computeV1MarketRiskScores(
+  market: V1VaultMarketData,
+  oracleTimestampData?: OracleTimestampData | null
+): MarketRiskScores {
+  const oracleScore = computeOracleScore(market, oracleTimestampData);
   const ltvScore = computeLtvScore(market);
   const liquidityScore = computeLiquidityScore(market);
   const liquidationScore = computeLiquidationScore(market);

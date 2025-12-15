@@ -5,6 +5,7 @@ import { createRateLimitMiddleware, RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS } 
 import { getAddress, isAddress } from 'viem';
 import { fetchV1VaultMarkets } from '@/lib/morpho/query-v1-vault-markets';
 import { computeV1MarketRiskScores, isMarketIdle } from '@/lib/morpho/compute-v1-market-risk';
+import { getOracleTimestampData } from '@/lib/morpho/oracle-utils';
 import type { V1VaultMarketData } from '@/lib/morpho/query-v1-vault-markets';
 
 export interface V1MarketRiskData {
@@ -70,10 +71,20 @@ export async function GET(
     // Fetch markets for this V1 vault
     const markets = await fetchV1VaultMarkets(address, cfg.chainId);
 
+    // Fetch oracle timestamp data for all active markets in parallel
+    const oracleTimestampPromises = markets.map((market) =>
+      isMarketIdle(market)
+        ? Promise.resolve(null)
+        : getOracleTimestampData(market.oracleAddress || null)
+    );
+    const oracleTimestampData = await Promise.all(oracleTimestampPromises);
+
     // Compute risk scores for each market (null for idle markets)
-    const marketsWithScores: V1MarketRiskData[] = markets.map((market) => ({
+    const marketsWithScores: V1MarketRiskData[] = markets.map((market, index) => ({
       market,
-      scores: isMarketIdle(market) ? null : computeV1MarketRiskScores(market),
+      scores: isMarketIdle(market)
+        ? null
+        : computeV1MarketRiskScores(market, oracleTimestampData[index]),
     }));
 
     const response: V1VaultMarketRiskResponse = {
