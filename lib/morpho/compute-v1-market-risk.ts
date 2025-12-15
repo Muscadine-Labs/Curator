@@ -75,13 +75,13 @@ function computeOracleScore(market: V1VaultMarketData): number {
  * - lltv (loan-to-liquidation threshold value, as percentage)
  * - collateralAsset.symbol
  * 
- * Score:
- * - 5 = lltv ≤ 70%
- * - 4 = 70% < lltv ≤ 80%
- * - 3 = 80% < lltv ≤ 85%
- * - 2 = 85% < lltv ≤ 90%
- * - 1 = lltv > 90%
- * - 0 = high volatility AND lltv > 85%
+ * Score (90% is gold standard, upper bounds only):
+ * - 5 = lltv = 90% (gold standard)
+ * - 4 = lltv < 92% (excluding 90%)
+ * - 3 = lltv < 95%
+ * - 2 = lltv < 97%
+ * - 1 = lltv ≥ 97%
+ * - 0 = high volatility AND lltv > 95%
  */
 function computeLtvScore(market: V1VaultMarketData): number {
   const lltvRaw = market.lltv;
@@ -92,35 +92,32 @@ function computeLtvScore(market: V1VaultMarketData): number {
     return 0; // No LTV = highest risk
   }
 
-  // LTV is stored as basis points in Morpho Blue (e.g., "8500" = 85%)
-  // Basis points: 1 bp = 0.01%, so 8500 bp = 85%
-  // Convert basis points to percentage: divide by 100
-  const lltvPercent = Number(lltvRaw) / 100;
+  // LTV is stored as a fraction scaled by 1e18 in Morpho Blue (e.g., "860000000000000000" = 0.86 = 86%)
+  // Convert wei to percentage: divide by 1e16 (1e18 / 100)
+  const lltvPercent = Number(lltvRaw) / 1e16;
 
-  if (lltvPercent <= 70) {
+  // 90% is the gold standard - score 5
+  if (lltvPercent >= 89.95 && lltvPercent <= 90.05) {
     return 5;
   }
-  if (lltvPercent <= 80) {
-    return 4;
-  }
-  if (lltvPercent <= 85) {
-    // High volatility + LTV > 85% = score 0
-    if (isVolatile) {
-      return 0;
-    }
-    return 3;
-  }
-  if (lltvPercent <= 90) {
-    // High volatility + LTV > 85% = score 0
-    if (isVolatile) {
-      return 0;
-    }
-    return 2;
-  }
-  // lltv > 90%
-  if (isVolatile) {
+
+  // High volatility + LTV > 95% = score 0
+  if (isVolatile && lltvPercent > 95) {
     return 0;
   }
+
+  // Upper bounds only (no lower bounds)
+  if (lltvPercent < 92) {
+    return 4;
+  }
+  if (lltvPercent < 95) {
+    return 3;
+  }
+  if (lltvPercent < 97) {
+    return 2;
+  }
+  
+  // lltv ≥ 97%
   return 1;
 }
 
@@ -214,9 +211,9 @@ function computeLiquidationScore(market: V1VaultMarketData): number {
     return 0;
   }
 
-  // Convert LTV from basis points to ratio for calculations
-  // Basis points to ratio: divide by 10000 (e.g., 8500 -> 0.85)
-  const lltvRatio = Number(lltvRaw) / 10000;
+  // Convert LTV from wei format to ratio for calculations
+  // Wei to ratio: divide by 1e18 (e.g., 860000000000000000 -> 0.86)
+  const lltvRatio = Number(lltvRaw) / 1e18;
 
   // Use USD values from state
   const totalSupplyUsd = state.supplyAssetsUsd ? Number(state.supplyAssetsUsd) : 0;
@@ -315,6 +312,13 @@ function applyGlobalCaps(
   }
 
   return cappedScore;
+}
+
+/**
+ * Check if market is idle (should not be scored)
+ */
+export function isMarketIdle(market: V1VaultMarketData): boolean {
+  return !market.lltv || !market.collateralAsset?.symbol || market.collateralAsset.symbol === 'Unknown';
 }
 
 /**

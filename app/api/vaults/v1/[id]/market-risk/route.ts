@@ -4,7 +4,7 @@ import { handleApiError, AppError } from '@/lib/utils/error-handler';
 import { createRateLimitMiddleware, RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS } from '@/lib/utils/rate-limit';
 import { getAddress, isAddress } from 'viem';
 import { fetchV1VaultMarkets } from '@/lib/morpho/query-v1-vault-markets';
-import { computeV1MarketRiskScores } from '@/lib/morpho/compute-v1-market-risk';
+import { computeV1MarketRiskScores, isMarketIdle } from '@/lib/morpho/compute-v1-market-risk';
 import type { V1VaultMarketData } from '@/lib/morpho/query-v1-vault-markets';
 
 export interface V1MarketRiskData {
@@ -16,7 +16,7 @@ export interface V1MarketRiskData {
     liquidationScore: number;
     marketRiskScore: number;
     grade: string;
-  };
+  } | null; // null for idle markets
 }
 
 export interface V1VaultMarketRiskResponse {
@@ -70,10 +70,10 @@ export async function GET(
     // Fetch markets for this V1 vault
     const markets = await fetchV1VaultMarkets(address, cfg.chainId);
 
-    // Compute risk scores for each market
+    // Compute risk scores for each market (null for idle markets)
     const marketsWithScores: V1MarketRiskData[] = markets.map((market) => ({
       market,
-      scores: computeV1MarketRiskScores(market),
+      scores: isMarketIdle(market) ? null : computeV1MarketRiskScores(market),
     }));
 
     const response: V1VaultMarketRiskResponse = {

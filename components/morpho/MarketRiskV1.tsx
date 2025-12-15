@@ -5,7 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { formatCompactUSD } from '@/lib/format/number';
 import type { MarketRiskGrade } from '@/lib/morpho/compute-v1-market-risk';
+import { isMarketIdle } from '@/lib/morpho/compute-v1-market-risk';
 
 interface MarketRiskV1Props {
   vaultAddress: string;
@@ -137,76 +139,113 @@ export function MarketRiskV1({ vaultAddress }: MarketRiskV1Props) {
             market.collateralAsset?.symbol
           );
           
-          // LTV is stored as basis points in Morpho (e.g., "8500" = 85%)
-          // Convert basis points to percentage for display: divide by 100
+          // LTV is stored as a fraction scaled by 1e18 in Morpho (e.g., "860000000000000000" = 0.86 = 86%)
+          // Convert wei to percentage for display: divide by 1e16 (1e18 / 100)
           const lltvPercent = market.lltv 
-            ? (Number(market.lltv) / 100).toFixed(2)
+            ? (Number(market.lltv) / 1e16).toFixed(2)
             : 'N/A';
+
+          const isIdle = isMarketIdle(market);
+          const vaultSupplyUsd = market.vaultSupplyAssetsUsd ?? 0;
+          const vaultTotalUsd = market.vaultTotalAssetsUsd ?? 0;
+          const marketTotalSupplyUsd = market.marketTotalSupplyUsd ?? 0;
+
+          // Calculate percentages
+          const vaultAllocationPercent = vaultTotalUsd > 0 
+            ? (vaultSupplyUsd / vaultTotalUsd) * 100 
+            : 0;
+          const marketSharePercent = marketTotalSupplyUsd > 0
+            ? (vaultSupplyUsd / marketTotalSupplyUsd) * 100
+            : 0;
 
           return (
             <div
               key={market.uniqueKey || market.id}
-              className="border rounded-lg p-4 space-y-4 bg-slate-50/50 dark:bg-slate-900/50"
+              className={cn(
+                "border rounded-lg p-4 space-y-4",
+                isIdle 
+                  ? "bg-slate-100/50 dark:bg-slate-800/50 opacity-75" 
+                  : "bg-slate-50/50 dark:bg-slate-900/50"
+              )}
             >
               {/* Market Header */}
               <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="font-semibold text-lg">{marketName}</h3>
-                  <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                    LTV: {lltvPercent}%
-                  </p>
-                </div>
-                <div className="text-right">
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      'px-3 py-1.5 text-sm font-semibold',
-                      getGradeColor(scores.grade as MarketRiskGrade)
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-lg">{marketName}</h3>
+                    {isIdle && (
+                      <Badge variant="outline" className="text-xs">
+                        Idle
+                      </Badge>
                     )}
-                  >
-                    {scores.grade} · {scores.marketRiskScore.toFixed(2)}
-                  </Badge>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    Total Risk Score
-                  </p>
+                  </div>
+                  <div className="mt-2 space-y-1">
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      LTV: {lltvPercent}%
+                    </p>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      Vault Supply: {formatCompactUSD(vaultSupplyUsd)}
+                    </p>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      {(vaultAllocationPercent / 100).toFixed(2)}% of vault · {(marketSharePercent / 100).toFixed(2)}% of market
+                    </p>
+                  </div>
                 </div>
+                {!isIdle && scores && (
+                  <div className="text-right">
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        'px-3 py-1.5 text-sm font-semibold',
+                        getGradeColor(scores.grade as MarketRiskGrade)
+                      )}
+                    >
+                      {scores.grade} · {scores.marketRiskScore.toFixed(2)}
+                    </Badge>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                      Total Risk Score
+                    </p>
+                  </div>
+                )}
               </div>
 
-              {/* Component Scores */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2 border-t">
-                <div>
-                  <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">
-                    Oracle
-                  </p>
-                  <p className={cn('text-lg font-semibold', getScoreColor(scores.oracleScore))}>
-                    {scores.oracleScore.toFixed(2)}
-                  </p>
+              {/* Component Scores - Only show if not idle */}
+              {!isIdle && scores && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2 border-t">
+                  <div>
+                    <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">
+                      Oracle
+                    </p>
+                    <p className={cn('text-lg font-semibold', getScoreColor(scores.oracleScore))}>
+                      {scores.oracleScore.toFixed(2)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">
+                      LTV
+                    </p>
+                    <p className={cn('text-lg font-semibold', getScoreColor(scores.ltvScore))}>
+                      {scores.ltvScore.toFixed(2)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">
+                      Liquidity
+                    </p>
+                    <p className={cn('text-lg font-semibold', getScoreColor(scores.liquidityScore))}>
+                      {scores.liquidityScore.toFixed(2)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">
+                      Liquidation
+                    </p>
+                    <p className={cn('text-lg font-semibold', getScoreColor(scores.liquidationScore))}>
+                      {scores.liquidationScore.toFixed(2)}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">
-                    LTV
-                  </p>
-                  <p className={cn('text-lg font-semibold', getScoreColor(scores.ltvScore))}>
-                    {scores.ltvScore.toFixed(2)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">
-                    Liquidity
-                  </p>
-                  <p className={cn('text-lg font-semibold', getScoreColor(scores.liquidityScore))}>
-                    {scores.liquidityScore.toFixed(2)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">
-                    Liquidation
-                  </p>
-                  <p className={cn('text-lg font-semibold', getScoreColor(scores.liquidationScore))}>
-                    {scores.liquidationScore.toFixed(2)}
-                  </p>
-                </div>
-              </div>
+              )}
             </div>
           );
         })}
