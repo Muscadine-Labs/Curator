@@ -7,6 +7,7 @@ import { fetchV1VaultMarkets } from '@/lib/morpho/query-v1-vault-markets';
 import { computeV1MarketRiskScores, isMarketIdle } from '@/lib/morpho/compute-v1-market-risk';
 import { getOracleTimestampData } from '@/lib/morpho/oracle-utils';
 import type { V1VaultMarketData } from '@/lib/morpho/query-v1-vault-markets';
+import type { Address } from 'viem';
 
 export interface V1MarketRiskData {
   market: V1VaultMarketData;
@@ -75,7 +76,9 @@ export async function GET(
     const oracleTimestampPromises = markets.map((market) =>
       isMarketIdle(market)
         ? Promise.resolve(null)
-        : getOracleTimestampData(market.oracleAddress || null)
+        : getOracleTimestampData(
+            market.oracleAddress ? (market.oracleAddress as Address) : null
+          )
     );
     const oracleTimestampData = await Promise.all(oracleTimestampPromises);
 
