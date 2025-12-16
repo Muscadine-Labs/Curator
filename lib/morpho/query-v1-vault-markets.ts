@@ -39,6 +39,8 @@ const VAULT_V1_MARKETS_QUERY = gql`
               borrowAssetsUsd
               liquidityAssetsUsd
               utilization
+              supplyRate
+              borrowRate
             }
           }
         }
@@ -75,6 +77,8 @@ export type V1VaultMarketData = {
     borrowAssetsUsd: number | null;
     liquidityAssetsUsd: number | null;
     utilization: number | null;
+    supplyRate: number | null;
+    borrowRate: number | null;
   } | null;
   // Vault allocation data for this market
   vaultSupplyAssets: string | null; // Raw amount supplied by vault

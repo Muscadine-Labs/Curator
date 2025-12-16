@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import { formatCompactUSD } from '@/lib/format/number';
+import { formatCompactUSD, formatPercentage } from '@/lib/format/number';
 import type { MarketRiskGrade } from '@/lib/morpho/compute-v1-market-risk';
 import { isMarketIdle } from '@/lib/morpho/compute-v1-market-risk';
 
@@ -145,10 +145,29 @@ export function MarketRiskV1({ vaultAddress }: MarketRiskV1Props) {
   }
 
   // Sort markets by vault allocation (most allocated first)
+  // If vault supply is the same, idle markets go last
   const sortedMarkets = [...data.markets].sort((a, b) => {
     const aSupply = a.market.vaultSupplyAssetsUsd ?? 0;
     const bSupply = b.market.vaultSupplyAssetsUsd ?? 0;
-    return bSupply - aSupply; // Descending order (most to least)
+    
+    // First, sort by vault supply (descending)
+    if (aSupply !== bSupply) {
+      return bSupply - aSupply;
+    }
+    
+    // If vault supply is the same, put idle markets last
+    const aIsIdle = isMarketIdle(a.market);
+    const bIsIdle = isMarketIdle(b.market);
+    
+    if (aIsIdle && !bIsIdle) {
+      return 1; // a goes after b
+    }
+    if (!aIsIdle && bIsIdle) {
+      return -1; // a goes before b
+    }
+    
+    // Both idle or both not idle - maintain current order
+    return 0;
   });
 
   return (
@@ -219,10 +238,7 @@ export function MarketRiskV1({ vaultAddress }: MarketRiskV1Props) {
                       LTV: {lltvPercent}%
                     </p>
                     <p className="text-sm text-slate-600 dark:text-slate-400">
-                      Vault Supply: {formatCompactUSD(vaultSupplyUsd)}
-                    </p>
-                    <p className="text-sm text-slate-600 dark:text-slate-400">
-                      {(vaultAllocationPercent / 100).toFixed(2)}% of vault · {(marketSharePercent / 100).toFixed(2)}% of market
+                      Vault Supply: {formatCompactUSD(vaultSupplyUsd)} · {vaultAllocationPercent.toFixed(2)}% of vault · {marketSharePercent.toFixed(2)}% of market
                     </p>
                   </div>
                 </div>
@@ -246,84 +262,126 @@ export function MarketRiskV1({ vaultAddress }: MarketRiskV1Props) {
 
               {/* Component Scores - Only show if not idle */}
               {!isIdle && scores && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2 border-t">
-                  <div>
-                    <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">
-                      Oracle
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <p className={cn('text-lg font-semibold', getScoreColor(scores.oracleScore))}>
-                        {scores.oracleScore.toFixed(2)}
+                <>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2 border-t">
+                    <div>
+                      <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">
+                        Oracle
                       </p>
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          'text-xs font-semibold px-1.5 py-0.5',
-                          getGradeColor(getComponentGrade(scores.oracleScore))
-                        )}
-                      >
-                        {getComponentGrade(scores.oracleScore)}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <p className={cn('text-lg font-semibold', getScoreColor(scores.oracleScore))}>
+                          {scores.oracleScore.toFixed(2)}
+                        </p>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            'text-xs font-semibold px-1.5 py-0.5',
+                            getGradeColor(getComponentGrade(scores.oracleScore))
+                          )}
+                        >
+                          {getComponentGrade(scores.oracleScore)}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">
+                        LTV
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className={cn('text-lg font-semibold', getScoreColor(scores.ltvScore))}>
+                          {scores.ltvScore.toFixed(2)}
+                        </p>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            'text-xs font-semibold px-1.5 py-0.5',
+                            getGradeColor(getComponentGrade(scores.ltvScore))
+                          )}
+                        >
+                          {getComponentGrade(scores.ltvScore)}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">
+                        Liquidity
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className={cn('text-lg font-semibold', getScoreColor(scores.liquidityScore))}>
+                          {scores.liquidityScore.toFixed(2)}
+                        </p>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            'text-xs font-semibold px-1.5 py-0.5',
+                            getGradeColor(getComponentGrade(scores.liquidityScore))
+                          )}
+                        >
+                          {getComponentGrade(scores.liquidityScore)}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">
+                        Liquidation
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className={cn('text-lg font-semibold', getScoreColor(scores.liquidationScore))}>
+                          {scores.liquidationScore.toFixed(2)}
+                        </p>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            'text-xs font-semibold px-1.5 py-0.5',
+                            getGradeColor(getComponentGrade(scores.liquidationScore))
+                          )}
+                        >
+                          {getComponentGrade(scores.liquidationScore)}
+                        </Badge>
+                      </div>
                     </div>
                   </div>
-                  <div>
-                    <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">
-                      LTV
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <p className={cn('text-lg font-semibold', getScoreColor(scores.ltvScore))}>
-                        {scores.ltvScore.toFixed(2)}
+                  
+                  {/* Market Metrics */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2 border-t">
+                    <div>
+                      <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">
+                        Total Market Size
                       </p>
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          'text-xs font-semibold px-1.5 py-0.5',
-                          getGradeColor(getComponentGrade(scores.ltvScore))
-                        )}
-                      >
-                        {getComponentGrade(scores.ltvScore)}
-                      </Badge>
+                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                        {formatCompactUSD(marketTotalSupplyUsd)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">
+                        Total Liquidity
+                      </p>
+                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                        {formatCompactUSD(market.state?.liquidityAssetsUsd ?? 0)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">
+                        Supply Rate
+                      </p>
+                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                        {market.state?.supplyRate !== null && market.state?.supplyRate !== undefined
+                          ? formatPercentage(market.state.supplyRate * 100, 2)
+                          : 'N/A'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">
+                        Borrow Rate
+                      </p>
+                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                        {market.state?.borrowRate !== null && market.state?.borrowRate !== undefined
+                          ? formatPercentage(market.state.borrowRate * 100, 2)
+                          : 'N/A'}
+                      </p>
                     </div>
                   </div>
-                  <div>
-                    <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">
-                      Liquidity
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <p className={cn('text-lg font-semibold', getScoreColor(scores.liquidityScore))}>
-                        {scores.liquidityScore.toFixed(2)}
-                      </p>
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          'text-xs font-semibold px-1.5 py-0.5',
-                          getGradeColor(getComponentGrade(scores.liquidityScore))
-                        )}
-                      >
-                        {getComponentGrade(scores.liquidityScore)}
-                      </Badge>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">
-                      Liquidation
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <p className={cn('text-lg font-semibold', getScoreColor(scores.liquidationScore))}>
-                        {scores.liquidationScore.toFixed(2)}
-                      </p>
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          'text-xs font-semibold px-1.5 py-0.5',
-                          getGradeColor(getComponentGrade(scores.liquidationScore))
-                        )}
-                      >
-                        {getComponentGrade(scores.liquidationScore)}
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
+                </>
               )}
             </div>
           );
