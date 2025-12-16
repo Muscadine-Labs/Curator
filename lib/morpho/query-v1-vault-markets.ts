@@ -39,8 +39,6 @@ const VAULT_V1_MARKETS_QUERY = gql`
               borrowAssetsUsd
               liquidityAssetsUsd
               utilization
-              supplyRate
-              borrowRate
             }
           }
         }
@@ -77,8 +75,6 @@ export type V1VaultMarketData = {
     borrowAssetsUsd: number | null;
     liquidityAssetsUsd: number | null;
     utilization: number | null;
-    supplyRate: number | null;
-    borrowRate: number | null;
   } | null;
   // Vault allocation data for this market
   vaultSupplyAssets: string | null; // Raw amount supplied by vault
@@ -120,8 +116,6 @@ export type V1VaultMarketsQueryResponse = {
             borrowAssetsUsd: number | null;
             liquidityAssetsUsd: number | null;
             utilization: number | null;
-            supplyRate: number | null;
-            borrowRate: number | null;
           } | null;
         } | null;
       }> | null;
@@ -165,13 +159,7 @@ export async function fetchV1VaultMarkets(
             }
           : null,
         lltv: alloc.market.lltv,
-        state: alloc.market.state
-          ? {
-              ...alloc.market.state,
-              supplyRate: alloc.market.state.supplyRate ?? null,
-              borrowRate: alloc.market.state.borrowRate ?? null,
-            }
-          : null,
+        state: alloc.market.state,
         vaultSupplyAssets: alloc.supplyAssets,
         vaultSupplyAssetsUsd: alloc.supplyAssetsUsd ?? null,
         vaultTotalAssetsUsd,

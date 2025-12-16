@@ -365,9 +365,7 @@ export function MarketRiskV1({ vaultAddress }: MarketRiskV1Props) {
                         Supply Rate
                       </p>
                       <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                        {market.state?.supplyRate !== null && market.state?.supplyRate !== undefined
-                          ? formatPercentage(market.state.supplyRate * 100, 2)
-                          : 'N/A'}
+                        N/A
                       </p>
                     </div>
                     <div>
@@ -375,9 +373,7 @@ export function MarketRiskV1({ vaultAddress }: MarketRiskV1Props) {
                         Borrow Rate
                       </p>
                       <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                        {market.state?.borrowRate !== null && market.state?.borrowRate !== undefined
-                          ? formatPercentage(market.state.borrowRate * 100, 2)
-                          : 'N/A'}
+                        N/A
                       </p>
                     </div>
                   </div>
