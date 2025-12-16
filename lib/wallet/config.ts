@@ -1,22 +1,15 @@
-'use client';
-
 import { QueryClient } from '@tanstack/react-query';
-import { createConfig, http, createStorage } from 'wagmi';
+import { getDefaultConfig } from '@rainbow-me/rainbowkit';
+import { http } from 'wagmi';
 import { base } from 'viem/chains';
 import { QUERY_STALE_TIME_MEDIUM } from '@/lib/constants';
 
-// Create storage for persisting wallet connection state
-// Uses localStorage to persist connection across page refreshes
-const storage = createStorage({
-  storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-  key: 'wagmi',
-});
-
-// Create wagmi config
-const config = createConfig({
+// Create wagmi config with RainbowKit
+const config = getDefaultConfig({
+  appName: 'Muscadine Curator',
+  projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'demo',
   chains: [base],
   ssr: true,
-  storage,
   transports: {
     [base.id]: http(
       process.env.NEXT_PUBLIC_ALCHEMY_API_KEY
