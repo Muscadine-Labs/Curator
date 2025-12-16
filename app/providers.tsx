@@ -54,8 +54,6 @@ export function Providers({ children }: { children: ReactNode }) {
       return originalFetch.apply(this, args);
     };
     
-    fetch('http://127.0.0.1:7242/ingest/12c6e062-52e2-470f-b399-c937a41c73e1',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/providers.tsx:40',message:'Providers component rendering',data:{hasConfig:!!config},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-    
     return () => {
       window.fetch = originalFetch;
     };
@@ -65,19 +63,7 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <WagmiProvider config={config}>
-        {/* #region agent log */}
-        {typeof window !== 'undefined' && (() => {
-          fetch('http://127.0.0.1:7242/ingest/12c6e062-52e2-470f-b399-c937a41c73e1',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/providers.tsx:30',message:'WagmiProvider initialized',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-          return null;
-        })()}
-        {/* #endregion */}
         <RainbowKitProvider>
-          {/* #region agent log */}
-          {typeof window !== 'undefined' && (() => {
-            fetch('http://127.0.0.1:7242/ingest/12c6e062-52e2-470f-b399-c937a41c73e1',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/providers.tsx:34',message:'RainbowKitProvider initialized',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-            return null;
-          })()}
-          {/* #endregion */}
           <ErrorBoundary>
             {children}
           </ErrorBoundary>

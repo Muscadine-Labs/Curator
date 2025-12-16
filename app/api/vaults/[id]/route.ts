@@ -599,23 +599,53 @@ export async function GET(
           })),
       allocation: isV2
         ? [] // V2 vaults don't have allocation in the same format
-        : (mv?.state?.allocation || []).map((a) => ({
-            marketKey: a.market?.uniqueKey ?? '',
-            loanAssetName: a.market?.loanAsset?.name ?? null,
-            collateralAssetName: a.market?.collateralAsset?.name ?? null,
-            oracleAddress: a.market?.oracleAddress ?? null,
-            irmAddress: a.market?.irmAddress ?? null,
-            lltv: a.market?.lltv ? (typeof a.market.lltv === 'string' ? parseFloat(a.market.lltv) : Number(a.market.lltv)) : null,
-            supplyCap: a.supplyCap ? (typeof a.supplyCap === 'string' ? parseFloat(a.supplyCap) : Number(a.supplyCap)) : null,
-            supplyAssets: a.supplyAssets ? (typeof a.supplyAssets === 'string' ? a.supplyAssets : String(a.supplyAssets)) : null,
-            supplyAssetsUsd: a.supplyAssetsUsd ?? null,
-            marketRewards: (a.market?.state?.rewards || []).map((r) => ({
-              assetAddress: r.asset?.address ?? '',
-              chainId: r.asset?.chain?.id ?? null,
-              supplyApr: (r.supplyApr ?? 0) * 100,
-              borrowApr: (r.borrowApr ?? 0) * 100,
-            })),
-          })),
+        : (mv?.state?.allocation || []).map((a: {
+            market?: {
+              uniqueKey?: string | null;
+              loanAsset?: { name?: string | null } | null;
+              collateralAsset?: { name?: string | null } | null;
+              oracleAddress?: string | null;
+              irmAddress?: string | null;
+              lltv?: string | number | null;
+              state?: {
+                rewards?: Array<{
+                  asset?: { address?: string | null; chain?: { id?: number | null } | null } | null;
+                  supplyApr?: number | null;
+                  borrowApr?: number | null;
+                }> | null;
+              } | null;
+            } | null;
+            supplyCap?: string | number | null;
+            supplyAssets?: string | number | null;
+            supplyAssetsUsd?: number | null;
+          }) => {
+            try {
+              return {
+                marketKey: a.market?.uniqueKey ?? '',
+                loanAssetName: a.market?.loanAsset?.name ?? null,
+                collateralAssetName: a.market?.collateralAsset?.name ?? null,
+                oracleAddress: a.market?.oracleAddress ?? null,
+                irmAddress: a.market?.irmAddress ?? null,
+                lltv: a.market?.lltv ? (typeof a.market.lltv === 'string' ? parseFloat(a.market.lltv) : Number(a.market.lltv)) : null,
+                supplyCap: a.supplyCap ? (typeof a.supplyCap === 'string' ? parseFloat(a.supplyCap) : Number(a.supplyCap)) : null,
+                supplyAssets: a.supplyAssets ? (typeof a.supplyAssets === 'string' ? a.supplyAssets : String(a.supplyAssets)) : null,
+                supplyAssetsUsd: a.supplyAssetsUsd ?? null,
+                marketRewards: (a.market?.state?.rewards || []).map((r: {
+                  asset?: { address?: string | null; chain?: { id?: number | null } | null } | null;
+                  supplyApr?: number | null;
+                  borrowApr?: number | null;
+                }) => ({
+                  assetAddress: r.asset?.address ?? '',
+                  chainId: r.asset?.chain?.id ?? null,
+                  supplyApr: (r.supplyApr ?? 0) * 100,
+                  borrowApr: (r.borrowApr ?? 0) * 100,
+                })),
+              };
+            } catch (error) {
+              logger.warn('Failed to map allocation item', { error, allocation: a });
+              return null;
+            }
+          }).filter((a): a is NonNullable<typeof a> => a !== null),
       queues: {
         supplyQueueIndex: isV2 ? null : (mv?.state?.allocationQueues?.supplyQueueIndex ?? null),
         withdrawQueueIndex: isV2 ? null : (mv?.state?.allocationQueues?.withdrawQueueIndex ?? null),

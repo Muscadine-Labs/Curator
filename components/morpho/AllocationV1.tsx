@@ -93,7 +93,6 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
   }, 0) ?? 0;
 
   const decimals = 18; // TODO: get from vault asset decimals
-  const totalAssetsInWei = BigInt(Math.floor(totalAssets * 10 ** decimals));
 
   const handleEdit = () => {
     setIsEditing(true);
@@ -194,8 +193,14 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
     return total;
   };
 
-  const allocationPercentage = totalAssets > 0 
-    ? (calculateTotalAllocation() / (Number(totalAssetsInWei) / 10 ** decimals)) * 100 
+  // Calculate total vault assets in asset units (not USD)
+  // Sum all current allocations in asset units
+  const totalVaultAssetsInUnits = Array.from(allocations.values()).reduce((sum, alloc) => {
+    return sum + (Number(alloc.currentAssets) / 10 ** decimals);
+  }, 0);
+
+  const allocationPercentage = totalVaultAssetsInUnits > 0 
+    ? (calculateTotalAllocation() / totalVaultAssetsInUnits) * 100 
     : 0;
 
   if (isLoading) {
@@ -356,8 +361,9 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
               ? (alloc.currentAssetsUsd / totalAssets) * 100 
               : 0;
             const newValue = parseFloat(alloc.targetAssets) || 0;
-            const newPercent = totalAssets > 0 
-              ? (newValue / (Number(totalAssetsInWei) / 10 ** decimals)) * 100 
+            // Calculate new percentage based on total vault assets in asset units
+            const newPercent = totalVaultAssetsInUnits > 0 
+              ? (newValue / totalVaultAssetsInUnits) * 100 
               : 0;
 
             return (
