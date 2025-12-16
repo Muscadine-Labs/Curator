@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { formatCompactUSD } from '@/lib/format/number';
 import type { MarketRiskGrade } from '@/lib/morpho/compute-v1-market-risk';
 import { isMarketIdle } from '@/lib/morpho/compute-v1-market-risk';
+import { Info } from 'lucide-react';
 
 interface MarketRiskV1Props {
   vaultAddress: string;
@@ -265,9 +266,21 @@ export function MarketRiskV1({ vaultAddress }: MarketRiskV1Props) {
                 <>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2 border-t">
                     <div>
-                      <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">
-                        Liquidation Headroom
-                      </p>
+                      <div className="flex items-center gap-1 mb-1">
+                        <p className="text-xs text-slate-600 dark:text-slate-400">
+                          Liquidation Headroom
+                        </p>
+                        <div className="group relative">
+                          <Info 
+                            className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 cursor-help hover:text-slate-600 dark:hover:text-slate-300 transition-colors" 
+                            aria-label="Information"
+                          />
+                          <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-50 w-64 p-2 text-xs text-slate-900 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 rounded-md shadow-lg border border-slate-200 dark:border-slate-700 pointer-events-none">
+                            Measures the buffer before liquidation under a -5% price shock. Higher headroom (positive value) indicates more safety margin. Negative headroom means the position would be underwater.
+                            <div className="absolute left-4 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-200 dark:border-t-slate-700"></div>
+                          </div>
+                        </div>
+                      </div>
                       <div className="flex items-center gap-2">
                         <p className={cn('text-lg font-semibold', getScoreColor(scores.liquidationHeadroomScore))}>
                           {scores.liquidationHeadroomScore.toFixed(2)}
@@ -284,9 +297,21 @@ export function MarketRiskV1({ vaultAddress }: MarketRiskV1Props) {
                       </div>
                     </div>
                     <div>
-                      <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">
-                        Utilization
-                      </p>
+                      <div className="flex items-center gap-1 mb-1">
+                        <p className="text-xs text-slate-600 dark:text-slate-400">
+                          Utilization
+                        </p>
+                        <div className="group relative">
+                          <Info 
+                            className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 cursor-help hover:text-slate-600 dark:hover:text-slate-300 transition-colors" 
+                            aria-label="Information"
+                          />
+                          <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-50 w-64 p-2 text-xs text-slate-900 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 rounded-md shadow-lg border border-slate-200 dark:border-slate-700 pointer-events-none">
+                            The ratio of borrowed assets to supplied assets. Scored relative to the IRM&apos;s target utilization (kink). Utilization below target is safer, while exceeding target increases risk.
+                            <div className="absolute left-4 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-200 dark:border-t-slate-700"></div>
+                          </div>
+                        </div>
+                      </div>
                       <div className="flex items-center gap-2">
                         <p className={cn('text-lg font-semibold', getScoreColor(scores.utilizationScore))}>
                           {scores.utilizationScore.toFixed(2)}
@@ -303,9 +328,21 @@ export function MarketRiskV1({ vaultAddress }: MarketRiskV1Props) {
                       </div>
                     </div>
                     <div>
-                      <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">
-                        Coverage Ratio
-                      </p>
+                      <div className="flex items-center gap-1 mb-1">
+                        <p className="text-xs text-slate-600 dark:text-slate-400">
+                          Coverage Ratio
+                        </p>
+                        <div className="group relative">
+                          <Info 
+                            className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 cursor-help hover:text-slate-600 dark:hover:text-slate-300 transition-colors" 
+                            aria-label="Information"
+                          />
+                          <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-50 w-64 p-2 text-xs text-slate-900 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 rounded-md shadow-lg border border-slate-200 dark:border-slate-700 pointer-events-none">
+                            The ratio of available liquidity to liquidatable borrows under a -5% price shock. A ratio ≥1.0 means the market can fully cover all liquidations. Lower ratios indicate insufficient liquidity.
+                            <div className="absolute left-4 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-200 dark:border-t-slate-700"></div>
+                          </div>
+                        </div>
+                      </div>
                       <div className="flex items-center gap-2">
                         <p className={cn('text-lg font-semibold', getScoreColor(scores.coverageRatioScore))}>
                           {scores.coverageRatioScore.toFixed(2)}
@@ -322,9 +359,21 @@ export function MarketRiskV1({ vaultAddress }: MarketRiskV1Props) {
                       </div>
                     </div>
                     <div>
-                      <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">
-                        Oracle Freshness
-                      </p>
+                      <div className="flex items-center gap-1 mb-1">
+                        <p className="text-xs text-slate-600 dark:text-slate-400">
+                          Oracle Freshness
+                        </p>
+                        <div className="group relative">
+                          <Info 
+                            className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 cursor-help hover:text-slate-600 dark:hover:text-slate-300 transition-colors" 
+                            aria-label="Information"
+                          />
+                          <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-50 w-64 p-2 text-xs text-slate-900 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 rounded-md shadow-lg border border-slate-200 dark:border-slate-700 pointer-events-none">
+                            Measures how recently the price oracle was updated. Fresh oracles (&lt;1 hour) are most reliable. Stale oracles (&gt;24 hours) increase risk as prices may be outdated. Opaque oracles (no address) receive the lowest score.
+                            <div className="absolute left-4 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-200 dark:border-t-slate-700"></div>
+                          </div>
+                        </div>
+                      </div>
                       <div className="flex items-center gap-2">
                         <p className={cn('text-lg font-semibold', getScoreColor(scores.oracleScore))}>
                           {scores.oracleScore.toFixed(2)}
