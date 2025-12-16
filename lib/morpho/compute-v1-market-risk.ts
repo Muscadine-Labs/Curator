@@ -22,16 +22,15 @@ export interface MarketRiskScores {
 }
 
 /**
- * Compute Oracle Score (0-100)
+ * Compute Oracle Score (0-100) - Continuous
  * 
  * Inputs:
  * - oracleAddress
  * - oracleTimestampData (optional) - timestamp data from Chainlink oracle
  * 
- * Score:
- * - 100 = Chainlink oracle with recent update (< 1 hour old)
- * - 80 = Chainlink oracle with fresh update (< 24 hours old)
- * - 60 = Valid oracle address exists but no timestamp data or stale (> 24 hours)
+ * Score (continuous):
+ * - 100 = Chainlink oracle with recent update (0 hours old)
+ * - Linear decay: 100 → 80 (1-24 hours), 80 → 60 (24-168 hours), 60 → 20 (168+ hours)
  * - 20 = No oracle address or zero address (opaque/fixed oracle)
  */
 function computeOracleScore(
@@ -49,18 +48,31 @@ function computeOracleScore(
   if (oracleTimestampData?.updatedAt && oracleTimestampData.ageSeconds !== null) {
     const ageHours = oracleTimestampData.ageSeconds / 3600;
     
-    // Recent update (< 1 hour) - best score
+    // Recent update (< 1 hour) - perfect score
     if (ageHours < 1) {
       return 100;
     }
     
-    // Fresh update (< 24 hours) - good score
+    // Linear decay from 100 to 80 between 1-24 hours
     if (ageHours < 24) {
-      return 80;
+      const progress = (ageHours - 1) / (24 - 1); // 0 to 1
+      return 100 - (progress * 20); // 100 → 80
     }
     
-    // Stale (> 24 hours) - moderate score
-    return 60;
+    // Linear decay from 80 to 60 between 24-168 hours (1 week)
+    if (ageHours < 168) {
+      const progress = (ageHours - 24) / (168 - 24); // 0 to 1
+      return 80 - (progress * 20); // 80 → 60
+    }
+    
+    // Linear decay from 60 to 20 for > 168 hours
+    // Cap at 20 for very stale data (e.g., > 720 hours = 30 days)
+    const maxAge = 720; // 30 days
+    if (ageHours >= maxAge) {
+      return 20;
+    }
+    const progress = (ageHours - 168) / (maxAge - 168); // 0 to 1
+    return 60 - (progress * 40); // 60 → 20
   }
 
   // Valid oracle address exists but no timestamp data available
@@ -69,18 +81,16 @@ function computeOracleScore(
 }
 
 /**
- * Compute LTV Score (0-100)
+ * Compute LTV Score (0-100) - Continuous
  * 
  * Inputs:
  * - lltv (loan-to-liquidation threshold value, as percentage)
  * - collateralAsset.symbol
  * 
- * Score (90% is gold standard, upper bounds only):
+ * Score (continuous, 90% is gold standard):
  * - 100 = lltv = 90% (gold standard)
- * - 80 = lltv < 92% (excluding 90%)
- * - 60 = lltv < 95%
- * - 40 = lltv < 97%
- * - 20 = lltv ≥ 97%
+ * - Linear decay as LTV deviates from 90%
+ * - Score decreases faster above 90% than below (higher LTV = higher risk)
  */
 function computeLtvScore(market: V1VaultMarketData): number {
   const lltvRaw = market.lltv;
@@ -94,27 +104,49 @@ function computeLtvScore(market: V1VaultMarketData): number {
   const lltvPercent = Number(lltvRaw) / 1e16;
 
   // 90% is the gold standard - score 100
+  // Use a small tolerance window for exact 90%
   if (lltvPercent >= 89.95 && lltvPercent <= 90.05) {
     return 100;
   }
 
-  // Upper bounds only (no lower bounds)
-  if (lltvPercent < 92) {
-    return 80;
+  // For LTVs below 90%: gradual decrease
+  // 85% → 90%, 80% → 85%, etc.
+  if (lltvPercent < 90) {
+    // Linear interpolation: 85% = 95, 80% = 90, 75% = 85, etc.
+    // Every 5% below 90% reduces score by 5 points
+    const deviation = 90 - lltvPercent;
+    const score = 100 - (deviation * 1); // 1 point per 1% deviation
+    return Math.max(0, Math.min(100, score));
   }
-  if (lltvPercent < 95) {
-    return 60;
-  }
-  if (lltvPercent < 97) {
-    return 40;
-  }
+
+  // For LTVs above 90%: faster decrease (higher risk)
+  // 90% → 92%: 100 → 80 (20 points over 2%)
+  // 92% → 95%: 80 → 50 (30 points over 3%)
+  // 95% → 97%: 50 → 20 (30 points over 2%)
+  // 97% → 100%: 20 → 0 (20 points over 3%)
+  const deviation = lltvPercent - 90;
   
-  // lltv ≥ 97%
-  return 20;
+  if (deviation <= 2) {
+    // 90% → 92%: 100 → 80
+    const progress = deviation / 2;
+    return 100 - (progress * 20);
+  } else if (deviation <= 5) {
+    // 92% → 95%: 80 → 50
+    const progress = (deviation - 2) / 3;
+    return 80 - (progress * 30);
+  } else if (deviation <= 7) {
+    // 95% → 97%: 50 → 20
+    const progress = (deviation - 5) / 2;
+    return 50 - (progress * 30);
+  } else {
+    // 97% → 100%: 20 → 0
+    const progress = Math.min(1, (deviation - 7) / 3);
+    return 20 - (progress * 20);
+  }
 }
 
 /**
- * Compute Liquidity Score (0-100)
+ * Compute Liquidity Score (0-100) - Continuous
  * 
  * Inputs:
  * - totalSupplyAssets (or supplyAssetsUsd)
@@ -123,14 +155,9 @@ function computeLtvScore(market: V1VaultMarketData): number {
  * Compute:
  * utilization = totalBorrowAssets / totalSupplyAssets
  * 
- * Score:
- * - 100 = utilization < 70%
- * - 80 = 70% ≤ utilization < 85%
- * - 60 = 85% ≤ utilization < 95%
- * - 20 = utilization ≥ 95%
- * - 0 = utilization ≥ 95% AND rapidly rising rates
- * 
- * Rule: utilization ≥ 95% ⇒ max liquidityScore = 20
+ * Score (continuous):
+ * - 100 = utilization = 0% (perfect liquidity)
+ * - Linear decay: 100 → 80 (0-70%), 80 → 60 (70-85%), 60 → 20 (85-95%), 20 → 0 (95-100%)
  */
 function computeLiquidityScore(market: V1VaultMarketData): number {
   const state = market.state;
@@ -151,24 +178,31 @@ function computeLiquidityScore(market: V1VaultMarketData): number {
     utilization = totalBorrow / totalSupply;
   }
 
+  // Clamp utilization to [0, 1]
+  utilization = Math.max(0, Math.min(1, utilization));
+
+  // Continuous scoring based on utilization
   if (utilization < 0.70) {
-    return 100;
+    // 0% → 70%: 100 → 80 (linear)
+    const progress = utilization / 0.70;
+    return 100 - (progress * 20);
+  } else if (utilization < 0.85) {
+    // 70% → 85%: 80 → 60 (linear)
+    const progress = (utilization - 0.70) / (0.85 - 0.70);
+    return 80 - (progress * 20);
+  } else if (utilization < 0.95) {
+    // 85% → 95%: 60 → 20 (linear)
+    const progress = (utilization - 0.85) / (0.95 - 0.85);
+    return 60 - (progress * 40);
+  } else {
+    // 95% → 100%: 20 → 0 (linear)
+    const progress = (utilization - 0.95) / (1.0 - 0.95);
+    return 20 - (progress * 20);
   }
-  if (utilization < 0.85) {
-    return 80;
-  }
-  if (utilization < 0.95) {
-    return 60;
-  }
-  
-  // utilization ≥ 95% ⇒ max liquidityScore = 20
-  // TODO: Check for rapidly rising rates (would require historical data)
-  // For now, assume utilization ≥ 95% = score 20
-  return 20;
 }
 
 /**
- * Compute Liquidation Score (0-100)
+ * Compute Liquidation Score (0-100) - Continuous
  * 
  * Inputs:
  * - totalCollateralAssets (or collateralAssetsUsd)
@@ -184,13 +218,9 @@ function computeLiquidityScore(market: V1VaultMarketData): number {
  * For each shock:
  * liquidatableBorrow = max(0, totalBorrowAssets - (totalCollateralValue * (1 + shock) * lltv))
  * 
- * Score:
- * - 100 = -10% clears fully
- * - 80 = -5% clears fully
- * - 60 = -3% clears fully
- * - 40 = partial clearing only
- * - 20 = liquidations exceed liquidity
- * - 0 = cascade likely
+ * Score (continuous):
+ * - Based on coverage ratio and shock level
+ * - Interpolates between stress test thresholds
  */
 function computeLiquidationScore(market: V1VaultMarketData): number {
   const state = market.state;
@@ -222,37 +252,63 @@ function computeLiquidationScore(market: V1VaultMarketData): number {
     return 100; // No borrow or collateral = safest
   }
 
-  // Stress tests
-  const stressTests = [
-    { shock: -0.10, targetScore: 100 }, // -10%
-    { shock: -0.05, targetScore: 80 }, // -5%
-    { shock: -0.03, targetScore: 60 }, // -3%
-  ];
-
-  for (const test of stressTests) {
-    const collateralAfterShock = totalCollateralUsd * (1 + test.shock);
+  // Calculate liquidations for different shock levels
+  const calculateLiquidations = (shock: number) => {
+    const collateralAfterShock = totalCollateralUsd * (1 + shock);
     const maxBorrowAfterShock = collateralAfterShock * lltvRatio;
-    const liquidatableBorrow = Math.max(0, totalBorrowUsd - maxBorrowAfterShock);
+    return Math.max(0, totalBorrowUsd - maxBorrowAfterShock);
+  };
 
-    // If no liquidation needed, this stress test passes
-    if (liquidatableBorrow <= 0) {
-      return test.targetScore;
-    }
+  const liquidations10 = calculateLiquidations(-0.10);
+  const liquidations5 = calculateLiquidations(-0.05);
+  const liquidations3 = calculateLiquidations(-0.03);
 
-    // Check if available liquidity can cover liquidations
-    if (liquidatableBorrow <= availableLiquidity) {
-      // Full clearing possible
-      return test.targetScore;
-    }
+  // Calculate coverage ratio (how much of liquidations can be covered)
+  const getCoverageRatio = (liquidations: number) => {
+    if (liquidations <= 0) return 1; // No liquidations needed
+    if (availableLiquidity <= 0) return 0; // No liquidity available
+    return Math.min(1, availableLiquidity / liquidations);
+  };
+
+  const coverage10 = getCoverageRatio(liquidations10);
+  const coverage5 = getCoverageRatio(liquidations5);
+  const coverage3 = getCoverageRatio(liquidations3);
+
+  // Continuous scoring based on coverage ratios
+  // -10% shock: full coverage = 100, partial = interpolate
+  if (coverage10 >= 1) {
+    return 100; // Perfect - can handle -10% shock
+  } else if (coverage10 > 0) {
+    // Partial coverage for -10%: interpolate between 100 and 80
+    return 100 - ((1 - coverage10) * 20);
   }
 
-  // Partial clearing only (some liquidation needed but liquidity available)
+  // -5% shock: full coverage = 80, partial = interpolate
+  if (coverage5 >= 1) {
+    return 80; // Can handle -5% shock
+  } else if (coverage5 > 0) {
+    // Partial coverage for -5%: interpolate between 80 and 60
+    return 80 - ((1 - coverage5) * 20);
+  }
+
+  // -3% shock: full coverage = 60, partial = interpolate
+  if (coverage3 >= 1) {
+    return 60; // Can handle -3% shock
+  } else if (coverage3 > 0) {
+    // Partial coverage for -3%: interpolate between 60 and 40
+    return 60 - ((1 - coverage3) * 20);
+  }
+
+  // No coverage for any shock level
+  // Score based on how much liquidity is available relative to borrow
   if (availableLiquidity > 0) {
     const coverageRatio = availableLiquidity / totalBorrowUsd;
+    // Interpolate between 40 (50% coverage) and 0 (0% coverage)
     if (coverageRatio >= 0.5) {
-      return 40; // Partial but reasonable coverage
+      return 40 - ((0.5 - coverageRatio) / 0.5) * 20; // 40 → 20
+    } else {
+      return 20 - ((coverageRatio / 0.5) * 20); // 20 → 0
     }
-    return 20; // Liquidations exceed liquidity
   }
 
   return 0; // Cascade likely (no liquidity, liquidation needed)

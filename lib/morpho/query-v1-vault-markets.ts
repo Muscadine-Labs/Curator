@@ -120,6 +120,8 @@ export type V1VaultMarketsQueryResponse = {
             borrowAssetsUsd: number | null;
             liquidityAssetsUsd: number | null;
             utilization: number | null;
+            supplyRate: number | null;
+            borrowRate: number | null;
           } | null;
         } | null;
       }> | null;
@@ -163,7 +165,13 @@ export async function fetchV1VaultMarkets(
             }
           : null,
         lltv: alloc.market.lltv,
-        state: alloc.market.state,
+        state: alloc.market.state
+          ? {
+              ...alloc.market.state,
+              supplyRate: alloc.market.state.supplyRate ?? null,
+              borrowRate: alloc.market.state.borrowRate ?? null,
+            }
+          : null,
         vaultSupplyAssets: alloc.supplyAssets,
         vaultSupplyAssetsUsd: alloc.supplyAssetsUsd ?? null,
         vaultTotalAssetsUsd,
