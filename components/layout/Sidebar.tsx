@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Shield, X } from 'lucide-react';
+import { Shield, X, Bot } from 'lucide-react';
 import { getVaultCategory, shouldUseV2Query } from '@/lib/config/vaults';
 import { useVaultList } from '@/lib/hooks/useProtocolStats';
 import { Button } from '@/components/ui/button';
@@ -168,6 +168,34 @@ export function Sidebar({ onClose }: SidebarProps) {
                 </Link>
               ))
             )}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <p className="px-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Bots
+          </p>
+          <div className="space-y-1">
+            <Link
+              href="/bots/polymarket-kalshi"
+              onClick={handleLinkClick}
+              className={`flex items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 ${
+                isActive('/bots/polymarket-kalshi') ? 'bg-slate-900 text-white' : ''
+              }`}
+            >
+              <Bot className="h-4 w-4" />
+              <span className="truncate">Polymarket-Kalshi Arbitrage Bot</span>
+            </Link>
+            <Link
+              href="/bots/morpho-liquidation"
+              onClick={handleLinkClick}
+              className={`flex items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 ${
+                isActive('/bots/morpho-liquidation') ? 'bg-slate-900 text-white' : ''
+              }`}
+            >
+              <Bot className="h-4 w-4" />
+              <span className="truncate">Morpho-blue Liquidation Bot</span>
+            </Link>
           </div>
         </div>
       </nav>
