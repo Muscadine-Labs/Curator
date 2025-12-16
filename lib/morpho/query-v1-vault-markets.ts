@@ -53,6 +53,8 @@ const VAULT_V1_MARKETS_QUERY = gql`
               collateralAssetsUsd
               liquidityAssetsUsd
               utilization
+              supplyApy
+              borrowApy
             }
           }
         }
@@ -96,6 +98,8 @@ export type V1VaultMarketData = {
     collateralAssetsUsd: number | null;
     liquidityAssetsUsd: number | null;
     utilization: number | null;
+    supplyApy: number | null;
+    borrowApy: number | null;
   } | null;
   // Vault allocation data for this market
   vaultSupplyAssets: string | null; // Raw amount supplied by vault
@@ -144,6 +148,8 @@ export type V1VaultMarketsQueryResponse = {
             collateralAssetsUsd: number | null;
             liquidityAssetsUsd: number | null;
             utilization: number | null;
+            supplyApy: number | null;
+            borrowApy: number | null;
           } | null;
         } | null;
       }> | null;

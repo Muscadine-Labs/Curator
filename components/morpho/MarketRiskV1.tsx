@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import { formatCompactUSD } from '@/lib/format/number';
+import { formatCompactUSD, formatPercentage } from '@/lib/format/number';
 import type { MarketRiskGrade } from '@/lib/morpho/compute-v1-market-risk';
 import { isMarketIdle } from '@/lib/morpho/compute-v1-market-risk';
 import { Info } from 'lucide-react';
@@ -432,18 +432,22 @@ export function MarketRiskV1({ vaultAddress }: MarketRiskV1Props) {
                     </div>
                     <div>
                       <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">
-                        Supply Rate
+                        Supply APR
                       </p>
                       <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                        N/A
+                        {market.state?.supplyApy !== null && market.state?.supplyApy !== undefined
+                          ? formatPercentage(market.state.supplyApy * 100, 2)
+                          : 'N/A'}
                       </p>
                     </div>
                     <div>
                       <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">
-                        Borrow Rate
+                        Borrow APR
                       </p>
                       <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                        N/A
+                        {market.state?.borrowApy !== null && market.state?.borrowApy !== undefined
+                          ? formatPercentage(market.state.borrowApy * 100, 2)
+                          : 'N/A'}
                       </p>
                     </div>
                   </div>
