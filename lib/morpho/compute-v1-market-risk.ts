@@ -4,32 +4,42 @@ import type { OracleTimestampData } from './oracle-utils';
 /**
  * Market Risk Scoring for Morpho V1 - Market Level Only
  * 
- * Formula: marketRiskScore = 0.25 * oracleScore + 0.25 * ltvScore + 0.25 * liquidityScore + 0.25 * liquidationScore
+ * Formula: marketRiskScore = 0.25 * liquidationHeadroomScore + 0.25 * utilizationScore + 0.25 * coverageRatioScore + 0.25 * oracleScore
  * All component scores ∈ [0, 100]
  * Final marketRiskScore ∈ [0, 100]
+ * 
+ * Metrics:
+ * 1. Liquidation Headroom (−5% shock) - 25% weight
+ * 2. Utilization - 25% weight
+ * 3. Liquidation Coverage Ratio - 25% weight
+ * 4. Oracle Freshness & Reliability - 25% weight
  */
 
 // Letter Grade Mapping (0-100 scale)
 export type MarketRiskGrade = 'A+' | 'A' | 'A−' | 'B+' | 'B' | 'B−' | 'C+' | 'C' | 'C−' | 'D' | 'F';
 
 export interface MarketRiskScores {
-  oracleScore: number; // [0, 100]
-  ltvScore: number; // [0, 100]
-  liquidityScore: number; // [0, 100]
-  liquidationScore: number; // [0, 100]
+  liquidationHeadroomScore: number; // [0, 100] - Liquidation Headroom (−5% shock)
+  utilizationScore: number; // [0, 100] - Utilization
+  coverageRatioScore: number; // [0, 100] - Liquidation Coverage Ratio
+  oracleScore: number; // [0, 100] - Oracle Freshness & Reliability
   marketRiskScore: number; // [0, 100]
   grade: MarketRiskGrade;
 }
 
 /**
- * Compute Oracle Score (0-100) - Continuous
+ * Compute Oracle Freshness & Reliability Score (0-100)
  * 
  * Inputs:
  * - oracleAddress
  * - oracleTimestampData (optional) - timestamp data from Chainlink oracle
  * 
+ * Compute:
+ * - ageSeconds = now − lastUpdateTimestamp
+ * - stalenessRatio = ageSeconds / expectedHeartbeatSeconds
+ * 
  * Score (continuous):
- * - 100 = Chainlink oracle with recent update (0 hours old)
+ * - 100 = Chainlink oracle with recent update (< 1 hour old)
  * - Linear decay: 100 → 80 (1-24 hours), 80 → 60 (24-168 hours), 60 → 20 (168+ hours)
  * - 20 = No oracle address or zero address (opaque/fixed oracle)
  */
@@ -81,101 +91,114 @@ function computeOracleScore(
 }
 
 /**
- * Compute LTV Score (0-100) - Continuous
+ * Compute Liquidation Headroom Score (0-100) - −5% shock
  * 
  * Inputs:
- * - lltv (loan-to-liquidation threshold value, as percentage)
- * - collateralAsset.symbol
+ * - lltv
+ * - state.borrowAssetsUsd
+ * - state.collateralAssetsUsd (must be borrower-side collateral, not supply)
  * 
- * Score (continuous, 90% is gold standard):
- * - 100 = lltv = 90% (gold standard)
- * - Linear decay as LTV deviates from 90%
- * - Score decreases faster above 90% than below (higher LTV = higher risk)
+ * Compute:
+ * - headroom5 = collateralUsd * 0.95 * lltvRatio − borrowUsd
+ * - headroomRatio5 = headroom5 / borrowUsd
+ * 
+ * Score (continuous):
+ * - Higher headroom ratio = better score
+ * - Negative headroom (underwater) = 0
+ * - Positive headroom scored based on ratio
  */
-function computeLtvScore(market: V1VaultMarketData): number {
-  const lltvRaw = market.lltv;
+function computeLiquidationHeadroomScore(market: V1VaultMarketData): number {
+  const state = market.state;
+  if (!state) {
+    return 0; // No state data = highest risk
+  }
 
+  const lltvRaw = market.lltv;
   if (!lltvRaw) {
     return 0; // No LTV = highest risk
   }
 
-  // LTV is stored as a fraction scaled by 1e18 in Morpho Blue (e.g., "860000000000000000" = 0.86 = 86%)
-  // Convert wei to percentage: divide by 1e16 (1e18 / 100)
-  const lltvPercent = Number(lltvRaw) / 1e16;
+  // Convert LTV from wei format to ratio for calculations
+  // Wei to ratio: divide by 1e18 (e.g., 860000000000000000 -> 0.86)
+  const lltvRatio = Number(lltvRaw) / 1e18;
 
-  // 90% is the gold standard - score 100
-  // Use a small tolerance window for exact 90%
-  if (lltvPercent >= 89.95 && lltvPercent <= 90.05) {
+  // Get USD values - MUST use collateralAssetsUsd (borrower-side collateral)
+  const collateralUsd = state.collateralAssetsUsd ? Number(state.collateralAssetsUsd) : 0;
+  const borrowUsd = state.borrowAssetsUsd ? Number(state.borrowAssetsUsd) : 0;
+
+  if (borrowUsd === 0) {
+    return 100; // No borrow = safest
+  }
+
+  if (collateralUsd === 0) {
+    return 0; // No collateral = highest risk
+  }
+
+  // Compute headroom with -5% shock
+  // headroom5 = collateralUsd * 0.95 * lltvRatio − borrowUsd
+  const headroom5 = collateralUsd * 0.95 * lltvRatio - borrowUsd;
+  const headroomRatio5 = headroom5 / borrowUsd;
+
+  // If underwater (negative headroom), score is 0
+  if (headroomRatio5 < 0) {
+    return 0;
+  }
+
+  // Score based on headroom ratio
+  // Higher headroom = better score
+  // 0% headroom = 0 score
+  // 10% headroom = 60 score
+  // 20% headroom = 80 score
+  // 30%+ headroom = 100 score
+  if (headroomRatio5 >= 0.30) {
     return 100;
-  }
-
-  // For LTVs below 90%: gradual decrease
-  // 85% → 90%, 80% → 85%, etc.
-  if (lltvPercent < 90) {
-    // Linear interpolation: 85% = 95, 80% = 90, 75% = 85, etc.
-    // Every 5% below 90% reduces score by 5 points
-    const deviation = 90 - lltvPercent;
-    const score = 100 - (deviation * 1); // 1 point per 1% deviation
-    return Math.max(0, Math.min(100, score));
-  }
-
-  // For LTVs above 90%: faster decrease (higher risk)
-  // 90% → 92%: 100 → 80 (20 points over 2%)
-  // 92% → 95%: 80 → 50 (30 points over 3%)
-  // 95% → 97%: 50 → 20 (30 points over 2%)
-  // 97% → 100%: 20 → 0 (20 points over 3%)
-  const deviation = lltvPercent - 90;
-  
-  if (deviation <= 2) {
-    // 90% → 92%: 100 → 80
-    const progress = deviation / 2;
-    return 100 - (progress * 20);
-  } else if (deviation <= 5) {
-    // 92% → 95%: 80 → 50
-    const progress = (deviation - 2) / 3;
-    return 80 - (progress * 30);
-  } else if (deviation <= 7) {
-    // 95% → 97%: 50 → 20
-    const progress = (deviation - 5) / 2;
-    return 50 - (progress * 30);
+  } else if (headroomRatio5 >= 0.20) {
+    // 20% → 30%: 80 → 100
+    const progress = (headroomRatio5 - 0.20) / 0.10;
+    return 80 + (progress * 20);
+  } else if (headroomRatio5 >= 0.10) {
+    // 10% → 20%: 60 → 80
+    const progress = (headroomRatio5 - 0.10) / 0.10;
+    return 60 + (progress * 20);
   } else {
-    // 97% → 100%: 20 → 0
-    const progress = Math.min(1, (deviation - 7) / 3);
-    return 20 - (progress * 20);
+    // 0% → 10%: 0 → 60
+    const progress = headroomRatio5 / 0.10;
+    return progress * 60;
   }
 }
 
 /**
- * Compute Liquidity Score (0-100) - Continuous
+ * Compute Utilization Score (0-100)
  * 
  * Inputs:
- * - totalSupplyAssets (or supplyAssetsUsd)
- * - totalBorrowAssets (or borrowAssetsUsd)
+ * - state.supplyAssetsUsd
+ * - state.borrowAssetsUsd
  * 
  * Compute:
- * utilization = totalBorrowAssets / totalSupplyAssets
+ * - utilization = borrowUsd / supplyUsd
+ * - availableLiquidityUsd = supplyUsd − borrowUsd
  * 
  * Score (continuous):
  * - 100 = utilization = 0% (perfect liquidity)
  * - Linear decay: 100 → 80 (0-70%), 80 → 60 (70-85%), 60 → 20 (85-95%), 20 → 0 (95-100%)
  */
-function computeLiquidityScore(market: V1VaultMarketData): number {
+function computeUtilizationScore(market: V1VaultMarketData): number {
   const state = market.state;
   if (!state) {
     return 0; // No state data = highest risk
   }
 
   // Use USD values from state
-  const totalSupply = state.supplyAssetsUsd ? Number(state.supplyAssetsUsd) : 0;
-  const totalBorrow = state.borrowAssetsUsd ? Number(state.borrowAssetsUsd) : 0;
+  const supplyUsd = state.supplyAssetsUsd ? Number(state.supplyAssetsUsd) : 0;
+  const borrowUsd = state.borrowAssetsUsd ? Number(state.borrowAssetsUsd) : 0;
 
   // Use utilization from state if available, otherwise calculate
   let utilization = state.utilization;
   if (utilization === null || utilization === undefined) {
-    if (totalSupply === 0) {
+    if (supplyUsd === 0) {
       return 0; // No supply = highest risk
     }
-    utilization = totalBorrow / totalSupply;
+    utilization = borrowUsd / supplyUsd;
   }
 
   // Clamp utilization to [0, 1]
@@ -202,116 +225,91 @@ function computeLiquidityScore(market: V1VaultMarketData): number {
 }
 
 /**
- * Compute Liquidation Score (0-100) - Continuous
+ * Compute Liquidation Coverage Ratio Score (0-100)
  * 
  * Inputs:
- * - totalCollateralAssets (or collateralAssetsUsd)
- * - totalBorrowAssets (or borrowAssetsUsd)
- * - lltv
+ * - Everything from Liquidation Headroom (lltv, borrowAssetsUsd, collateralAssetsUsd)
+ * - Everything from Utilization (supplyAssetsUsd, borrowAssetsUsd)
  * 
- * Compute availableLiquidity:
- * availableLiquidity = totalSupplyAssets - totalBorrowAssets
- * 
- * Stress tests (collateral price shock):
- * -3%, -5%, -10%
- * 
- * For each shock:
- * liquidatableBorrow = max(0, totalBorrowAssets - (totalCollateralValue * (1 + shock) * lltv))
+ * Compute:
+ * - liquidatableBorrow5 = max(0, borrowUsd − collateralUsd*0.95*lltvRatio)
+ * - coverage5 = availableLiquidityUsd / liquidatableBorrow5 (cap at 1+ if desired)
  * 
  * Score (continuous):
- * - Based on coverage ratio and shock level
- * - Interpolates between stress test thresholds
+ * - Higher coverage ratio = better score
+ * - Full coverage (≥1.0) = 100
+ * - Partial coverage scored based on ratio
  */
-function computeLiquidationScore(market: V1VaultMarketData): number {
+function computeCoverageRatioScore(market: V1VaultMarketData): number {
   const state = market.state;
   if (!state) {
-    return 0;
+    return 0; // No state data = highest risk
   }
 
   const lltvRaw = market.lltv;
   if (!lltvRaw) {
-    return 0;
+    return 0; // No LTV = highest risk
   }
 
   // Convert LTV from wei format to ratio for calculations
   // Wei to ratio: divide by 1e18 (e.g., 860000000000000000 -> 0.86)
   const lltvRatio = Number(lltvRaw) / 1e18;
 
-  // Use USD values from state
-  const totalSupplyUsd = state.supplyAssetsUsd ? Number(state.supplyAssetsUsd) : 0;
-  const totalBorrowUsd = state.borrowAssetsUsd ? Number(state.borrowAssetsUsd) : 0;
-  
-  // For liquidation scoring, we need collateral value
-  // If we don't have collateralAssetsUsd, we can estimate it from supply (market is collateral)
-  // In Morpho, supply is typically the collateral side
-  const totalCollateralUsd = totalSupplyUsd;
+  // Get USD values - MUST use collateralAssetsUsd (borrower-side collateral)
+  const collateralUsd = state.collateralAssetsUsd ? Number(state.collateralAssetsUsd) : 0;
+  const borrowUsd = state.borrowAssetsUsd ? Number(state.borrowAssetsUsd) : 0;
+  const supplyUsd = state.supplyAssetsUsd ? Number(state.supplyAssetsUsd) : 0;
 
-  const availableLiquidity = totalSupplyUsd - totalBorrowUsd;
+  // Compute available liquidity
+  const availableLiquidityUsd = supplyUsd - borrowUsd;
 
-  if (totalCollateralUsd === 0 || totalBorrowUsd === 0) {
-    return 100; // No borrow or collateral = safest
+  if (borrowUsd === 0) {
+    return 100; // No borrow = safest
   }
 
-  // Calculate liquidations for different shock levels
-  const calculateLiquidations = (shock: number) => {
-    const collateralAfterShock = totalCollateralUsd * (1 + shock);
-    const maxBorrowAfterShock = collateralAfterShock * lltvRatio;
-    return Math.max(0, totalBorrowUsd - maxBorrowAfterShock);
-  };
-
-  const liquidations10 = calculateLiquidations(-0.10);
-  const liquidations5 = calculateLiquidations(-0.05);
-  const liquidations3 = calculateLiquidations(-0.03);
-
-  // Calculate coverage ratio (how much of liquidations can be covered)
-  const getCoverageRatio = (liquidations: number) => {
-    if (liquidations <= 0) return 1; // No liquidations needed
-    if (availableLiquidity <= 0) return 0; // No liquidity available
-    return Math.min(1, availableLiquidity / liquidations);
-  };
-
-  const coverage10 = getCoverageRatio(liquidations10);
-  const coverage5 = getCoverageRatio(liquidations5);
-  const coverage3 = getCoverageRatio(liquidations3);
-
-  // Continuous scoring based on coverage ratios
-  // -10% shock: full coverage = 100, partial = interpolate
-  if (coverage10 >= 1) {
-    return 100; // Perfect - can handle -10% shock
-  } else if (coverage10 > 0) {
-    // Partial coverage for -10%: interpolate between 100 and 80
-    return 100 - ((1 - coverage10) * 20);
+  if (collateralUsd === 0) {
+    return 0; // No collateral = highest risk
   }
 
-  // -5% shock: full coverage = 80, partial = interpolate
-  if (coverage5 >= 1) {
-    return 80; // Can handle -5% shock
-  } else if (coverage5 > 0) {
-    // Partial coverage for -5%: interpolate between 80 and 60
-    return 80 - ((1 - coverage5) * 20);
+  // Compute liquidatable borrow with -5% shock
+  // liquidatableBorrow5 = max(0, borrowUsd − collateralUsd*0.95*lltvRatio)
+  const liquidatableBorrow5 = Math.max(0, borrowUsd - collateralUsd * 0.95 * lltvRatio);
+
+  // If no liquidations needed, perfect score
+  if (liquidatableBorrow5 === 0) {
+    return 100;
   }
 
-  // -3% shock: full coverage = 60, partial = interpolate
-  if (coverage3 >= 1) {
-    return 60; // Can handle -3% shock
-  } else if (coverage3 > 0) {
-    // Partial coverage for -3%: interpolate between 60 and 40
-    return 60 - ((1 - coverage3) * 20);
+  // Compute coverage ratio
+  // coverage5 = availableLiquidityUsd / liquidatableBorrow5
+  if (availableLiquidityUsd <= 0) {
+    return 0; // No liquidity available = highest risk
   }
 
-  // No coverage for any shock level
-  // Score based on how much liquidity is available relative to borrow
-  if (availableLiquidity > 0) {
-    const coverageRatio = availableLiquidity / totalBorrowUsd;
-    // Interpolate between 40 (50% coverage) and 0 (0% coverage)
-    if (coverageRatio >= 0.5) {
-      return 40 - ((0.5 - coverageRatio) / 0.5) * 20; // 40 → 20
-    } else {
-      return 20 - ((coverageRatio / 0.5) * 20); // 20 → 0
-    }
-  }
+  const coverage5 = availableLiquidityUsd / liquidatableBorrow5;
 
-  return 0; // Cascade likely (no liquidity, liquidation needed)
+  // Score based on coverage ratio
+  // Full coverage (≥1.0) = 100
+  // Partial coverage scored linearly
+  if (coverage5 >= 1.0) {
+    return 100; // Full coverage
+  } else if (coverage5 >= 0.8) {
+    // 80% → 100% coverage: 80 → 100 score
+    const progress = (coverage5 - 0.8) / 0.2;
+    return 80 + (progress * 20);
+  } else if (coverage5 >= 0.5) {
+    // 50% → 80% coverage: 60 → 80 score
+    const progress = (coverage5 - 0.5) / 0.3;
+    return 60 + (progress * 20);
+  } else if (coverage5 >= 0.25) {
+    // 25% → 50% coverage: 40 → 60 score
+    const progress = (coverage5 - 0.25) / 0.25;
+    return 40 + (progress * 20);
+  } else {
+    // 0% → 25% coverage: 0 → 40 score
+    const progress = coverage5 / 0.25;
+    return progress * 40;
+  }
 }
 
 /**
@@ -336,8 +334,8 @@ function getMarketRiskGrade(score: number): MarketRiskGrade {
  */
 function applyGlobalCaps(
   oracleScore: number,
-  liquidityScore: number,
-  liquidationScore: number,
+  utilizationScore: number,
+  coverageRatioScore: number,
   baseScore: number
 ): number {
   let cappedScore = baseScore;
@@ -348,14 +346,14 @@ function applyGlobalCaps(
   }
 
   // utilization ≥ 95% ⇒ grade ≤ B− (60)
-  // (handled in liquidityScore, but also check if liquidityScore ≤ 20)
-  if (liquidityScore <= 20 && cappedScore > 60) {
+  // (handled in utilizationScore, but also check if utilizationScore ≤ 20)
+  if (utilizationScore <= 20 && cappedScore > 60) {
     cappedScore = 60; // B− max
   }
 
-  // -5% stress fails ⇒ grade ≤ B (68)
-  // If liquidation score < 80, then -5% stress failed
-  if (liquidationScore < 80 && cappedScore > 68) {
+  // Coverage ratio < 1.0 (cannot fully cover -5% shock liquidations) ⇒ grade ≤ B (68)
+  // If coverage ratio score < 100, then cannot fully cover liquidations
+  if (coverageRatioScore < 100 && cappedScore > 68) {
     cappedScore = 68; // B max
   }
 
@@ -376,23 +374,24 @@ export function computeV1MarketRiskScores(
   market: V1VaultMarketData,
   oracleTimestampData?: OracleTimestampData | null
 ): MarketRiskScores {
+  const liquidationHeadroomScore = computeLiquidationHeadroomScore(market);
+  const utilizationScore = computeUtilizationScore(market);
+  const coverageRatioScore = computeCoverageRatioScore(market);
   const oracleScore = computeOracleScore(market, oracleTimestampData);
-  const ltvScore = computeLtvScore(market);
-  const liquidityScore = computeLiquidityScore(market);
-  const liquidationScore = computeLiquidationScore(market);
 
   // Compute base market risk score (weighted average)
+  // All metrics weighted equally at 25% each
   const baseMarketRiskScore = 
-    0.25 * oracleScore +
-    0.25 * ltvScore +
-    0.25 * liquidityScore +
-    0.25 * liquidationScore;
+    0.25 * liquidationHeadroomScore +
+    0.25 * utilizationScore +
+    0.25 * coverageRatioScore +
+    0.25 * oracleScore;
 
   // Apply global caps
   const marketRiskScore = applyGlobalCaps(
     oracleScore,
-    liquidityScore,
-    liquidationScore,
+    utilizationScore,
+    coverageRatioScore,
     baseMarketRiskScore
   );
 
@@ -400,10 +399,10 @@ export function computeV1MarketRiskScores(
   const grade = getMarketRiskGrade(marketRiskScore);
 
   return {
+    liquidationHeadroomScore,
+    utilizationScore,
+    coverageRatioScore,
     oracleScore,
-    ltvScore,
-    liquidityScore,
-    liquidationScore,
     marketRiskScore,
     grade,
   };

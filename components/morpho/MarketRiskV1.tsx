@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import { formatCompactUSD, formatPercentage } from '@/lib/format/number';
+import { formatCompactUSD } from '@/lib/format/number';
 import type { MarketRiskGrade } from '@/lib/morpho/compute-v1-market-risk';
 import { isMarketIdle } from '@/lib/morpho/compute-v1-market-risk';
 
@@ -266,7 +266,64 @@ export function MarketRiskV1({ vaultAddress }: MarketRiskV1Props) {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2 border-t">
                     <div>
                       <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">
-                        Oracle
+                        Liquidation Headroom
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className={cn('text-lg font-semibold', getScoreColor(scores.liquidationHeadroomScore))}>
+                          {scores.liquidationHeadroomScore.toFixed(2)}
+                        </p>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            'text-xs font-semibold px-1.5 py-0.5',
+                            getGradeColor(getComponentGrade(scores.liquidationHeadroomScore))
+                          )}
+                        >
+                          {getComponentGrade(scores.liquidationHeadroomScore)}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">
+                        Utilization
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className={cn('text-lg font-semibold', getScoreColor(scores.utilizationScore))}>
+                          {scores.utilizationScore.toFixed(2)}
+                        </p>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            'text-xs font-semibold px-1.5 py-0.5',
+                            getGradeColor(getComponentGrade(scores.utilizationScore))
+                          )}
+                        >
+                          {getComponentGrade(scores.utilizationScore)}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">
+                        Coverage Ratio
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className={cn('text-lg font-semibold', getScoreColor(scores.coverageRatioScore))}>
+                          {scores.coverageRatioScore.toFixed(2)}
+                        </p>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            'text-xs font-semibold px-1.5 py-0.5',
+                            getGradeColor(getComponentGrade(scores.coverageRatioScore))
+                          )}
+                        >
+                          {getComponentGrade(scores.coverageRatioScore)}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">
+                        Oracle Freshness
                       </p>
                       <div className="flex items-center gap-2">
                         <p className={cn('text-lg font-semibold', getScoreColor(scores.oracleScore))}>
@@ -280,63 +337,6 @@ export function MarketRiskV1({ vaultAddress }: MarketRiskV1Props) {
                           )}
                         >
                           {getComponentGrade(scores.oracleScore)}
-                        </Badge>
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">
-                        LTV
-                      </p>
-                      <div className="flex items-center gap-2">
-                        <p className={cn('text-lg font-semibold', getScoreColor(scores.ltvScore))}>
-                          {scores.ltvScore.toFixed(2)}
-                        </p>
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            'text-xs font-semibold px-1.5 py-0.5',
-                            getGradeColor(getComponentGrade(scores.ltvScore))
-                          )}
-                        >
-                          {getComponentGrade(scores.ltvScore)}
-                        </Badge>
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">
-                        Liquidity
-                      </p>
-                      <div className="flex items-center gap-2">
-                        <p className={cn('text-lg font-semibold', getScoreColor(scores.liquidityScore))}>
-                          {scores.liquidityScore.toFixed(2)}
-                        </p>
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            'text-xs font-semibold px-1.5 py-0.5',
-                            getGradeColor(getComponentGrade(scores.liquidityScore))
-                          )}
-                        >
-                          {getComponentGrade(scores.liquidityScore)}
-                        </Badge>
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">
-                        Liquidation
-                      </p>
-                      <div className="flex items-center gap-2">
-                        <p className={cn('text-lg font-semibold', getScoreColor(scores.liquidationScore))}>
-                          {scores.liquidationScore.toFixed(2)}
-                        </p>
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            'text-xs font-semibold px-1.5 py-0.5',
-                            getGradeColor(getComponentGrade(scores.liquidationScore))
-                          )}
-                        >
-                          {getComponentGrade(scores.liquidationScore)}
                         </Badge>
                       </div>
                     </div>

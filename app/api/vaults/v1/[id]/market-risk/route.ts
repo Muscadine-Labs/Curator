@@ -12,10 +12,10 @@ import type { Address } from 'viem';
 export interface V1MarketRiskData {
   market: V1VaultMarketData;
   scores: {
+    liquidationHeadroomScore: number;
+    utilizationScore: number;
+    coverageRatioScore: number;
     oracleScore: number;
-    ltvScore: number;
-    liquidityScore: number;
-    liquidationScore: number;
     marketRiskScore: number;
     grade: string;
   } | null; // null for idle markets
