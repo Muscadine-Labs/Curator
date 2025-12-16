@@ -142,9 +142,19 @@ async function getChainlinkTimestamp(chainlinkAddress: Address): Promise<number 
 
 /**
  * Get oracle timestamp data for a Morpho oracle address.
- * Attempts to resolve the underlying Chainlink feed and get its last update timestamp.
+ * 
+ * Flow:
+ * 1. Get baseFeedOne address (prefer GraphQL oracle.data.baseFeedOne.address if available, otherwise resolve on-chain)
+ * 2. Query the Chainlink feed (baseFeedOne) for latestRoundData() to get updatedAt timestamp
+ * 3. Calculate age from current time
+ * 
+ * @param oracleAddress - The Morpho oracle contract address
+ * @param baseFeedOneAddress - Optional: baseFeedOne address from GraphQL oracle.data (more efficient than on-chain resolution)
  */
-export async function getOracleTimestampData(oracleAddress: Address | null): Promise<OracleTimestampData> {
+export async function getOracleTimestampData(
+  oracleAddress: Address | null,
+  baseFeedOneAddress?: Address | null
+): Promise<OracleTimestampData> {
   if (!oracleAddress || oracleAddress.toLowerCase() === '0x0000000000000000000000000000000000000000') {
     return {
       chainlinkAddress: null,
@@ -153,8 +163,16 @@ export async function getOracleTimestampData(oracleAddress: Address | null): Pro
     };
   }
 
-  // Try to resolve Chainlink feed
-  const chainlinkAddress = await resolveChainlinkFeed(oracleAddress);
+  // First, try to use baseFeedOne from GraphQL if provided (more efficient)
+  let chainlinkAddress: Address | null = null;
+  
+  if (baseFeedOneAddress && baseFeedOneAddress.toLowerCase() !== '0x0000000000000000000000000000000000000000') {
+    chainlinkAddress = baseFeedOneAddress;
+  } else {
+    // Fallback: Try to resolve Chainlink feed on-chain
+    chainlinkAddress = await resolveChainlinkFeed(oracleAddress);
+  }
+
   if (!chainlinkAddress) {
     return {
       chainlinkAddress: null,
@@ -163,7 +181,7 @@ export async function getOracleTimestampData(oracleAddress: Address | null): Pro
     };
   }
 
-  // Get timestamp from Chainlink
+  // Get timestamp from Chainlink feed (baseFeedOne)
   const updatedAt = await getChainlinkTimestamp(chainlinkAddress);
   if (updatedAt === null) {
     return {

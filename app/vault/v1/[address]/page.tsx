@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getVaultCategory } from '@/lib/config/vaults';
 import { MarketRiskV1 } from '@/components/morpho/MarketRiskV1';
+import { AllocationV1 } from '@/components/morpho/AllocationV1';
 
 export default function VaultDetailPage() {
   const params = useParams();
@@ -163,14 +164,18 @@ export default function VaultDetailPage() {
           </TabsContent>
 
           <TabsContent value="allocation" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Allocation</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-center py-8 text-slate-500">Coming Soon</p>
-              </CardContent>
-            </Card>
+            {category === 'v1' ? (
+              <AllocationV1 vaultAddress={vaultAddress} />
+            ) : (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Allocation</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-center py-8 text-slate-500">Coming Soon</p>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="caps" className="space-y-4">

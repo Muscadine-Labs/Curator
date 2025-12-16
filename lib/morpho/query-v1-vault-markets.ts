@@ -32,6 +32,18 @@ const VAULT_V1_MARKETS_QUERY = gql`
               id
               address
               type
+              data {
+                ... on MorphoChainlinkOracleV2Data {
+                  baseFeedOne {
+                    address
+                  }
+                }
+                ... on MorphoChainlinkOracleData {
+                  baseFeedOne {
+                    address
+                  }
+                }
+              }
             }
             irmAddress
             lltv
@@ -70,6 +82,11 @@ export type V1VaultMarketData = {
     id: string;
     address: string;
     type: string; // e.g., "ChainlinkOracleV2"
+    data?: {
+      baseFeedOne?: {
+        address: string;
+      } | null;
+    } | null;
   } | null;
   irmAddress: string | null;
   lltv: string | null; // BigInt as string
@@ -113,6 +130,11 @@ export type V1VaultMarketsQueryResponse = {
             id: string;
             address: string;
             type: string;
+            data?: {
+              baseFeedOne?: {
+                address: string;
+              } | null;
+            } | null;
           } | null;
           irmAddress: string | null;
           lltv: string | null;
@@ -162,6 +184,7 @@ export async function fetchV1VaultMarkets(
               id: alloc.market.oracle.id,
               address: alloc.market.oracle.address,
               type: alloc.market.oracle.type,
+              data: alloc.market.oracle.data || null,
             }
           : null,
         irmAddress: alloc.market.irmAddress,

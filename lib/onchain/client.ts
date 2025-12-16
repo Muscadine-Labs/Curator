@@ -196,6 +196,23 @@ export const VAULT_ABI = [
     inputs: [],
     outputs: [{ name: '', type: 'address' }],
   },
+  // Reallocate function for MetaMorpho V1 vaults
+  {
+    name: 'reallocate',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      {
+        name: 'allocations',
+        type: 'tuple[]',
+        components: [
+          { name: 'market', type: 'address' },
+          { name: 'assets', type: 'uint256' },
+        ],
+      },
+    ],
+    outputs: [],
+  },
 ] as const;
 
 // Morpho Blue Vault Allocator ABI

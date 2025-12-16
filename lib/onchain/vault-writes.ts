@@ -29,6 +29,14 @@ export interface TransferOwnershipParams {
   newOwner: Address;
 }
 
+export interface ReallocateParams {
+  vaultAddress: Address;
+  allocations: Array<{
+    market: Address;
+    assets: bigint;
+  }>;
+}
+
 // Contract write configurations for wagmi
 export const vaultWriteConfigs = {
   setCurator: (params: SetCuratorParams) => ({
@@ -71,6 +79,13 @@ export const vaultWriteConfigs = {
     abi: VAULT_ABI,
     functionName: 'renounceOwnership' as const,
     args: [] as const,
+  }),
+
+  reallocate: (params: ReallocateParams) => ({
+    address: params.vaultAddress,
+    abi: VAULT_ABI,
+    functionName: 'reallocate' as const,
+    args: [params.allocations] as const,
   }),
 };
 

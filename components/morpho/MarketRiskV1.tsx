@@ -169,7 +169,11 @@ export function MarketRiskV1({ vaultAddress }: MarketRiskV1Props) {
     
     // Both idle or both not idle - maintain current order
     return 0;
-  });
+  }).map(item => ({
+    market: item.market,
+    scores: item.scores,
+    oracleTimestampData: item.oracleTimestampData,
+  }));
 
   return (
     <Card>
@@ -177,7 +181,7 @@ export function MarketRiskV1({ vaultAddress }: MarketRiskV1Props) {
         <CardTitle>Market Risk</CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        {sortedMarkets.map(({ market, scores }) => {
+        {sortedMarkets.map(({ market, scores, oracleTimestampData }) => {
           const marketName = formatMarketIdentifier(
             market.loanAsset?.symbol,
             market.collateralAsset?.symbol
@@ -388,6 +392,23 @@ export function MarketRiskV1({ vaultAddress }: MarketRiskV1Props) {
                           {getComponentGrade(scores.oracleScore)}
                         </Badge>
                       </div>
+                      {oracleTimestampData?.updatedAt && (() => {
+                        const date = new Date(oracleTimestampData.updatedAt * 1000);
+                        // Format as UTC: "DD MMM YYYY, HH:MM:SS UTC"
+                        const year = date.getUTCFullYear();
+                        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                        const month = monthNames[date.getUTCMonth()];
+                        const day = String(date.getUTCDate()).padStart(2, '0');
+                        const hours = String(date.getUTCHours()).padStart(2, '0');
+                        const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+                        const seconds = String(date.getUTCSeconds()).padStart(2, '0');
+                        const formatted = `${day} ${month} ${year}, ${hours}:${minutes}:${seconds} UTC`;
+                        return (
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                            Last update: {formatted}
+                          </p>
+                        );
+                      })()}
                     </div>
                   </div>
                   

@@ -20,6 +20,11 @@ export interface V1MarketRiskData {
     marketRiskScore: number;
     grade: string;
   } | null; // null for idle markets
+  oracleTimestampData?: {
+    chainlinkAddress: string | null;
+    updatedAt: number | null; // Unix timestamp in seconds
+    ageSeconds: number | null;
+  } | null;
 }
 
 export interface V1VaultMarketRiskResponse {
@@ -82,9 +87,15 @@ export async function GET(
         };
       }
 
+      // Extract baseFeedOne address from GraphQL oracle.data if available
+      const baseFeedOneAddress = market.oracle?.data?.baseFeedOne?.address
+        ? (market.oracle.data.baseFeedOne.address as Address)
+        : null;
+
       const [oracleTimestampData, targetUtilization] = await Promise.all([
         getOracleTimestampData(
-          market.oracleAddress ? (market.oracleAddress as Address) : null
+          market.oracleAddress ? (market.oracleAddress as Address) : null,
+          baseFeedOneAddress
         ),
         getIRMTargetUtilizationWithFallback(
           market.irmAddress ? (market.irmAddress as Address) : null
@@ -105,6 +116,7 @@ export async function GET(
         return {
           market,
           scores: null,
+          oracleTimestampData: null,
         };
       }
 
@@ -117,7 +129,14 @@ export async function GET(
       return {
         market,
         scores,
-      };
+        oracleTimestampData: marketData[index].oracleTimestampData
+          ? {
+              chainlinkAddress: marketData[index].oracleTimestampData.chainlinkAddress,
+              updatedAt: marketData[index].oracleTimestampData.updatedAt,
+              ageSeconds: marketData[index].oracleTimestampData.ageSeconds,
+            }
+          : null,
+      } as V1MarketRiskData;
     });
 
     const marketsWithScores: V1MarketRiskData[] = await Promise.all(marketsWithScoresPromises);
