@@ -6,6 +6,7 @@ import { getAddress, isAddress } from 'viem';
 import { fetchV1VaultMarkets } from '@/lib/morpho/query-v1-vault-markets';
 import { computeV1MarketRiskScores, isMarketIdle } from '@/lib/morpho/compute-v1-market-risk';
 import { getOracleTimestampData } from '@/lib/morpho/oracle-utils';
+import { getIRMTargetUtilizationWithFallback } from '@/lib/morpho/irm-utils';
 import type { V1VaultMarketData } from '@/lib/morpho/query-v1-vault-markets';
 import type { Address } from 'viem';
 
@@ -72,23 +73,54 @@ export async function GET(
     // Fetch markets for this V1 vault
     const markets = await fetchV1VaultMarkets(address, cfg.chainId);
 
-    // Fetch oracle timestamp data for all active markets in parallel
-    const oracleTimestampPromises = markets.map((market) =>
-      isMarketIdle(market)
-        ? Promise.resolve(null)
-        : getOracleTimestampData(
-            market.oracleAddress ? (market.oracleAddress as Address) : null
-          )
-    );
-    const oracleTimestampData = await Promise.all(oracleTimestampPromises);
+    // Fetch oracle timestamp data and IRM target utilization for all active markets in parallel
+    const marketDataPromises = markets.map(async (market) => {
+      if (isMarketIdle(market)) {
+        return {
+          oracleTimestampData: null,
+          targetUtilization: null,
+        };
+      }
+
+      const [oracleTimestampData, targetUtilization] = await Promise.all([
+        getOracleTimestampData(
+          market.oracleAddress ? (market.oracleAddress as Address) : null
+        ),
+        getIRMTargetUtilizationWithFallback(
+          market.irmAddress ? (market.irmAddress as Address) : null
+        ),
+      ]);
+
+      return {
+        oracleTimestampData,
+        targetUtilization,
+      };
+    });
+
+    const marketData = await Promise.all(marketDataPromises);
 
     // Compute risk scores for each market (null for idle markets)
-    const marketsWithScores: V1MarketRiskData[] = markets.map((market, index) => ({
-      market,
-      scores: isMarketIdle(market)
-        ? null
-        : computeV1MarketRiskScores(market, oracleTimestampData[index]),
-    }));
+    const marketsWithScoresPromises = markets.map(async (market, index) => {
+      if (isMarketIdle(market)) {
+        return {
+          market,
+          scores: null,
+        };
+      }
+
+      const scores = await computeV1MarketRiskScores(
+        market,
+        marketData[index].oracleTimestampData,
+        marketData[index].targetUtilization
+      );
+
+      return {
+        market,
+        scores,
+      };
+    });
+
+    const marketsWithScores: V1MarketRiskData[] = await Promise.all(marketsWithScoresPromises);
 
     const response: V1VaultMarketRiskResponse = {
       vaultAddress: address,

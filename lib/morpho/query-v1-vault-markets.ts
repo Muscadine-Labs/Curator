@@ -33,6 +33,7 @@ const VAULT_V1_MARKETS_QUERY = gql`
               address
               type
             }
+            irmAddress
             lltv
             state {
               supplyAssetsUsd
@@ -70,6 +71,7 @@ export type V1VaultMarketData = {
     address: string;
     type: string; // e.g., "ChainlinkOracleV2"
   } | null;
+  irmAddress: string | null;
   lltv: string | null; // BigInt as string
   state: {
     supplyAssetsUsd: number | null;
@@ -112,6 +114,7 @@ export type V1VaultMarketsQueryResponse = {
             address: string;
             type: string;
           } | null;
+          irmAddress: string | null;
           lltv: string | null;
           state: {
             supplyAssetsUsd: number | null;
@@ -161,6 +164,7 @@ export async function fetchV1VaultMarkets(
               type: alloc.market.oracle.type,
             }
           : null,
+        irmAddress: alloc.market.irmAddress,
         lltv: alloc.market.lltv,
         state: alloc.market.state,
         vaultSupplyAssets: alloc.supplyAssets,

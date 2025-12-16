@@ -1,5 +1,7 @@
 import type { V1VaultMarketData } from './query-v1-vault-markets';
 import type { OracleTimestampData } from './oracle-utils';
+import { getIRMTargetUtilizationWithFallback } from './irm-utils';
+import type { Address } from 'viem';
 
 /**
  * Market Risk Scoring for Morpho V1 - Market Level Only
@@ -168,21 +170,26 @@ function computeLiquidationHeadroomScore(market: V1VaultMarketData): number {
 }
 
 /**
- * Compute Utilization Score (0-100)
+ * Compute Utilization Score (0-100) - Based on IRM target utilization
  * 
  * Inputs:
  * - state.supplyAssetsUsd
  * - state.borrowAssetsUsd
+ * - irmAddress (to fetch target utilization)
  * 
  * Compute:
  * - utilization = borrowUsd / supplyUsd
- * - availableLiquidityUsd = supplyUsd − borrowUsd
+ * - targetUtilization = IRM kink (default 90% if not available)
  * 
  * Score (continuous):
- * - 100 = utilization = 0% (perfect liquidity)
- * - Linear decay: 100 → 80 (0-70%), 80 → 60 (70-85%), 60 → 20 (85-95%), 20 → 0 (95-100%)
+ * - Best score when utilization is well below target
+ * - Score decreases as utilization approaches target
+ * - Score decreases faster when utilization exceeds target (riskier)
  */
-function computeUtilizationScore(market: V1VaultMarketData): number {
+async function computeUtilizationScore(
+  market: V1VaultMarketData,
+  targetUtilization: number
+): Promise<number> {
   const state = market.state;
   if (!state) {
     return 0; // No state data = highest risk
@@ -204,23 +211,36 @@ function computeUtilizationScore(market: V1VaultMarketData): number {
   // Clamp utilization to [0, 1]
   utilization = Math.max(0, Math.min(1, utilization));
 
-  // Continuous scoring based on utilization
-  if (utilization < 0.70) {
-    // 0% → 70%: 100 → 80 (linear)
-    const progress = utilization / 0.70;
-    return 100 - (progress * 20);
-  } else if (utilization < 0.85) {
-    // 70% → 85%: 80 → 60 (linear)
-    const progress = (utilization - 0.70) / (0.85 - 0.70);
-    return 80 - (progress * 20);
-  } else if (utilization < 0.95) {
-    // 85% → 95%: 60 → 20 (linear)
-    const progress = (utilization - 0.85) / (0.95 - 0.85);
-    return 60 - (progress * 40);
+  // Score based on distance from target utilization
+  // Utilization below target = better (more headroom)
+  // Utilization above target = worse (riskier)
+  
+  if (utilization <= targetUtilization) {
+    // Below or at target: score based on how far below
+    // 0% utilization = 100 score
+    // targetUtilization = 80 score (good, but not perfect)
+    if (targetUtilization === 0) {
+      return utilization === 0 ? 100 : 0;
+    }
+    const progress = utilization / targetUtilization; // 0 to 1
+    return 100 - (progress * 20); // 100 → 80
   } else {
-    // 95% → 100%: 20 → 0 (linear)
-    const progress = (utilization - 0.95) / (1.0 - 0.95);
-    return 20 - (progress * 20);
+    // Above target: score decreases faster
+    // targetUtilization = 80 score
+    // targetUtilization + 5% = 60 score
+    // targetUtilization + 10% = 40 score
+    // targetUtilization + 15% = 20 score
+    // targetUtilization + 20%+ = 0 score
+    const excess = utilization - targetUtilization;
+    const maxExcess = 0.20; // 20% above target = 0 score
+    
+    if (excess >= maxExcess) {
+      return 0;
+    }
+    
+    // Linear decay from 80 to 0 over 20% excess
+    const progress = excess / maxExcess; // 0 to 1
+    return 80 - (progress * 80); // 80 → 0
   }
 }
 
@@ -370,12 +390,21 @@ export function isMarketIdle(market: V1VaultMarketData): boolean {
 /**
  * Compute all market risk scores for a V1 vault market
  */
-export function computeV1MarketRiskScores(
+export async function computeV1MarketRiskScores(
   market: V1VaultMarketData,
-  oracleTimestampData?: OracleTimestampData | null
-): MarketRiskScores {
+  oracleTimestampData?: OracleTimestampData | null,
+  targetUtilization?: number | null
+): Promise<MarketRiskScores> {
+  // Get target utilization from IRM if not provided
+  let targetUtil = targetUtilization ?? null;
+  if (targetUtil === null) {
+    targetUtil = await getIRMTargetUtilizationWithFallback(
+      market.irmAddress ? (market.irmAddress as Address) : null
+    );
+  }
+
   const liquidationHeadroomScore = computeLiquidationHeadroomScore(market);
-  const utilizationScore = computeUtilizationScore(market);
+  const utilizationScore = await computeUtilizationScore(market, targetUtil);
   const coverageRatioScore = computeCoverageRatioScore(market);
   const oracleScore = computeOracleScore(market, oracleTimestampData);
 
