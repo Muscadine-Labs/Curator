@@ -11,11 +11,75 @@ import type { Address } from 'viem';
  * Final marketRiskScore ∈ [0, 100]
  * 
  * Metrics:
- * 1. Liquidation Headroom (−5% shock) - 25% weight
+ * 1. Liquidation Headroom (−5% or −2.5% shock) - 25% weight
+ *    - 2.5% shock for same/derivative assets (e.g., USDC/USDC, wstETH/ETH)
+ *    - 5% shock for different assets
  * 2. Utilization - 25% weight
  * 3. Liquidation Coverage Ratio - 25% weight
  * 4. Oracle Freshness & Reliability - 25% weight
  */
+
+/**
+ * Check if loan and collateral assets are the same or derivatives of each other
+ * This allows using a lower price shock (2.5% vs 5%) for same-asset liquidations
+ */
+function isSameOrDerivativeAsset(market: V1VaultMarketData): boolean {
+  const loanAsset = market.loanAsset;
+  const collateralAsset = market.collateralAsset;
+
+  if (!loanAsset || !collateralAsset) {
+    return false;
+  }
+
+  // Check if addresses match (exact same asset)
+  if (loanAsset.address.toLowerCase() === collateralAsset.address.toLowerCase()) {
+    return true;
+  }
+
+  // Check if symbols match (same asset, different addresses possible)
+  const loanSymbol = loanAsset.symbol?.toUpperCase() || '';
+  const collateralSymbol = collateralAsset.symbol?.toUpperCase() || '';
+
+  if (loanSymbol === collateralSymbol && loanSymbol !== '') {
+    return true;
+  }
+
+  // Check for common derivative pairs
+  // wstETH, stETH, rETH, cbETH, WETH, etc. are all ETH derivatives
+  const ethDerivatives = ['WSTETH', 'STETH', 'RETH', 'CBETH', 'WETH', 'ETH'];
+  const isLoanEthDerivative = ethDerivatives.includes(loanSymbol);
+  const isCollateralEthDerivative = ethDerivatives.includes(collateralSymbol);
+
+  if (isLoanEthDerivative && isCollateralEthDerivative) {
+    return true;
+  }
+
+  // cbBTC, lBTC, etc. are all BTC derivatives
+  const btcDerivatives = ['CBBTC', 'LBTC', 'WBTC', 'BTC'];
+  const isLoanBtcDerivative = btcDerivatives.includes(loanSymbol);
+  const isCollateralBtcDerivative = btcDerivatives.includes(collateralSymbol);
+
+  if (isLoanBtcDerivative && isCollateralBtcDerivative) {
+    return true;
+  }
+
+  // USDC/USDC.e, USDT/USDT.e, etc.
+  if (
+    (loanSymbol === 'USDC' || loanSymbol === 'USDC.E') &&
+    (collateralSymbol === 'USDC' || collateralSymbol === 'USDC.E')
+  ) {
+    return true;
+  }
+
+  if (
+    (loanSymbol === 'USDT' || loanSymbol === 'USDT.E') &&
+    (collateralSymbol === 'USDT' || collateralSymbol === 'USDT.E')
+  ) {
+    return true;
+  }
+
+  return false;
+}
 
 // Letter Grade Mapping (0-100 scale)
 export type MarketRiskGrade = 'A+' | 'A' | 'A−' | 'B+' | 'B' | 'B−' | 'C+' | 'C' | 'C−' | 'D' | 'F';
@@ -93,16 +157,19 @@ function computeOracleScore(
 }
 
 /**
- * Compute Liquidation Headroom Score (0-100) - −5% shock
+ * Compute Liquidation Headroom Score (0-100)
  * 
  * Inputs:
  * - lltv
  * - state.borrowAssetsUsd
  * - state.collateralAssetsUsd (must be borrower-side collateral, not supply)
+ * - loanAsset and collateralAsset (to determine if same/derivative)
  * 
  * Compute:
- * - headroom5 = collateralUsd * 0.95 * lltvRatio − borrowUsd
- * - headroomRatio5 = headroom5 / borrowUsd
+ * - Uses -2.5% shock for same/derivative assets (e.g., USDC/USDC, wstETH/ETH)
+ * - Uses -5% shock for different assets
+ * - headroom = collateralUsd * shockMultiplier * lltvRatio − borrowUsd
+ * - headroomRatio = headroom / borrowUsd
  * 
  * Score (continuous):
  * - Higher headroom ratio = better score
@@ -136,13 +203,18 @@ function computeLiquidationHeadroomScore(market: V1VaultMarketData): number {
     return 0; // No collateral = highest risk
   }
 
-  // Compute headroom with -5% shock
-  // headroom5 = collateralUsd * 0.95 * lltvRatio − borrowUsd
-  const headroom5 = collateralUsd * 0.95 * lltvRatio - borrowUsd;
-  const headroomRatio5 = headroom5 / borrowUsd;
+  // Determine price shock: 2.5% for same/derivative assets, 5% for different assets
+  const isSameAsset = isSameOrDerivativeAsset(market);
+  const priceShock = isSameAsset ? 0.025 : 0.05; // 2.5% or 5%
+  const shockMultiplier = 1 - priceShock; // 0.975 or 0.95
+
+  // Compute headroom with price shock
+  // headroom = collateralUsd * shockMultiplier * lltvRatio − borrowUsd
+  const headroom = collateralUsd * shockMultiplier * lltvRatio - borrowUsd;
+  const headroomRatio = headroom / borrowUsd;
 
   // If underwater (negative headroom), score is 0
-  if (headroomRatio5 < 0) {
+  if (headroomRatio < 0) {
     return 0;
   }
 
@@ -152,19 +224,19 @@ function computeLiquidationHeadroomScore(market: V1VaultMarketData): number {
   // 10% headroom = 60 score
   // 20% headroom = 80 score
   // 30%+ headroom = 100 score
-  if (headroomRatio5 >= 0.30) {
+  if (headroomRatio >= 0.30) {
     return 100;
-  } else if (headroomRatio5 >= 0.20) {
+  } else if (headroomRatio >= 0.20) {
     // 20% → 30%: 80 → 100
-    const progress = (headroomRatio5 - 0.20) / 0.10;
+    const progress = (headroomRatio - 0.20) / 0.10;
     return 80 + (progress * 20);
-  } else if (headroomRatio5 >= 0.10) {
+  } else if (headroomRatio >= 0.10) {
     // 10% → 20%: 60 → 80
-    const progress = (headroomRatio5 - 0.10) / 0.10;
+    const progress = (headroomRatio - 0.10) / 0.10;
     return 60 + (progress * 20);
   } else {
     // 0% → 10%: 0 → 60
-    const progress = headroomRatio5 / 0.10;
+    const progress = headroomRatio / 0.10;
     return progress * 60;
   }
 }
@@ -252,8 +324,9 @@ async function computeUtilizationScore(
  * - Everything from Utilization (supplyAssetsUsd, borrowAssetsUsd)
  * 
  * Compute:
- * - liquidatableBorrow5 = max(0, borrowUsd − collateralUsd*0.95*lltvRatio)
- * - coverage5 = availableLiquidityUsd / liquidatableBorrow5 (cap at 1+ if desired)
+ * - liquidatableBorrow = max(0, borrowUsd − collateralUsd*shockMultiplier*lltvRatio)
+ *   - Uses 2.5% shock for same/derivative assets, 5% for different assets
+ * - coverage = availableLiquidityUsd / liquidatableBorrow
  * 
  * Score (continuous):
  * - Higher coverage ratio = better score
@@ -291,43 +364,48 @@ function computeCoverageRatioScore(market: V1VaultMarketData): number {
     return 0; // No collateral = highest risk
   }
 
-  // Compute liquidatable borrow with -5% shock
-  // liquidatableBorrow5 = max(0, borrowUsd − collateralUsd*0.95*lltvRatio)
-  const liquidatableBorrow5 = Math.max(0, borrowUsd - collateralUsd * 0.95 * lltvRatio);
+  // Determine price shock: 2.5% for same/derivative assets, 5% for different assets
+  const isSameAsset = isSameOrDerivativeAsset(market);
+  const priceShock = isSameAsset ? 0.025 : 0.05; // 2.5% or 5%
+  const shockMultiplier = 1 - priceShock; // 0.975 or 0.95
+
+  // Compute liquidatable borrow with price shock
+  // liquidatableBorrow = max(0, borrowUsd − collateralUsd*shockMultiplier*lltvRatio)
+  const liquidatableBorrow = Math.max(0, borrowUsd - collateralUsd * shockMultiplier * lltvRatio);
 
   // If no liquidations needed, perfect score
-  if (liquidatableBorrow5 === 0) {
+  if (liquidatableBorrow === 0) {
     return 100;
   }
 
   // Compute coverage ratio
-  // coverage5 = availableLiquidityUsd / liquidatableBorrow5
+  // coverage = availableLiquidityUsd / liquidatableBorrow
   if (availableLiquidityUsd <= 0) {
     return 0; // No liquidity available = highest risk
   }
 
-  const coverage5 = availableLiquidityUsd / liquidatableBorrow5;
+  const coverage = availableLiquidityUsd / liquidatableBorrow;
 
   // Score based on coverage ratio
   // Full coverage (≥1.0) = 100
   // Partial coverage scored linearly
-  if (coverage5 >= 1.0) {
+  if (coverage >= 1.0) {
     return 100; // Full coverage
-  } else if (coverage5 >= 0.8) {
+  } else if (coverage >= 0.8) {
     // 80% → 100% coverage: 80 → 100 score
-    const progress = (coverage5 - 0.8) / 0.2;
+    const progress = (coverage - 0.8) / 0.2;
     return 80 + (progress * 20);
-  } else if (coverage5 >= 0.5) {
+  } else if (coverage >= 0.5) {
     // 50% → 80% coverage: 60 → 80 score
-    const progress = (coverage5 - 0.5) / 0.3;
+    const progress = (coverage - 0.5) / 0.3;
     return 60 + (progress * 20);
-  } else if (coverage5 >= 0.25) {
+  } else if (coverage >= 0.25) {
     // 25% → 50% coverage: 40 → 60 score
-    const progress = (coverage5 - 0.25) / 0.25;
+    const progress = (coverage - 0.25) / 0.25;
     return 40 + (progress * 20);
   } else {
     // 0% → 25% coverage: 0 → 40 score
-    const progress = coverage5 / 0.25;
+    const progress = coverage / 0.25;
     return progress * 40;
   }
 }

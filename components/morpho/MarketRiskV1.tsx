@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { formatCompactUSD, formatPercentage } from '@/lib/format/number';
+import { formatAddress } from '@/lib/format/number';
 import type { MarketRiskGrade } from '@/lib/morpho/compute-v1-market-risk';
 import { isMarketIdle } from '@/lib/morpho/compute-v1-market-risk';
 import { Info } from 'lucide-react';
@@ -206,6 +207,65 @@ export function MarketRiskV1({ vaultAddress }: MarketRiskV1Props) {
             ? (vaultSupplyUsd / marketTotalSupplyUsd) * 100
             : 0;
 
+          // Calculate underlying metrics for display
+          const state = market.state;
+          const lltvRaw = market.lltv;
+          const lltvRatio = lltvRaw ? Number(lltvRaw) / 1e18 : 0;
+          
+          // Check if loan and collateral are same/derivative assets (use 2.5% shock instead of 5%)
+          const loanAsset = market.loanAsset;
+          const collateralAsset = market.collateralAsset;
+          const loanSymbol = loanAsset?.symbol?.toUpperCase() || '';
+          const collateralSymbol = collateralAsset?.symbol?.toUpperCase() || '';
+          
+          const isSameAsset = loanAsset && collateralAsset && (
+            loanAsset.address.toLowerCase() === collateralAsset.address.toLowerCase() ||
+            loanSymbol === collateralSymbol ||
+            (['WSTETH', 'STETH', 'RETH', 'CBETH', 'WETH', 'ETH'].includes(loanSymbol) &&
+             ['WSTETH', 'STETH', 'RETH', 'CBETH', 'WETH', 'ETH'].includes(collateralSymbol)) ||
+            (['CBBTC', 'LBTC', 'WBTC', 'BTC'].includes(loanSymbol) &&
+             ['CBBTC', 'LBTC', 'WBTC', 'BTC'].includes(collateralSymbol)) ||
+            ((loanSymbol === 'USDC' || loanSymbol === 'USDC.E') &&
+             (collateralSymbol === 'USDC' || collateralSymbol === 'USDC.E')) ||
+            ((loanSymbol === 'USDT' || loanSymbol === 'USDT.E') &&
+             (collateralSymbol === 'USDT' || collateralSymbol === 'USDT.E'))
+          );
+          const priceShock = isSameAsset ? 0.025 : 0.05; // 2.5% or 5%
+          const shockMultiplier = 1 - priceShock; // 0.975 or 0.95
+          
+          // Liquidation Headroom calculation
+          const collateralUsd = state?.collateralAssetsUsd ? Number(state.collateralAssetsUsd) : 0;
+          const borrowUsd = state?.borrowAssetsUsd ? Number(state.borrowAssetsUsd) : 0;
+          const supplyUsd = state?.supplyAssetsUsd ? Number(state.supplyAssetsUsd) : 0;
+          const headroom = borrowUsd > 0 && collateralUsd > 0 
+            ? collateralUsd * shockMultiplier * lltvRatio - borrowUsd 
+            : null;
+          const headroomRatio = headroom !== null && borrowUsd > 0 
+            ? (headroom / borrowUsd) * 100 
+            : null;
+
+          // Utilization calculation
+          const utilization = state?.utilization !== null && state?.utilization !== undefined
+            ? state.utilization * 100
+            : (supplyUsd > 0 ? (borrowUsd / supplyUsd) * 100 : null);
+
+          // Coverage Ratio calculation
+          const availableLiquidityUsd = supplyUsd - borrowUsd;
+          const liquidatableBorrow = borrowUsd > 0 && collateralUsd > 0
+            ? Math.max(0, borrowUsd - collateralUsd * shockMultiplier * lltvRatio)
+            : null;
+          const coverage = liquidatableBorrow !== null && liquidatableBorrow > 0 && availableLiquidityUsd > 0
+            ? availableLiquidityUsd / liquidatableBorrow
+            : null;
+
+          // Oracle freshness calculation
+          const oracleAgeHours = oracleTimestampData?.ageSeconds 
+            ? oracleTimestampData.ageSeconds / 3600 
+            : null;
+          const oracleAgeDays = oracleAgeHours !== null 
+            ? oracleAgeHours / 24 
+            : null;
+
           return (
             <div
               key={market.uniqueKey || market.id}
@@ -232,16 +292,16 @@ export function MarketRiskV1({ vaultAddress }: MarketRiskV1Props) {
                     ) : (
                       <h3 className="font-semibold text-lg">{marketName}</h3>
                     )}
+                    <span className="text-sm text-slate-500 dark:text-slate-400">
+                      LTV: {lltvPercent}%
+                    </span>
                     {isIdle && (
                       <Badge variant="outline" className="text-xs">
                         Idle
                       </Badge>
                     )}
                   </div>
-                  <div className="mt-2 space-y-1">
-                    <p className="text-sm text-slate-600 dark:text-slate-400">
-                      LTV: {lltvPercent}%
-                    </p>
+                  <div className="mt-2">
                     <p className="text-sm text-slate-600 dark:text-slate-400">
                       Vault Supply: {formatCompactUSD(vaultSupplyUsd)} · {vaultAllocationPercent.toFixed(2)}% of vault · {marketSharePercent.toFixed(2)}% of market
                     </p>
@@ -280,7 +340,7 @@ export function MarketRiskV1({ vaultAddress }: MarketRiskV1Props) {
                             aria-label="Information"
                           />
                           <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-50 w-64 p-2 text-xs text-slate-900 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 rounded-md shadow-lg border border-slate-200 dark:border-slate-700 pointer-events-none">
-                            Measures the buffer before liquidation under a -5% price shock. Higher headroom (positive value) indicates more safety margin. Negative headroom means the position would be underwater.
+                            Measures the buffer before liquidation under a price shock. Uses -2.5% shock for same/derivative assets (e.g., USDC/USDC, wstETH/ETH) and -5% for different assets. Higher headroom (positive value) indicates more safety margin. Negative headroom means the position would be underwater.
                             <div className="absolute left-4 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-200 dark:border-t-slate-700"></div>
                           </div>
                         </div>
@@ -299,6 +359,13 @@ export function MarketRiskV1({ vaultAddress }: MarketRiskV1Props) {
                           {getComponentGrade(scores.liquidationHeadroomScore)}
                         </Badge>
                       </div>
+                      {headroomRatio !== null && (
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                          {headroomRatio >= 0 
+                            ? `Headroom: ${headroomRatio.toFixed(2)}% (${formatCompactUSD(headroom ?? 0)}) @ ${(priceShock * 100).toFixed(1)}% shock`
+                            : `Underwater: ${Math.abs(headroomRatio).toFixed(2)}% (${formatCompactUSD(headroom ?? 0)}) @ ${(priceShock * 100).toFixed(1)}% shock`}
+                        </p>
+                      )}
                     </div>
                     <div>
                       <div className="flex items-center gap-1 mb-1">
@@ -330,6 +397,11 @@ export function MarketRiskV1({ vaultAddress }: MarketRiskV1Props) {
                           {getComponentGrade(scores.utilizationScore)}
                         </Badge>
                       </div>
+                      {utilization !== null && (
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                          Utilization: {utilization.toFixed(2)}%
+                        </p>
+                      )}
                     </div>
                     <div>
                       <div className="flex items-center gap-1 mb-1">
@@ -342,7 +414,7 @@ export function MarketRiskV1({ vaultAddress }: MarketRiskV1Props) {
                             aria-label="Information"
                           />
                           <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-50 w-64 p-2 text-xs text-slate-900 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 rounded-md shadow-lg border border-slate-200 dark:border-slate-700 pointer-events-none">
-                            The ratio of available liquidity to liquidatable borrows under a -5% price shock. A ratio ≥1.0 means the market can fully cover all liquidations. Lower ratios indicate insufficient liquidity.
+                            The ratio of available liquidity to liquidatable borrows under a price shock. Uses -2.5% shock for same/derivative assets and -5% for different assets. A ratio ≥1.0 means the market can fully cover all liquidations. Lower ratios indicate insufficient liquidity.
                             <div className="absolute left-4 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-200 dark:border-t-slate-700"></div>
                           </div>
                         </div>
@@ -361,6 +433,16 @@ export function MarketRiskV1({ vaultAddress }: MarketRiskV1Props) {
                           {getComponentGrade(scores.coverageRatioScore)}
                         </Badge>
                       </div>
+                      {coverage !== null && (
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                          Coverage: {coverage.toFixed(2)}x @ {(priceShock * 100).toFixed(1)}% shock
+                          {liquidatableBorrow !== null && (
+                            <span className="ml-1">
+                              ({formatCompactUSD(availableLiquidityUsd)} / {formatCompactUSD(liquidatableBorrow)})
+                            </span>
+                          )}
+                        </p>
+                      )}
                     </div>
                     <div>
                       <div className="flex items-center gap-1 mb-1">
@@ -403,12 +485,37 @@ export function MarketRiskV1({ vaultAddress }: MarketRiskV1Props) {
                         const minutes = String(date.getUTCMinutes()).padStart(2, '0');
                         const seconds = String(date.getUTCSeconds()).padStart(2, '0');
                         const formatted = `${day} ${month} ${year}, ${hours}:${minutes}:${seconds} UTC`;
+                        
+                        // Format age
+                        let ageText = '';
+                        if (oracleAgeDays !== null) {
+                          if (oracleAgeDays < 1) {
+                            ageText = `${oracleAgeHours?.toFixed(1) ?? 0}h ago`;
+                          } else if (oracleAgeDays < 7) {
+                            ageText = `${oracleAgeDays.toFixed(1)}d ago`;
+                          } else {
+                            ageText = `${oracleAgeDays.toFixed(0)}d ago`;
+                          }
+                        }
+                        
                         return (
-                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                            Last update: {formatted}
-                          </p>
+                          <div className="mt-1 space-y-0.5">
+                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                              Last update: {formatted}
+                            </p>
+                            {ageText && (
+                              <p className="text-xs text-slate-500 dark:text-slate-400">
+                                Age: {ageText}
+                              </p>
+                            )}
+                          </div>
                         );
                       })()}
+                      {!oracleTimestampData?.updatedAt && (
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                          Oracle: {market.oracleAddress ? formatAddress(market.oracleAddress) : 'N/A'}
+                        </p>
+                      )}
                     </div>
                   </div>
                   
