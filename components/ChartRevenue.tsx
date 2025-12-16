@@ -95,7 +95,12 @@ export function ChartRevenue({ dailyData, cumulativeData, isLoading = false, tit
               tick={{ fontSize: 12 }}
             />
             <Tooltip 
-              formatter={(value: number) => [formatTooltipValue(value), viewMode === 'daily' ? 'Daily Revenue' : 'Cumulative Revenue']}
+              formatter={(value) => {
+                if (value === undefined || value === null) return ['N/A', viewMode === 'daily' ? 'Daily Revenue' : 'Cumulative Revenue'];
+                const numValue = typeof value === 'number' ? value : Array.isArray(value) ? value[0] : Number(value);
+                if (isNaN(numValue)) return ['N/A', viewMode === 'daily' ? 'Daily Revenue' : 'Cumulative Revenue'];
+                return [formatTooltipValue(numValue), viewMode === 'daily' ? 'Daily Revenue' : 'Cumulative Revenue'];
+              }}
               labelFormatter={(label) => new Date(label).toLocaleDateString()}
             />
             <Line 
