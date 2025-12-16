@@ -26,6 +26,7 @@ export interface VaultWithData {
   name: string | null;
   symbol: string | null;
   asset: string | null;
+  assetDecimals?: number | null;
   address: string;
   chainId: number;
   scanUrl: string;
@@ -74,7 +75,9 @@ export interface VaultDetail extends VaultWithData {
   allocation?: Array<{
     marketKey: string;
     loanAssetName?: string | null;
+    loanAssetSymbol?: string | null;
     collateralAssetName?: string | null;
+    collateralAssetSymbol?: string | null;
     oracleAddress?: string | null;
     irmAddress?: string | null;
     lltv?: number | null;

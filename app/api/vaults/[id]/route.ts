@@ -193,8 +193,8 @@ export async function GET(
               supplyCap
               market {
                 uniqueKey
-                loanAsset { name }
-                collateralAsset { name }
+                loanAsset { name symbol }
+                collateralAsset { name symbol }
                 oracleAddress
                 irmAddress
                 lltv
@@ -449,8 +449,8 @@ export async function GET(
           supplyCap?: string | null;
           market?: {
             uniqueKey?: string;
-            loanAsset?: { name?: string | null } | null;
-            collateralAsset?: { name?: string | null } | null;
+            loanAsset?: { name?: string | null; symbol?: string | null } | null;
+            collateralAsset?: { name?: string | null; symbol?: string | null } | null;
             oracleAddress?: string | null;
             irmAddress?: string | null;
             lltv?: string | null;
@@ -547,6 +547,7 @@ export async function GET(
       name: mv?.name ?? 'Unknown Vault',
       symbol: mv?.symbol ?? mv?.asset?.symbol ?? 'UNKNOWN',
       asset: mv?.asset?.symbol ?? 'UNKNOWN',
+      assetDecimals: mv?.asset?.decimals ?? null,
       tvl: tvlUsd,
       apy: apyPct,
       apyBase: apyBasePct,
@@ -602,8 +603,8 @@ export async function GET(
         : (mv?.state?.allocation || []).map((a: {
             market?: {
               uniqueKey?: string | null;
-              loanAsset?: { name?: string | null } | null;
-              collateralAsset?: { name?: string | null } | null;
+              loanAsset?: { name?: string | null; symbol?: string | null } | null;
+              collateralAsset?: { name?: string | null; symbol?: string | null } | null;
               oracleAddress?: string | null;
               irmAddress?: string | null;
               lltv?: string | number | null;
@@ -623,7 +624,9 @@ export async function GET(
               return {
                 marketKey: a.market?.uniqueKey ?? '',
                 loanAssetName: a.market?.loanAsset?.name ?? null,
+                loanAssetSymbol: a.market?.loanAsset?.symbol ?? null,
                 collateralAssetName: a.market?.collateralAsset?.name ?? null,
+                collateralAssetSymbol: a.market?.collateralAsset?.symbol ?? null,
                 oracleAddress: a.market?.oracleAddress ?? null,
                 irmAddress: a.market?.irmAddress ?? null,
                 lltv: a.market?.lltv ? (typeof a.market.lltv === 'string' ? parseFloat(a.market.lltv) : Number(a.market.lltv)) : null,

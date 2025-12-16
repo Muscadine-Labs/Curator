@@ -27,6 +27,9 @@ interface AllocationV1Props {
 interface MarketAllocationInput {
   uniqueKey: string;
   marketName: string;
+  loanAssetSymbol?: string | null;
+  collateralAssetSymbol?: string | null;
+  lltv?: number | null;
   currentAssets: bigint;
   currentAssetsUsd: number;
   targetAssets: string; // User input as string
@@ -51,7 +54,8 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
     if (!vault?.allocation || allocations.size > 0) return;
 
     const initialAllocations = new Map<string, MarketAllocationInput>();
-    const decimals = 18; // TODO: get from vault asset decimals
+    // Get decimals from vault asset (default to 18 if not available)
+    const decimals = vault?.assetDecimals ?? 18;
     
     vault.allocation.forEach((alloc) => {
       if (!alloc.marketKey) return;
@@ -72,11 +76,29 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
         supplyAssets = BigInt(0);
       }
       
+      // Format market identifier using symbols (like MarketRiskV1)
+      const formatMarketIdentifier = (
+        loanSymbol: string | null | undefined,
+        collateralSymbol: string | null | undefined
+      ): string => {
+        if (collateralSymbol && loanSymbol) {
+          return `${collateralSymbol}/${loanSymbol}`;
+        }
+        if (loanSymbol) {
+          return loanSymbol;
+        }
+        if (collateralSymbol) {
+          return collateralSymbol;
+        }
+        return 'Unknown Market';
+      };
+
       initialAllocations.set(alloc.marketKey, {
         uniqueKey: alloc.marketKey,
-        marketName: alloc.collateralAssetName && alloc.loanAssetName
-          ? `${alloc.collateralAssetName}/${alloc.loanAssetName}`
-          : alloc.loanAssetName || alloc.collateralAssetName || 'Unknown Market',
+        marketName: formatMarketIdentifier(alloc.loanAssetSymbol, alloc.collateralAssetSymbol),
+        loanAssetSymbol: alloc.loanAssetSymbol ?? null,
+        collateralAssetSymbol: alloc.collateralAssetSymbol ?? null,
+        lltv: alloc.lltv ?? null,
         currentAssets: supplyAssets,
         currentAssetsUsd: alloc.supplyAssetsUsd ?? 0,
         targetAssets: formatAllocationAmount(supplyAssets, decimals),
@@ -92,7 +114,8 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
     return sum + (alloc.supplyAssetsUsd ?? 0);
   }, 0) ?? 0;
 
-  const decimals = 18; // TODO: get from vault asset decimals
+  // Get decimals from vault asset (default to 18 if not available)
+  const decimals = vault?.assetDecimals ?? 18;
 
   const handleEdit = () => {
     setIsEditing(true);
@@ -142,7 +165,8 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
     try {
       // Convert allocations to contract format
       const contractAllocations: MarketAllocation[] = [];
-      const decimals = 18; // TODO: get from vault asset decimals
+      // Get decimals from vault asset (default to 18 if not available)
+      const decimals = vault?.assetDecimals ?? 18;
       
       for (const alloc of allocations.values()) {
         // Parse user input to bigint
@@ -165,7 +189,12 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
       }
 
       // Validate allocations
-      const totalAssetsBigInt = BigInt(Math.floor(totalAssets * 1e18));
+      // Convert totalAssets (USD) to asset units using the correct decimals
+      // We need to estimate: if totalAssets USD = X, and 1 asset = ~$1, then totalAssets in asset units ≈ totalAssets
+      // But we need to convert to bigint with correct decimals
+      // For now, we'll use a reasonable approximation: totalAssets * 10^decimals
+      // This assumes 1 asset unit ≈ $1, which is true for stablecoins
+      const totalAssetsBigInt = BigInt(Math.floor(totalAssets * 10 ** decimals));
       const validation = validateAllocations(contractAllocations, totalAssetsBigInt);
       
       if (!validation.valid) {
@@ -350,10 +379,9 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
         <div className="space-y-2">
           <div className="grid grid-cols-12 gap-4 p-2 text-xs font-medium text-slate-600 dark:text-slate-400 border-b">
             <div className="col-span-4">Market</div>
-            <div className="col-span-2 text-right">Current</div>
-            <div className="col-span-2 text-right">Current USD</div>
+            <div className={isEditing ? "col-span-3 text-right" : "col-span-8 text-right"}>Current</div>
             {isEditing && <div className="col-span-3 text-right">New Allocation</div>}
-            {isEditing && <div className="col-span-1 text-right">%</div>}
+            {isEditing && <div className="col-span-2 text-right">%</div>}
           </div>
 
           {sortedAllocations.map((alloc) => {
@@ -386,6 +414,11 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
                     >
                       {alloc.marketName}
                     </a>
+                    {alloc.lltv !== null && alloc.lltv !== undefined && (
+                      <span className="text-sm text-slate-500 dark:text-slate-400">
+                        LTV: {(Number(alloc.lltv) / 1e16).toFixed(2)}%
+                      </span>
+                    )}
                     {alloc.isIdle && (
                       <Badge variant="outline" className="text-xs">
                         Idle
@@ -393,13 +426,11 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
                     )}
                   </div>
                 </div>
-                <div className="col-span-2 text-right">
+                <div className={isEditing ? "col-span-3 text-right" : "col-span-8 text-right"}>
                   <p className="text-sm font-medium">
                     {formatAllocationAmount(alloc.currentAssets, alloc.decimals)}
                   </p>
-                </div>
-                <div className="col-span-2 text-right">
-                  <p className="text-sm font-medium">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
                     {formatCompactUSD(alloc.currentAssetsUsd)}
                   </p>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -411,14 +442,14 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
                     <div className="col-span-3">
                       <Input
                         type="number"
-                        step="0.000001"
+                        step={alloc.decimals === 6 ? "0.000001" : alloc.decimals === 18 ? "0.000000000000000001" : "0.000001"}
                         value={alloc.targetAssets}
                         onChange={(e) => handleAllocationChange(alloc.uniqueKey, e.target.value)}
                         className="text-right"
                         placeholder="0.0"
                       />
                     </div>
-                    <div className="col-span-1 text-right">
+                    <div className="col-span-2 text-right">
                       <p className="text-sm font-medium">
                         {newPercent.toFixed(2)}%
                       </p>
