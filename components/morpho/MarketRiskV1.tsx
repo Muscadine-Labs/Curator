@@ -145,10 +145,14 @@ export function MarketRiskV1({ vaultAddress }: MarketRiskV1Props) {
             market.loanAsset?.symbol,
             market.collateralAsset?.symbol
           );
-          
+
+          const morphoMarketUrl = market.id
+            ? `https://app.morpho.org/base/market/${market.id.toLowerCase()}`
+            : null;
+
           // LTV is stored as a fraction scaled by 1e18 in Morpho (e.g., "860000000000000000" = 0.86 = 86%)
           // Convert wei to percentage for display: divide by 1e16 (1e18 / 100)
-          const lltvPercent = market.lltv 
+          const lltvPercent = market.lltv
             ? (Number(market.lltv) / 1e16).toFixed(2)
             : 'N/A';
 
@@ -170,8 +174,8 @@ export function MarketRiskV1({ vaultAddress }: MarketRiskV1Props) {
               key={market.uniqueKey || market.id}
               className={cn(
                 "border rounded-lg p-4 space-y-4",
-                isIdle 
-                  ? "bg-slate-100/50 dark:bg-slate-800/50 opacity-75" 
+                isIdle
+                  ? "bg-slate-100/50 dark:bg-slate-800/50 opacity-75"
                   : "bg-slate-50/50 dark:bg-slate-900/50"
               )}
             >
@@ -179,13 +183,34 @@ export function MarketRiskV1({ vaultAddress }: MarketRiskV1Props) {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-lg">{marketName}</h3>
+                    {morphoMarketUrl ? (
+                      <a
+                        href={morphoMarketUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-semibold text-lg text-blue-600 hover:text-blue-700 transition-colors"
+                      >
+                        {marketName}
+                      </a>
+                    ) : (
+                      <h3 className="font-semibold text-lg">{marketName}</h3>
+                    )}
                     {isIdle && (
                       <Badge variant="outline" className="text-xs">
                         Idle
                       </Badge>
                     )}
                   </div>
+                  {morphoMarketUrl && (
+                    <a
+                      href={morphoMarketUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-1 block text-xs text-slate-500 hover:text-blue-700 transition-colors break-all"
+                    >
+                      {market.id}
+                    </a>
+                  )}
                   <div className="mt-2 space-y-1">
                     <p className="text-sm text-slate-600 dark:text-slate-400">
                       LTV: {lltvPercent}%
