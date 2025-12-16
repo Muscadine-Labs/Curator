@@ -40,19 +40,19 @@ function getGradeColor(grade: MarketRiskGrade): string {
 }
 
 /**
- * Get color classes for a component score (0-5)
+ * Get color classes for a component score (0-100)
  */
 function getScoreColor(score: number): string {
-  if (score >= 4) {
+  if (score >= 80) {
     return 'text-emerald-600 dark:text-emerald-400';
   }
-  if (score >= 3) {
+  if (score >= 60) {
     return 'text-sky-600 dark:text-sky-400';
   }
-  if (score >= 2) {
+  if (score >= 40) {
     return 'text-amber-600 dark:text-amber-400';
   }
-  if (score >= 1) {
+  if (score >= 20) {
     return 'text-orange-600 dark:text-orange-400';
   }
   return 'text-rose-600 dark:text-rose-400';

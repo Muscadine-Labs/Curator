@@ -28,6 +28,11 @@ const VAULT_V1_MARKETS_QUERY = gql`
               address
             }
             oracleAddress
+            oracle {
+              id
+              address
+              type
+            }
             lltv
             state {
               supplyAssetsUsd
@@ -59,6 +64,11 @@ export type V1VaultMarketData = {
     address: string;
   };
   oracleAddress: string | null;
+  oracle: {
+    id: string;
+    address: string;
+    type: string; // e.g., "ChainlinkOracleV2"
+  } | null;
   lltv: string | null; // BigInt as string
   state: {
     supplyAssetsUsd: number | null;
@@ -95,6 +105,11 @@ export type V1VaultMarketsQueryResponse = {
             address: string;
           } | null;
           oracleAddress: string | null;
+          oracle: {
+            id: string;
+            address: string;
+            type: string;
+          } | null;
           lltv: string | null;
           state: {
             supplyAssetsUsd: number | null;
@@ -136,6 +151,13 @@ export async function fetchV1VaultMarkets(
         loanAsset: alloc.market.loanAsset || { symbol: 'Unknown', decimals: 18, address: '' },
         collateralAsset: alloc.market.collateralAsset || { symbol: 'Unknown', decimals: 18, address: '' },
         oracleAddress: alloc.market.oracleAddress,
+        oracle: alloc.market.oracle
+          ? {
+              id: alloc.market.oracle.id,
+              address: alloc.market.oracle.address,
+              type: alloc.market.oracle.type,
+            }
+          : null,
         lltv: alloc.market.lltv,
         state: alloc.market.state,
         vaultSupplyAssets: alloc.supplyAssets,
