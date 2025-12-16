@@ -597,7 +597,25 @@ export async function GET(
             supplyApr: (r.supplyApr ?? 0) * 100,
             yearlySupplyTokens: r.yearlySupplyTokens ? (typeof r.yearlySupplyTokens === 'bigint' ? Number(r.yearlySupplyTokens) : r.yearlySupplyTokens) : 0,
           })),
-      allocation: [],
+      allocation: isV2
+        ? [] // V2 vaults don't have allocation in the same format
+        : (mv?.state?.allocation || []).map((a) => ({
+            marketKey: a.market?.uniqueKey ?? '',
+            loanAssetName: a.market?.loanAsset?.name ?? null,
+            collateralAssetName: a.market?.collateralAsset?.name ?? null,
+            oracleAddress: a.market?.oracleAddress ?? null,
+            irmAddress: a.market?.irmAddress ?? null,
+            lltv: a.market?.lltv ? (typeof a.market.lltv === 'string' ? parseFloat(a.market.lltv) : Number(a.market.lltv)) : null,
+            supplyCap: a.supplyCap ? (typeof a.supplyCap === 'string' ? parseFloat(a.supplyCap) : Number(a.supplyCap)) : null,
+            supplyAssets: a.supplyAssets ? (typeof a.supplyAssets === 'string' ? a.supplyAssets : String(a.supplyAssets)) : null,
+            supplyAssetsUsd: a.supplyAssetsUsd ?? null,
+            marketRewards: (a.market?.state?.rewards || []).map((r) => ({
+              assetAddress: r.asset?.address ?? '',
+              chainId: r.asset?.chain?.id ?? null,
+              supplyApr: (r.supplyApr ?? 0) * 100,
+              borrowApr: (r.borrowApr ?? 0) * 100,
+            })),
+          })),
       queues: {
         supplyQueueIndex: isV2 ? null : (mv?.state?.allocationQueues?.supplyQueueIndex ?? null),
         withdrawQueueIndex: isV2 ? null : (mv?.state?.allocationQueues?.withdrawQueueIndex ?? null),

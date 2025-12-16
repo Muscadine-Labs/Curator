@@ -1,6 +1,8 @@
 'use client';
 
 import { getDefaultConfig } from '@rainbow-me/rainbowkit';
+import { getDefaultWallets } from '@rainbow-me/rainbowkit';
+import { rabbyWallet } from '@rainbow-me/rainbowkit/wallets';
 import { http } from 'wagmi';
 import { base } from 'viem/chains';
 
@@ -19,11 +21,27 @@ if (typeof window !== 'undefined') {
 }
 // #endregion
 
+// Get default wallets and add Rabby
+const { wallets } = getDefaultWallets({
+  appName: 'Muscadine Curator',
+  projectId,
+});
+
+// Add Rabby to the wallets list (as a new group)
+const walletsWithRabby = [
+  ...wallets,
+  {
+    groupName: 'More',
+    wallets: [rabbyWallet],
+  },
+];
+
 const config = getDefaultConfig({
   appName: 'Muscadine Curator',
   projectId,
   chains: [base],
   ssr: true,
+  wallets: walletsWithRabby,
   transports: {
     [base.id]: http(
       process.env.NEXT_PUBLIC_ALCHEMY_API_KEY
