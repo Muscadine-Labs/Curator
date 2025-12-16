@@ -1,8 +1,8 @@
-import { QueryClient } from '@tanstack/react-query';
+'use client';
+
 import { getDefaultConfig } from '@rainbow-me/rainbowkit';
 import { http } from 'wagmi';
 import { base } from 'viem/chains';
-import { QUERY_STALE_TIME_MEDIUM } from '@/lib/constants';
 
 // Create wagmi config with RainbowKit
 const config = getDefaultConfig({
@@ -19,14 +19,4 @@ const config = getDefaultConfig({
   },
 });
 
-// Create React Query client
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: QUERY_STALE_TIME_MEDIUM,
-      refetchOnWindowFocus: false,
-    },
-  },
-});
-
-export { config, queryClient };
+export { config };
