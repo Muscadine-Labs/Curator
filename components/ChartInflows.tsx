@@ -95,7 +95,12 @@ export function ChartInflows({ dailyData, cumulativeData, isLoading = false, tit
               tick={{ fontSize: 12 }}
             />
             <Tooltip 
-              formatter={(value: number) => [formatTooltipValue(value), viewMode === 'daily' ? 'Daily Inflows' : 'Cumulative Inflows']}
+              formatter={(value) => {
+                if (value === undefined || value === null) return ['N/A', viewMode === 'daily' ? 'Daily Inflows' : 'Cumulative Inflows'];
+                const numValue = typeof value === 'number' ? value : Array.isArray(value) ? value[0] : Number(value);
+                if (isNaN(numValue)) return ['N/A', viewMode === 'daily' ? 'Daily Inflows' : 'Cumulative Inflows'];
+                return [formatTooltipValue(numValue), viewMode === 'daily' ? 'Daily Inflows' : 'Cumulative Inflows'];
+              }}
               labelFormatter={(label) => new Date(label).toLocaleDateString()}
             />
             <Line 

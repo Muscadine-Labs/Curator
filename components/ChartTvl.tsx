@@ -139,7 +139,12 @@ export function ChartTvl({ totalData, vaultData, isLoading = false, title = "TVL
               tick={{ fontSize: 12 }}
             />
             <Tooltip 
-              formatter={(value: number, name: string) => [formatTooltipValue(value), name || 'TVL']}
+              formatter={(value, name) => {
+                if (value === undefined || value === null) return ['N/A', name || 'TVL'];
+                const numValue = typeof value === 'number' ? value : Array.isArray(value) ? value[0] : Number(value);
+                if (isNaN(numValue)) return ['N/A', name || 'TVL'];
+                return [formatTooltipValue(numValue), name || 'TVL'];
+              }}
               labelFormatter={(label) => new Date(label).toLocaleDateString()}
             />
             {viewMode === 'total' ? (
