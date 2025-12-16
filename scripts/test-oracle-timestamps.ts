@@ -27,7 +27,31 @@ async function testOracleTimestamps() {
     console.log(`Number of markets: ${data.markets.length}\n`);
 
     // Check each market for oracle timestamp data
-    data.markets.forEach((market: any, index: number) => {
+    interface MarketData {
+      market: {
+        collateralAsset?: { symbol?: string };
+        loanAsset?: { symbol?: string };
+        oracleAddress?: string;
+        oracle?: {
+          type?: string;
+          data?: {
+            baseFeedOne?: {
+              address?: string;
+            };
+          };
+        };
+      };
+      oracleTimestampData?: {
+        chainlinkAddress?: string;
+        updatedAt?: number;
+        ageSeconds?: number;
+      };
+      scores?: {
+        oracleScore?: number;
+      };
+    }
+    
+    (data.markets as MarketData[]).forEach((market: MarketData, index: number) => {
       const marketName = market.market.collateralAsset?.symbol && market.market.loanAsset?.symbol
         ? `${market.market.collateralAsset.symbol}/${market.market.loanAsset.symbol}`
         : market.market.loanAsset?.symbol || market.market.collateralAsset?.symbol || 'Unknown';
@@ -68,7 +92,7 @@ async function testOracleTimestamps() {
         console.log(`\n❌ No Oracle Timestamp Data`);
       }
 
-      if (market.scores) {
+      if (market.scores?.oracleScore !== undefined) {
         console.log(`\nOracle Score: ${market.scores.oracleScore.toFixed(2)}`);
       }
     });

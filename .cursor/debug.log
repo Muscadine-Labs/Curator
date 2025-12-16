@@ -1,0 +1,52 @@
+{"location":"lib/wallet/config.ts:10","message":"WalletConnect projectId check","data":{"projectId":"demo","hasEnvVar":false},"timestamp":1765919352864,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"lib/wallet/config.ts:18","message":"Creating wagmi config","data":{"projectId":"demo","appName":"Muscadine Curator","chainId":8453},"timestamp":1765919352865,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"lib/wallet/config.ts:32","message":"Config created successfully","data":{"hasConfig":true},"timestamp":1765919352868,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"app/providers.tsx:22","message":"Providers component rendering","data":{"hasConfig":true},"timestamp":1765919362915,"sessionId":"debug-session","runId":"run1","hypothesisId":"D"}
+{"location":"app/providers.tsx:30","message":"WagmiProvider initialized","data":{},"timestamp":1765919362915,"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}
+{"location":"app/providers.tsx:34","message":"RainbowKitProvider initialized","data":{},"timestamp":1765919362915,"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}
+{"location":"app/providers.tsx:22","message":"Providers component rendering","data":{"hasConfig":true},"timestamp":1765919362916,"sessionId":"debug-session","runId":"run1","hypothesisId":"D"}
+{"location":"app/providers.tsx:30","message":"WagmiProvider initialized","data":{},"timestamp":1765919362916,"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}
+{"location":"app/providers.tsx:34","message":"RainbowKitProvider initialized","data":{},"timestamp":1765919362916,"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}
+{"location":"app/providers.tsx:22","message":"Providers component rendering","data":{"hasConfig":true},"timestamp":1765919363265,"sessionId":"debug-session","runId":"run1","hypothesisId":"D"}
+{"location":"app/providers.tsx:30","message":"WagmiProvider initialized","data":{},"timestamp":1765919363265,"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}
+{"location":"app/providers.tsx:34","message":"RainbowKitProvider initialized","data":{},"timestamp":1765919363265,"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}
+{"location":"app/providers.tsx:22","message":"Providers component rendering","data":{"hasConfig":true},"timestamp":1765919363265,"sessionId":"debug-session","runId":"run1","hypothesisId":"D"}
+{"location":"app/providers.tsx:30","message":"WagmiProvider initialized","data":{},"timestamp":1765919363265,"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}
+{"location":"app/providers.tsx:34","message":"RainbowKitProvider initialized","data":{},"timestamp":1765919363266,"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}
+{"location":"components/WalletConnect.tsx:8","message":"WalletConnect component mounted","data":{},"timestamp":1765919365621,"sessionId":"debug-session","runId":"run1","hypothesisId":"F"}
+{"location":"app/providers.tsx:22","message":"Providers component rendering","data":{"hasConfig":true},"timestamp":1765919365685,"sessionId":"debug-session","runId":"run1","hypothesisId":"D"}
+{"location":"app/providers.tsx:30","message":"WagmiProvider initialized","data":{},"timestamp":1765919365685,"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}
+{"location":"app/providers.tsx:34","message":"RainbowKitProvider initialized","data":{},"timestamp":1765919365685,"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}
+{"location":"app/providers.tsx:22","message":"Providers component rendering","data":{"hasConfig":true},"timestamp":1765919365685,"sessionId":"debug-session","runId":"run1","hypothesisId":"D"}
+{"location":"app/providers.tsx:30","message":"WagmiProvider initialized","data":{},"timestamp":1765919365686,"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}
+{"location":"app/providers.tsx:34","message":"RainbowKitProvider initialized","data":{},"timestamp":1765919365686,"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}
+{"location":"app/providers.tsx:22","message":"Providers component rendering","data":{"hasConfig":true},"timestamp":1765919386961,"sessionId":"debug-session","runId":"run1","hypothesisId":"D"}
+{"location":"app/providers.tsx:30","message":"WagmiProvider initialized","data":{},"timestamp":1765919386961,"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}
+{"location":"app/providers.tsx:34","message":"RainbowKitProvider initialized","data":{},"timestamp":1765919386961,"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}
+{"location":"app/providers.tsx:22","message":"Providers component rendering","data":{"hasConfig":true},"timestamp":1765919386962,"sessionId":"debug-session","runId":"run1","hypothesisId":"D"}
+{"location":"app/providers.tsx:30","message":"WagmiProvider initialized","data":{},"timestamp":1765919386962,"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}
+{"location":"app/providers.tsx:34","message":"RainbowKitProvider initialized","data":{},"timestamp":1765919386962,"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}
+{"location":"app/providers.tsx:22","message":"Providers component rendering","data":{"hasConfig":true},"timestamp":1765919387211,"sessionId":"debug-session","runId":"run1","hypothesisId":"D"}
+{"location":"app/providers.tsx:30","message":"WagmiProvider initialized","data":{},"timestamp":1765919387211,"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}
+{"location":"app/providers.tsx:34","message":"RainbowKitProvider initialized","data":{},"timestamp":1765919387211,"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}
+{"location":"app/providers.tsx:22","message":"Providers component rendering","data":{"hasConfig":true},"timestamp":1765919387211,"sessionId":"debug-session","runId":"run1","hypothesisId":"D"}
+{"location":"app/providers.tsx:30","message":"WagmiProvider initialized","data":{},"timestamp":1765919387211,"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}
+{"location":"app/providers.tsx:34","message":"RainbowKitProvider initialized","data":{},"timestamp":1765919387211,"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}
+{"location":"app/providers.tsx:30","message":"WagmiProvider initialized","data":{},"timestamp":1765919398903,"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}
+{"location":"app/providers.tsx:34","message":"RainbowKitProvider initialized","data":{},"timestamp":1765919398903,"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}
+{"location":"app/providers.tsx:30","message":"WagmiProvider initialized","data":{},"timestamp":1765919398903,"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}
+{"location":"app/providers.tsx:34","message":"RainbowKitProvider initialized","data":{},"timestamp":1765919398903,"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}
+{"location":"components/WalletConnect.tsx:8","message":"WalletConnect component mounted","data":{},"timestamp":1765919398940,"sessionId":"debug-session","runId":"run1","hypothesisId":"F"}
+{"location":"app/providers.tsx:40","message":"Providers component rendering","data":{"hasConfig":true},"timestamp":1765919398944,"sessionId":"debug-session","runId":"run1","hypothesisId":"D"}
+{"location":"app/providers.tsx:30","message":"WagmiProvider initialized","data":{},"timestamp":1765919398999,"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}
+{"location":"app/providers.tsx:34","message":"RainbowKitProvider initialized","data":{},"timestamp":1765919398999,"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}
+{"location":"app/providers.tsx:30","message":"WagmiProvider initialized","data":{},"timestamp":1765919398999,"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}
+{"location":"app/providers.tsx:34","message":"RainbowKitProvider initialized","data":{},"timestamp":1765919398999,"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}
+{"location":"app/providers.tsx:30","message":"WagmiProvider initialized","data":{},"timestamp":1765919409683,"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}
+{"location":"app/providers.tsx:34","message":"RainbowKitProvider initialized","data":{},"timestamp":1765919409683,"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}
+{"location":"app/providers.tsx:30","message":"WagmiProvider initialized","data":{},"timestamp":1765919409683,"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}
+{"location":"app/providers.tsx:34","message":"RainbowKitProvider initialized","data":{},"timestamp":1765919409683,"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}
+{"location":"app/providers.tsx:30","message":"WagmiProvider initialized","data":{},"timestamp":1765919480526,"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}
+{"location":"app/providers.tsx:34","message":"RainbowKitProvider initialized","data":{},"timestamp":1765919480526,"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}
+{"location":"app/providers.tsx:30","message":"WagmiProvider initialized","data":{},"timestamp":1765919480526,"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}
+{"location":"app/providers.tsx:34","message":"RainbowKitProvider initialized","data":{},"timestamp":1765919480527,"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}
