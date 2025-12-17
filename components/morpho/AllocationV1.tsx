@@ -16,7 +16,7 @@ import {
   type MarketAllocation,
   type MarketParams
 } from '@/lib/onchain/allocation-utils';
-import { formatCompactUSD } from '@/lib/format/number';
+import { formatCompactUSD, formatPercentage } from '@/lib/format/number';
 import { cn } from '@/lib/utils';
 import { Address, getAddress } from 'viem';
 import { Save, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
@@ -41,6 +41,10 @@ interface MarketAllocationInput {
   targetPercentage: string; // User input as percentage string
   isIdle: boolean;
   decimals: number;
+  supplyApy?: number | null;
+  borrowApy?: number | null;
+  utilization?: number | null;
+  liquidityAssetsUsd?: number | null;
 }
 
 export function AllocationV1({ vaultAddress }: AllocationV1Props) {
@@ -130,6 +134,10 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
         targetPercentage: currentPercent.toFixed(4),
         isIdle: false, // TODO: detect idle market
         decimals,
+        supplyApy: alloc.supplyApy ?? null,
+        borrowApy: alloc.borrowApy ?? null,
+        utilization: alloc.utilization ?? null,
+        liquidityAssetsUsd: alloc.liquidityAssetsUsd ?? null,
       });
     });
 
@@ -562,17 +570,30 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
                       </Badge>
                     )}
                   </div>
-                  {alloc.lltv !== null && alloc.lltv !== undefined && (
-                    <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-                      {/* LTV is stored as wei format (860000000000000000 = 0.86 = 86%), convert to percentage */}
-                      LTV: {alloc.lltv > 1e17 
-                        ? (Number(alloc.lltv) / 1e16).toFixed(2) // If > 1e17, it's in wei format, divide by 1e16 for percentage
-                        : alloc.lltv > 1 
-                          ? alloc.lltv.toFixed(2) // Already a percentage
-                          : (alloc.lltv * 100).toFixed(2) // Ratio, convert to percentage
-                      }%
-                    </div>
-                  )}
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    {alloc.lltv !== null && alloc.lltv !== undefined && (
+                      <span>
+                        LTV: {alloc.lltv > 1e17 
+                          ? (Number(alloc.lltv) / 1e16).toFixed(2) // If > 1e17, it's in wei format, divide by 1e16 for percentage
+                          : alloc.lltv > 1 
+                            ? alloc.lltv.toFixed(2) // Already a percentage
+                            : (alloc.lltv * 100).toFixed(2) // Ratio, convert to percentage
+                        }%
+                      </span>
+                    )}
+                    {alloc.supplyApy !== null && alloc.supplyApy !== undefined && (
+                      <span>Supply APY: {formatPercentage(alloc.supplyApy, 2)}</span>
+                    )}
+                    {alloc.borrowApy !== null && alloc.borrowApy !== undefined && (
+                      <span>Borrow APY: {formatPercentage(alloc.borrowApy, 2)}</span>
+                    )}
+                    {alloc.utilization !== null && alloc.utilization !== undefined && (
+                      <span>Utilization: {formatPercentage(alloc.utilization, 2)}</span>
+                    )}
+                    {alloc.liquidityAssetsUsd !== null && alloc.liquidityAssetsUsd !== undefined && (
+                      <span>Liquidity: {formatCompactUSD(alloc.liquidityAssetsUsd)}</span>
+                    )}
+                  </div>
                 </div>
                 <div className={isEditing ? "col-span-3 text-right" : "col-span-8 text-right"}>
                   <p className="text-xs sm:text-sm font-medium break-words">

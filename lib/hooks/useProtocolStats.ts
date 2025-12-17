@@ -86,6 +86,10 @@ export interface VaultDetail extends VaultWithData {
     supplyCap?: number | null;
     supplyAssets?: number | null;
     supplyAssetsUsd?: number | null;
+    supplyApy?: number | null;
+    borrowApy?: number | null;
+    utilization?: number | null;
+    liquidityAssetsUsd?: number | null;
     marketRewards?: Array<{
       assetAddress: string;
       chainId?: number | null;

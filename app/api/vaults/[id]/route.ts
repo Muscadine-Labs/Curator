@@ -204,6 +204,10 @@ export async function GET(
                     supplyApr
                     borrowApr
                   }
+                  supplyApy
+                  borrowApy
+                  utilization
+                  liquidityAssetsUsd
                 }
               }
             }
@@ -454,13 +458,17 @@ export async function GET(
             oracleAddress?: string | null;
             irmAddress?: string | null;
             lltv?: string | null;
-            state?: {
-              rewards?: Array<{
-                asset?: { address?: string; chain?: { id?: number } | null } | null;
-                supplyApr?: number | null;
-                borrowApr?: number | null;
-              }>;
-            } | null;
+              state?: {
+                rewards?: Array<{
+                  asset?: { address?: string; chain?: { id?: number } | null } | null;
+                  supplyApr?: number | null;
+                  borrowApr?: number | null;
+                }>;
+                supplyApy?: number | null;
+                borrowApy?: number | null;
+                utilization?: number | null;
+                liquidityAssetsUsd?: number | null;
+              } | null;
           } | null;
         }>;
         lastTotalAssets?: string | null;
@@ -614,6 +622,10 @@ export async function GET(
                   supplyApr?: number | null;
                   borrowApr?: number | null;
                 }> | null;
+                supplyApy?: number | null;
+                borrowApy?: number | null;
+                utilization?: number | null;
+                liquidityAssetsUsd?: number | null;
               } | null;
             } | null;
             supplyCap?: string | number | null;
@@ -645,6 +657,10 @@ export async function GET(
                   supplyApr: (r.supplyApr ?? 0) * 100,
                   borrowApr: (r.borrowApr ?? 0) * 100,
                 })),
+                supplyApy: a.market?.state?.supplyApy != null ? a.market.state.supplyApy * 100 : null,
+                borrowApy: a.market?.state?.borrowApy != null ? a.market.state.borrowApy * 100 : null,
+                utilization: a.market?.state?.utilization != null ? a.market.state.utilization * 100 : null,
+                liquidityAssetsUsd: a.market?.state?.liquidityAssetsUsd ?? null,
               };
             } catch (error) {
               logger.warn('Failed to map allocation item', { error, allocation: a });
