@@ -12,7 +12,7 @@ import { vaultWriteConfigs } from '@/lib/onchain/vault-writes';
 import { 
   formatAllocationAmount,
   validateAllocations,
-  MAX_UINT256,
+  buildReallocateTargets,
   type MarketAllocation,
   type MarketParams
 } from '@/lib/onchain/allocation-utils';
@@ -185,7 +185,7 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
       // Convert percentage to absolute value
       const percentage = parseFloat(value) || 0;
       const totalVaultAssetsInUnits = Array.from(allocations.values()).reduce((sum, a) => {
-        return sum + (Number(a.currentAssets) / 10 ** a.decimals);
+        return sum + (Number(a.currentAssets) / Number(BigInt(10) ** BigInt(a.decimals)));
       }, 0);
       const absoluteValue = (percentage / 100) * totalVaultAssetsInUnits;
       updated.set(uniqueKey, {
@@ -197,7 +197,7 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
       // Convert absolute value to percentage
       const absoluteValue = parseFloat(value) || 0;
       const totalVaultAssetsInUnits = Array.from(allocations.values()).reduce((sum, a) => {
-        return sum + (Number(a.currentAssets) / 10 ** a.decimals);
+        return sum + (Number(a.currentAssets) / Number(BigInt(10) ** BigInt(a.decimals)));
       }, 0);
       const percentage = totalVaultAssetsInUnits > 0 
         ? (absoluteValue / totalVaultAssetsInUnits) * 100 
@@ -223,74 +223,88 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
     if (!vault || !connectedAddress) return;
 
     try {
-      // Convert allocations to contract format
-      const contractAllocations: MarketAllocation[] = [];
       // Get decimals from vault asset (default to 18 if not available)
       const decimals = vault?.assetDecimals ?? 18;
       
+      // Build current allocations array
+      const currentAllocations: Array<{
+        marketId?: string;
+        supplyAssets: bigint;
+        marketParams: MarketParams;
+      }> = [];
+      
+      // Build target allocations array
+      const targetAllocations: Array<{
+        marketId?: string;
+        targetAssets: bigint; // Final desired amount (not delta)
+        marketParams: MarketParams;
+      }> = [];
+      
+      // Validate all markets have required fields before building allocations
       for (const alloc of allocations.values()) {
-        // Parse user input to bigint
-        const targetValue = parseFloat(alloc.targetAssets) || 0;
-        const targetAssets = BigInt(Math.floor(targetValue * 10 ** decimals));
-        const currentAssets = alloc.currentAssets;
+        const missingFields: string[] = [];
+        if (!alloc.loanAssetAddress) missingFields.push('loanAssetAddress');
+        if (!alloc.collateralAssetAddress) missingFields.push('collateralAssetAddress');
+        if (!alloc.oracleAddress) missingFields.push('oracleAddress');
+        if (!alloc.irmAddress) missingFields.push('irmAddress');
+        if (alloc.lltv === null || alloc.lltv === undefined) missingFields.push('lltv');
         
-        // Only validate and include markets that have a change
-        if (targetAssets !== currentAssets) {
-          // Validate required fields for MarketParams (only for markets being changed)
-          const missingFields: string[] = [];
-          if (!alloc.loanAssetAddress) missingFields.push('loanAssetAddress');
-          if (!alloc.collateralAssetAddress) missingFields.push('collateralAssetAddress');
-          if (!alloc.oracleAddress) missingFields.push('oracleAddress');
-          if (!alloc.irmAddress) missingFields.push('irmAddress');
-          if (alloc.lltv === null || alloc.lltv === undefined) missingFields.push('lltv');
-          
-          if (missingFields.length > 0) {
-            console.error(`Missing market parameters for ${alloc.marketName}:`, {
-              missingFields,
-              allocation: alloc,
-            });
-            alert(`Missing market parameters for ${alloc.marketName}: ${missingFields.join(', ')}. Cannot reallocate. Please ensure all market data is loaded.`);
-            return;
-          }
-
-          // At this point, we know all fields are present (validated above)
-          // Construct MarketParams struct
-          // lltv comes from GraphQL as a number (like 0.86 for 86%), needs to be converted to wei (1e18)
-          // If it's already a ratio (0-1), multiply by 1e18; if it's a percentage (0-100), multiply by 1e16
-          const lltvValue = alloc.lltv!; // Safe because we validated above
-          const lltvBigInt = lltvValue > 1 
-            ? BigInt(Math.floor(lltvValue * 1e16)) // Percentage (86 -> 860000000000000000)
-            : BigInt(Math.floor(lltvValue * 1e18)); // Ratio (0.86 -> 860000000000000000)
-          
-          const marketParams: MarketParams = {
-            loanToken: getAddress(alloc.loanAssetAddress!), // Safe because we validated above
-            collateralToken: getAddress(alloc.collateralAssetAddress!), // Safe because we validated above
-            oracle: getAddress(alloc.oracleAddress!), // Safe because we validated above
-            irm: getAddress(alloc.irmAddress!), // Safe because we validated above
-            lltv: lltvBigInt,
-          };
-
-          contractAllocations.push({
-            marketParams,
-            assets: targetAssets,
+        if (missingFields.length > 0) {
+          console.error(`Missing market parameters for ${alloc.marketName}:`, {
+            missingFields,
+            allocation: alloc,
           });
+          alert(`Missing market parameters for ${alloc.marketName}: ${missingFields.join(', ')}. Cannot reallocate. Please ensure all market data is loaded.`);
+          return;
         }
+
+        // Construct MarketParams struct
+        // lltv comes from GraphQL as a number (like 0.86 for 86%), needs to be converted to wei (1e18)
+        // If it's already a ratio (0-1), multiply by 1e18; if it's a percentage (0-100), multiply by 1e16
+        const lltvValue = alloc.lltv!; // Safe because we validated above
+        const lltvBigInt = lltvValue > 1 
+          ? BigInt(Math.floor(lltvValue * 1e16)) // Percentage (86 -> 860000000000000000)
+          : BigInt(Math.floor(lltvValue * 1e18)); // Ratio (0.86 -> 860000000000000000)
+        
+        const marketParams: MarketParams = {
+          loanToken: getAddress(alloc.loanAssetAddress!), // Safe because we validated above
+          collateralToken: getAddress(alloc.collateralAssetAddress!), // Safe because we validated above
+          oracle: getAddress(alloc.oracleAddress!), // Safe because we validated above
+          irm: getAddress(alloc.irmAddress!), // Safe because we validated above
+          lltv: lltvBigInt,
+        };
+
+        // Parse user input to bigint (final target amount, not delta)
+        const targetValue = parseFloat(alloc.targetAssets) || 0;
+        const targetAssets = BigInt(Math.floor(targetValue * Number(BigInt(10) ** BigInt(decimals))));
+        
+        // Add to current allocations
+        currentAllocations.push({
+          marketId: alloc.uniqueKey,
+          supplyAssets: alloc.currentAssets,
+          marketParams,
+        });
+        
+        // Add to target allocations (always include, even if unchanged)
+        // reallocate expects ALL final target balances, not just changes
+        targetAllocations.push({
+          marketId: alloc.uniqueKey,
+          targetAssets, // Final desired amount
+          marketParams,
+        });
       }
+
+      // Build reallocate targets using the new function
+      // This function builds final target allocations (not deltas) and ensures
+      // the last allocation uses MAX_UINT256 for dust handling
+      const contractAllocations = buildReallocateTargets(
+        currentAllocations,
+        targetAllocations
+      );
 
       if (contractAllocations.length === 0) {
-        alert('No changes to save');
+        alert('No allocations to save');
         return;
-      }
-
-      // According to Morpho documentation:
-      // "Sender is expected to pass assets = type(uint256).max with the last MarketAllocation 
-      // of allocations to supply all the remaining withdrawn liquidity, which would ensure 
-      // that totalWithdrawn = totalSupplied."
-      // This prevents dust from being left behind - all remaining funds go to the last market.
-      if (contractAllocations.length > 0) {
-        const lastAllocation = contractAllocations[contractAllocations.length - 1];
-        // Set the last allocation to max uint256 to capture all remaining funds (dust)
-        lastAllocation.assets = MAX_UINT256;
       }
 
       // Validate allocations
@@ -299,7 +313,7 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
       // But we need to convert to bigint with correct decimals
       // For now, we'll use a reasonable approximation: totalAssets * 10^decimals
       // This assumes 1 asset unit ≈ $1, which is true for stablecoins
-      const totalAssetsBigInt = BigInt(Math.floor(totalAssets * 10 ** decimals));
+      const totalAssetsBigInt = BigInt(Math.floor(totalAssets * Number(BigInt(10) ** BigInt(decimals))));
       const validation = validateAllocations(contractAllocations, totalAssetsBigInt);
       
       if (!validation.valid) {
@@ -329,9 +343,9 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
 
   // Calculate total vault assets in asset units (not USD)
   // Sum all current allocations in asset units
-  const totalVaultAssetsInUnits = Array.from(allocations.values()).reduce((sum, alloc) => {
-    return sum + (Number(alloc.currentAssets) / 10 ** decimals);
-  }, 0);
+      const totalVaultAssetsInUnits = Array.from(allocations.values()).reduce((sum, alloc) => {
+        return sum + (Number(alloc.currentAssets) / Number(BigInt(10) ** BigInt(decimals)));
+      }, 0);
 
   const allocationPercentage = totalVaultAssetsInUnits > 0 
     ? (calculateTotalAllocation() / totalVaultAssetsInUnits) * 100 

@@ -1,33 +1,4 @@
-import { Address, getAddress, pad } from 'viem';
-
-/**
- * Convert Morpho Blue market uniqueKey (bytes32 hex string) to address format
- * Morpho Blue markets use uniqueKey (bytes32) but contract calls need address (20 bytes)
- * We take the first 20 bytes of the uniqueKey
- */
-export function uniqueKeyToAddress(uniqueKey: string): Address {
-  try {
-    // Remove 0x prefix if present
-    const key = uniqueKey.startsWith('0x') ? uniqueKey.slice(2) : uniqueKey;
-    
-    // If it's already an address format (40 hex chars), return it
-    if (key.length === 40) {
-      return getAddress(`0x${key}`);
-    }
-    
-    // If it's a bytes32 (64 hex chars), take first 20 bytes (40 hex chars)
-    if (key.length === 64) {
-      const addressHex = key.slice(0, 40);
-      return getAddress(`0x${addressHex}`);
-    }
-    
-    // If it's shorter, pad it
-    const padded = pad(`0x${key}`, { size: 20 });
-    return getAddress(padded);
-  } catch (error) {
-    throw new Error(`Failed to convert uniqueKey to address: ${uniqueKey}`, { cause: error });
-  }
-}
+import { Address, getAddress } from 'viem';
 
 /**
  * MarketParams struct as defined in Morpho Blue
@@ -101,66 +72,92 @@ export function prepareAllocations(
 }
 
 /**
- * Calculate allocation changes needed to reach target allocations
- * Returns allocations array with net changes (positive = supply, negative = withdraw)
+ * Build reallocate targets from current and target allocations
+ * 
+ * reallocate expects FINAL TARGET balances, not deltas.
+ * MarketAllocation.assets must represent the desired final supply per market.
+ * 
+ * @param currentAllocations - Current market allocations with supplyAssets
+ * @param targetAllocations - Target market allocations with targetAssets (final desired amounts)
+ * @returns MarketAllocation[] with final target assets per market
+ * 
+ * Note: The last allocation should use MAX_UINT256 to capture all remaining funds (dust).
+ * This ensures totalWithdrawn = totalSupplied and prevents dust reverts.
  */
-export function calculateAllocationChanges(
+export function buildReallocateTargets(
   currentAllocations: Array<{
-    uniqueKey: string;
+    marketId?: string; // bytes32 hex string (optional, for reference)
     supplyAssets: bigint;
     marketParams: MarketParams;
   }>,
   targetAllocations: Array<{
-    uniqueKey: string;
-    targetAssets: bigint;
+    marketId?: string; // bytes32 hex string (optional, for reference)
+    targetAssets: bigint; // Final desired supply amount (not delta)
     marketParams: MarketParams;
   }>
 ): MarketAllocation[] {
-  // Create maps for easy lookup
+  // Create maps for easy lookup by marketParams (markets are identified by MarketParams struct)
+  // We'll use a string key based on marketParams to identify markets
+  const marketKey = (params: MarketParams): string => {
+    return `${params.loanToken.toLowerCase()}-${params.collateralToken.toLowerCase()}-${params.oracle.toLowerCase()}-${params.irm.toLowerCase()}-${params.lltv.toString()}`;
+  };
+
   const currentMap = new Map<string, { assets: bigint; marketParams: MarketParams }>();
   currentAllocations.forEach((alloc) => {
-    currentMap.set(alloc.uniqueKey, { assets: alloc.supplyAssets, marketParams: alloc.marketParams });
+    const key = marketKey(alloc.marketParams);
+    currentMap.set(key, { assets: alloc.supplyAssets, marketParams: alloc.marketParams });
   });
 
   const targetMap = new Map<string, { assets: bigint; marketParams: MarketParams }>();
   targetAllocations.forEach((alloc) => {
-    targetMap.set(alloc.uniqueKey, { assets: alloc.targetAssets, marketParams: alloc.marketParams });
+    const key = marketKey(alloc.marketParams);
+    targetMap.set(key, { assets: alloc.targetAssets, marketParams: alloc.marketParams });
   });
 
-  // Calculate net changes
-  const changes: MarketAllocation[] = [];
-  const allMarkets = new Set([...currentMap.keys(), ...targetMap.keys()]);
+  // Build final target allocations (not deltas)
+  // Include all markets that have a target, or are currently allocated
+  const targets: MarketAllocation[] = [];
+  const allMarketKeys = new Set([...currentMap.keys(), ...targetMap.keys()]);
 
-  for (const uniqueKey of allMarkets) {
-    const current = currentMap.get(uniqueKey);
-    const target = targetMap.get(uniqueKey);
-    const currentAssets = current?.assets ?? BigInt(0);
-    const targetAssets = target?.assets ?? BigInt(0);
-    const change = targetAssets - currentAssets;
+  for (const key of allMarketKeys) {
+    const target = targetMap.get(key);
+    const current = currentMap.get(key);
+    
+    // Use target if specified, otherwise use current (keep existing allocation)
+    // If neither exists, skip (shouldn't happen, but defensive)
+    const finalAssets = target?.assets ?? current?.assets;
+    const marketParams = target?.marketParams ?? current?.marketParams;
+    
+    if (!marketParams) {
+      throw new Error(`Missing marketParams for market key ${key}`);
+    }
 
-    // Only include markets with non-zero changes
-    if (change !== BigInt(0)) {
-      // Use target marketParams if available, otherwise current
-      const marketParams = target?.marketParams ?? current?.marketParams;
-      if (!marketParams) {
-        throw new Error(`Missing marketParams for market ${uniqueKey}`);
-      }
-      
-      changes.push({
+    // Include all markets with non-zero final allocation
+    // Zero allocations will be handled by the contract (withdraws all)
+    if (finalAssets !== undefined && finalAssets > BigInt(0)) {
+      targets.push({
         marketParams,
-        assets: change > BigInt(0) ? change : -change, // Always positive, contract handles direction
+        assets: finalAssets, // Final target amount, not delta
       });
     }
   }
 
-  // Sort by market address for consistency
-  return changes.sort((a, b) => {
-    const aAddr = a.marketParams.loanToken;
-    const bAddr = b.marketParams.loanToken;
-    if (aAddr < bAddr) return -1;
-    if (aAddr > bAddr) return 1;
+  // Sort by market params for consistency (deterministic ordering)
+  const sorted = targets.sort((a, b) => {
+    const aKey = marketKey(a.marketParams);
+    const bKey = marketKey(b.marketParams);
+    if (aKey < bKey) return -1;
+    if (aKey > bKey) return 1;
     return 0;
   });
+
+  // Ensure the last allocation uses MAX_UINT256 for dust handling
+  // This is required by Morpho Vaults V1 to ensure totalWithdrawn = totalSupplied
+  if (sorted.length > 0) {
+    sorted[sorted.length - 1].assets = MAX_UINT256;
+  }
+
+  return sorted;
 }
 
 /**
@@ -216,7 +213,8 @@ export function formatAllocationAmount(
   decimals: number = 18,
   symbol?: string
 ): string {
-  const divisor = BigInt(10 ** decimals);
+  // Fix BigInt math: use BigInt(10) ** BigInt(decimals) instead of BigInt(10 ** decimals)
+  const divisor = BigInt(10) ** BigInt(decimals);
   const whole = amount / divisor;
   const remainder = amount % divisor;
   
