@@ -277,9 +277,9 @@ export function MarketRiskV1({ vaultAddress }: MarketRiskV1Props) {
               )}
             >
               {/* Market Header */}
-              <div className="flex items-start justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
                 <div className="flex-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     {market.uniqueKey ? (
                       <a
                         href={`https://app.morpho.org/base/market/${market.uniqueKey}`}
@@ -292,7 +292,7 @@ export function MarketRiskV1({ vaultAddress }: MarketRiskV1Props) {
                     ) : (
                       <h3 className="font-semibold text-lg">{marketName}</h3>
                     )}
-                    <span className="text-sm text-slate-500 dark:text-slate-400">
+                    <span className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
                       LTV: {lltvPercent}%
                     </span>
                     {isIdle && (
@@ -302,7 +302,7 @@ export function MarketRiskV1({ vaultAddress }: MarketRiskV1Props) {
                     )}
                   </div>
                   <div className="mt-2">
-                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 break-words">
                       Vault Supply: {formatCompactUSD(vaultSupplyUsd)} · {vaultAllocationPercent.toFixed(2)}% of vault · {marketSharePercent.toFixed(2)}% of market
                     </p>
                   </div>
@@ -328,7 +328,7 @@ export function MarketRiskV1({ vaultAddress }: MarketRiskV1Props) {
               {/* Component Scores - Only show if not idle */}
               {!isIdle && scores && (
                 <>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2 border-t">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 pt-2 border-t">
                     <div>
                       <div className="flex items-center gap-1 mb-1">
                         <p className="text-xs text-slate-600 dark:text-slate-400">
@@ -512,7 +512,7 @@ export function MarketRiskV1({ vaultAddress }: MarketRiskV1Props) {
                         );
                       })()}
                       {!oracleTimestampData?.updatedAt && (
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 break-words">
                           Oracle: {market.oracleAddress ? formatAddress(market.oracleAddress) : 'N/A'}
                         </p>
                       )}
@@ -520,7 +520,7 @@ export function MarketRiskV1({ vaultAddress }: MarketRiskV1Props) {
                   </div>
                   
                   {/* Market Metrics */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2 border-t">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 pt-2 border-t">
                     <div>
                       <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">
                         Total Market Size

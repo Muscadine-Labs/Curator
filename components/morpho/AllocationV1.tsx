@@ -32,7 +32,8 @@ interface MarketAllocationInput {
   lltv?: number | null;
   currentAssets: bigint;
   currentAssetsUsd: number;
-  targetAssets: string; // User input as string
+  targetAssets: string; // User input as string (can be absolute or percentage)
+  targetPercentage: string; // User input as percentage string
   isIdle: boolean;
   decimals: number;
 }
@@ -43,11 +44,17 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
   const [isEditing, setIsEditing] = useState(false);
   const [allocations, setAllocations] = useState<Map<string, MarketAllocationInput>>(new Map());
   const [hasChanges, setHasChanges] = useState(false);
+  const [inputMode, setInputMode] = useState<'absolute' | 'percentage'>('absolute');
 
   const { writeContract, data: hash, isPending, error: writeError } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
     hash,
   });
+
+  // Calculate total assets for percentage calculations
+  const totalAssets = vault?.allocation?.reduce((sum, alloc) => {
+    return sum + (alloc.supplyAssetsUsd ?? 0);
+  }, 0) ?? 0;
 
   // Initialize allocations from vault data
   useMemo(() => {
@@ -56,6 +63,11 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
     const initialAllocations = new Map<string, MarketAllocationInput>();
     // Get decimals from vault asset (default to 18 if not available)
     const decimals = vault?.assetDecimals ?? 18;
+    
+    // Calculate total for percentage
+    const total = vault.allocation.reduce((sum, alloc) => {
+      return sum + (alloc.supplyAssetsUsd ?? 0);
+    }, 0);
     
     vault.allocation.forEach((alloc) => {
       if (!alloc.marketKey) return;
@@ -93,6 +105,10 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
         return 'Unknown Market';
       };
 
+      const currentPercent = total > 0 
+        ? (alloc.supplyAssetsUsd ?? 0) / total * 100
+        : 0;
+      
       initialAllocations.set(alloc.marketKey, {
         uniqueKey: alloc.marketKey,
         marketName: formatMarketIdentifier(alloc.loanAssetSymbol, alloc.collateralAssetSymbol),
@@ -102,6 +118,7 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
         currentAssets: supplyAssets,
         currentAssetsUsd: alloc.supplyAssetsUsd ?? 0,
         targetAssets: formatAllocationAmount(supplyAssets, decimals),
+        targetPercentage: currentPercent.toFixed(4),
         isIdle: false, // TODO: detect idle market
         decimals,
       });
@@ -109,10 +126,6 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
 
     setAllocations(initialAllocations);
   }, [vault, allocations.size]);
-
-  const totalAssets = vault?.allocation?.reduce((sum, alloc) => {
-    return sum + (alloc.supplyAssetsUsd ?? 0);
-  }, 0) ?? 0;
 
   // Get decimals from vault asset (default to 18 if not available)
   const decimals = vault?.assetDecimals ?? 18;
@@ -131,9 +144,13 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
         if (!alloc.marketKey) return;
         const existing = allocations.get(alloc.marketKey);
         if (existing) {
+          const currentPercent = totalAssets > 0 
+            ? (alloc.supplyAssetsUsd ?? 0) / totalAssets * 100
+            : 0;
           resetAllocations.set(alloc.marketKey, {
             ...existing,
             targetAssets: formatAllocationAmount(existing.currentAssets, existing.decimals),
+            targetPercentage: currentPercent.toFixed(4),
           });
         }
       });
@@ -146,16 +163,42 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
     if (!alloc) return;
 
     const updated = new Map(allocations);
-    updated.set(uniqueKey, {
-      ...alloc,
-      targetAssets: value,
-    });
+    
+    if (inputMode === 'percentage') {
+      // Convert percentage to absolute value
+      const percentage = parseFloat(value) || 0;
+      const totalVaultAssetsInUnits = Array.from(allocations.values()).reduce((sum, a) => {
+        return sum + (Number(a.currentAssets) / 10 ** a.decimals);
+      }, 0);
+      const absoluteValue = (percentage / 100) * totalVaultAssetsInUnits;
+      updated.set(uniqueKey, {
+        ...alloc,
+        targetPercentage: value,
+        targetAssets: absoluteValue.toFixed(alloc.decimals === 6 ? 6 : alloc.decimals === 18 ? 18 : 6),
+      });
+    } else {
+      // Convert absolute value to percentage
+      const absoluteValue = parseFloat(value) || 0;
+      const totalVaultAssetsInUnits = Array.from(allocations.values()).reduce((sum, a) => {
+        return sum + (Number(a.currentAssets) / 10 ** a.decimals);
+      }, 0);
+      const percentage = totalVaultAssetsInUnits > 0 
+        ? (absoluteValue / totalVaultAssetsInUnits) * 100 
+        : 0;
+      updated.set(uniqueKey, {
+        ...alloc,
+        targetAssets: value,
+        targetPercentage: percentage.toFixed(4),
+      });
+    }
+    
     setAllocations(updated);
 
     // Check if there are changes
-    const hasAnyChanges = Array.from(updated.values()).some(
-      (a) => a.targetAssets !== formatAllocationAmount(a.currentAssets, a.decimals)
-    );
+    const hasAnyChanges = Array.from(updated.values()).some((a) => {
+      const currentAbsolute = formatAllocationAmount(a.currentAssets, a.decimals);
+      return a.targetAssets !== currentAbsolute;
+    });
     setHasChanges(hasAnyChanges);
   };
 
@@ -285,14 +328,40 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <CardTitle>Allocation</CardTitle>
             <CardDescription>
               Manage vault allocations across markets
             </CardDescription>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {isEditing && (
+              <div className="flex items-center gap-2 border rounded-lg p-1">
+                <button
+                  onClick={() => setInputMode('absolute')}
+                  className={cn(
+                    "px-3 py-1 text-xs font-medium rounded transition-colors",
+                    inputMode === 'absolute'
+                      ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
+                  )}
+                >
+                  Amount
+                </button>
+                <button
+                  onClick={() => setInputMode('percentage')}
+                  className={cn(
+                    "px-3 py-1 text-xs font-medium rounded transition-colors",
+                    inputMode === 'percentage'
+                      ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
+                  )}
+                >
+                  %
+                </button>
+              </div>
+            )}
             {!isEditing ? (
               <Button onClick={handleEdit} variant="outline" size="sm">
                 Reallocate
@@ -376,12 +445,12 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
         </div>
 
         {/* Allocation Table */}
-        <div className="space-y-2">
-          <div className="grid grid-cols-12 gap-4 p-2 text-xs font-medium text-slate-600 dark:text-slate-400 border-b">
+        <div className="space-y-2 overflow-x-auto">
+          <div className="grid grid-cols-12 gap-2 sm:gap-4 p-2 text-xs font-medium text-slate-600 dark:text-slate-400 border-b min-w-[600px]">
             <div className="col-span-4">Market</div>
             <div className={isEditing ? "col-span-3 text-right" : "col-span-8 text-right"}>Current</div>
-            {isEditing && <div className="col-span-3 text-right">New Allocation</div>}
-            {isEditing && <div className="col-span-2 text-right">%</div>}
+            {isEditing && <div className="col-span-3 text-right">{inputMode === 'percentage' ? 'New %' : 'New Allocation'}</div>}
+            {isEditing && <div className="col-span-2 text-right">{inputMode === 'percentage' ? 'Amount' : '%'}</div>}
           </div>
 
           {sortedAllocations.map((alloc) => {
@@ -398,24 +467,24 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
               <div
                 key={alloc.uniqueKey}
                 className={cn(
-                  "grid grid-cols-12 gap-4 p-3 rounded-lg border",
+                  "grid grid-cols-12 gap-2 sm:gap-4 p-3 rounded-lg border min-w-[600px]",
                   alloc.isIdle 
                     ? "bg-slate-100/50 dark:bg-slate-800/50 opacity-75" 
                     : "bg-white dark:bg-slate-900"
                 )}
               >
                 <div className="col-span-4">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <a
                       href={`https://app.morpho.org/base/market/${alloc.uniqueKey}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors underline decoration-1 underline-offset-2"
+                      className="font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors underline decoration-1 underline-offset-2 break-words"
                     >
                       {alloc.marketName}
                     </a>
                     {alloc.lltv !== null && alloc.lltv !== undefined && (
-                      <span className="text-sm text-slate-500 dark:text-slate-400">
+                      <span className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
                         LTV: {(Number(alloc.lltv) / 1e16).toFixed(2)}%
                       </span>
                     )}
@@ -427,7 +496,7 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
                   </div>
                 </div>
                 <div className={isEditing ? "col-span-3 text-right" : "col-span-8 text-right"}>
-                  <p className="text-sm font-medium">
+                  <p className="text-xs sm:text-sm font-medium break-words">
                     {formatAllocationAmount(alloc.currentAssets, alloc.decimals)}
                   </p>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -442,16 +511,23 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
                     <div className="col-span-3">
                       <Input
                         type="number"
-                        step={alloc.decimals === 6 ? "0.000001" : alloc.decimals === 18 ? "0.000000000000000001" : "0.000001"}
-                        value={alloc.targetAssets}
+                        step={inputMode === 'percentage' ? "0.01" : (alloc.decimals === 6 ? "0.000001" : alloc.decimals === 18 ? "0.000000000000000001" : "0.000001")}
+                        value={inputMode === 'percentage' ? alloc.targetPercentage : alloc.targetAssets}
                         onChange={(e) => handleAllocationChange(alloc.uniqueKey, e.target.value)}
                         className="text-right"
-                        placeholder="0.0"
+                        placeholder={inputMode === 'percentage' ? "0.00" : "0.0"}
                       />
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 text-right">
+                        {inputMode === 'percentage' 
+                          ? formatAllocationAmount(alloc.currentAssets, alloc.decimals)
+                          : `${parseFloat(alloc.targetPercentage || '0').toFixed(2)}%`}
+                      </p>
                     </div>
                     <div className="col-span-2 text-right">
-                      <p className="text-sm font-medium">
-                        {newPercent.toFixed(2)}%
+                      <p className="text-xs sm:text-sm font-medium break-words">
+                        {inputMode === 'percentage' 
+                          ? formatAllocationAmount(alloc.currentAssets, alloc.decimals)
+                          : `${newPercent.toFixed(2)}%`}
                       </p>
                     </div>
                   </>
@@ -462,9 +538,9 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
         </div>
 
         {isEditing && Math.abs(allocationPercentage - 100) > 0.01 && (
-          <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-            <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-            <p className="text-sm text-amber-800 dark:text-amber-200">
+          <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+            <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+            <p className="text-xs sm:text-sm text-amber-800 dark:text-amber-200">
               Total allocation is {allocationPercentage.toFixed(2)}%. Consider allocating remaining funds to the Idle Market.
             </p>
           </div>
