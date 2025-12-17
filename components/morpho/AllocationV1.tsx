@@ -10,14 +10,15 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useVault } from '@/lib/hooks/useProtocolStats';
 import { vaultWriteConfigs } from '@/lib/onchain/vault-writes';
 import { 
-  uniqueKeyToAddress,
   formatAllocationAmount,
   validateAllocations,
-  type MarketAllocation 
+  MAX_UINT256,
+  type MarketAllocation,
+  type MarketParams
 } from '@/lib/onchain/allocation-utils';
 import { formatCompactUSD } from '@/lib/format/number';
 import { cn } from '@/lib/utils';
-import { Address } from 'viem';
+import { Address, getAddress } from 'viem';
 import { Save, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 
 interface AllocationV1Props {
@@ -27,8 +28,12 @@ interface AllocationV1Props {
 interface MarketAllocationInput {
   uniqueKey: string;
   marketName: string;
+  loanAssetAddress?: string | null;
   loanAssetSymbol?: string | null;
+  collateralAssetAddress?: string | null;
   collateralAssetSymbol?: string | null;
+  oracleAddress?: string | null;
+  irmAddress?: string | null;
   lltv?: number | null;
   currentAssets: bigint;
   currentAssetsUsd: number;
@@ -112,8 +117,12 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
       initialAllocations.set(alloc.marketKey, {
         uniqueKey: alloc.marketKey,
         marketName: formatMarketIdentifier(alloc.loanAssetSymbol, alloc.collateralAssetSymbol),
+        loanAssetAddress: alloc.loanAssetAddress ?? null,
         loanAssetSymbol: alloc.loanAssetSymbol ?? null,
+        collateralAssetAddress: alloc.collateralAssetAddress ?? null,
         collateralAssetSymbol: alloc.collateralAssetSymbol ?? null,
+        oracleAddress: alloc.oracleAddress ?? null,
+        irmAddress: alloc.irmAddress ?? null,
         lltv: alloc.lltv ?? null,
         currentAssets: supplyAssets,
         currentAssetsUsd: alloc.supplyAssetsUsd ?? 0,
@@ -212,6 +221,13 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
       const decimals = vault?.assetDecimals ?? 18;
       
       for (const alloc of allocations.values()) {
+        // Validate required fields for MarketParams
+        if (!alloc.loanAssetAddress || !alloc.collateralAssetAddress || 
+            !alloc.oracleAddress || !alloc.irmAddress || alloc.lltv === null || alloc.lltv === undefined) {
+          alert(`Missing market parameters for ${alloc.marketName}. Cannot reallocate.`);
+          return;
+        }
+
         // Parse user input to bigint
         const targetValue = parseFloat(alloc.targetAssets) || 0;
         const targetAssets = BigInt(Math.floor(targetValue * 10 ** decimals));
@@ -219,8 +235,24 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
         
         // Only include if there's a change
         if (targetAssets !== currentAssets) {
+          // Construct MarketParams struct
+          // lltv comes from GraphQL as a number (like 0.86 for 86%), needs to be converted to wei (1e18)
+          // If it's already a ratio (0-1), multiply by 1e18; if it's a percentage (0-100), multiply by 1e16
+          const lltvValue = alloc.lltv ?? 0;
+          const lltvBigInt = lltvValue > 1 
+            ? BigInt(Math.floor(lltvValue * 1e16)) // Percentage (86 -> 860000000000000000)
+            : BigInt(Math.floor(lltvValue * 1e18)); // Ratio (0.86 -> 860000000000000000)
+          
+          const marketParams: MarketParams = {
+            loanToken: getAddress(alloc.loanAssetAddress),
+            collateralToken: getAddress(alloc.collateralAssetAddress),
+            oracle: getAddress(alloc.oracleAddress),
+            irm: getAddress(alloc.irmAddress),
+            lltv: lltvBigInt,
+          };
+
           contractAllocations.push({
-            market: uniqueKeyToAddress(alloc.uniqueKey),
+            marketParams,
             assets: targetAssets,
           });
         }
@@ -229,6 +261,17 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
       if (contractAllocations.length === 0) {
         alert('No changes to save');
         return;
+      }
+
+      // According to Morpho documentation:
+      // "Sender is expected to pass assets = type(uint256).max with the last MarketAllocation 
+      // of allocations to supply all the remaining withdrawn liquidity, which would ensure 
+      // that totalWithdrawn = totalSupplied."
+      // This prevents dust from being left behind - all remaining funds go to the last market.
+      if (contractAllocations.length > 0) {
+        const lastAllocation = contractAllocations[contractAllocations.length - 1];
+        // Set the last allocation to max uint256 to capture all remaining funds (dust)
+        lastAllocation.assets = MAX_UINT256;
       }
 
       // Validate allocations
@@ -320,9 +363,28 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
     );
   }
 
+  // Sort allocations similar to MarketRiskV1:
+  // 1. Sort by current allocation (descending - highest first)
+  // 2. If allocation is the same, idle markets go last
   const sortedAllocations = Array.from(allocations.values()).sort((a, b) => {
-    // Sort by current allocation (descending)
-    return Number(b.currentAssets) - Number(a.currentAssets);
+    const aAssets = Number(a.currentAssets);
+    const bAssets = Number(b.currentAssets);
+    
+    // First, sort by current allocation (descending)
+    if (aAssets !== bAssets) {
+      return bAssets - aAssets;
+    }
+    
+    // If allocation is the same, put idle markets last
+    if (a.isIdle && !b.isIdle) {
+      return 1; // a goes after b
+    }
+    if (!a.isIdle && b.isIdle) {
+      return -1; // a goes before b
+    }
+    
+    // Both idle or both not idle - maintain current order
+    return 0;
   });
 
   return (
@@ -485,7 +547,7 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
                     </a>
                     {alloc.lltv !== null && alloc.lltv !== undefined && (
                       <span className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-                        LTV: {(Number(alloc.lltv) / 1e16).toFixed(2)}%
+                        LTV: {alloc.lltv > 1 ? alloc.lltv.toFixed(2) : (alloc.lltv * 100).toFixed(2)}%
                       </span>
                     )}
                     {alloc.isIdle && (
@@ -538,10 +600,10 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
         </div>
 
         {isEditing && Math.abs(allocationPercentage - 100) > 0.01 && (
-          <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-            <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
-            <p className="text-xs sm:text-sm text-amber-800 dark:text-amber-200">
-              Total allocation is {allocationPercentage.toFixed(2)}%. Consider allocating remaining funds to the Idle Market.
+          <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+            <p className="text-xs sm:text-sm text-blue-800 dark:text-blue-200">
+              Total allocation is {allocationPercentage.toFixed(2)}%. The last market in the allocation will automatically receive all remaining funds (dust) to ensure totalWithdrawn = totalSupplied.
             </p>
           </div>
         )}

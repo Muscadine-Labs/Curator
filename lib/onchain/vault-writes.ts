@@ -29,12 +29,11 @@ export interface TransferOwnershipParams {
   newOwner: Address;
 }
 
+import type { MarketAllocation } from './allocation-utils';
+
 export interface ReallocateParams {
   vaultAddress: Address;
-  allocations: Array<{
-    market: Address;
-    assets: bigint;
-  }>;
+  allocations: MarketAllocation[];
 }
 
 // Contract write configurations for wagmi
@@ -85,7 +84,16 @@ export const vaultWriteConfigs = {
     address: params.vaultAddress,
     abi: VAULT_ABI,
     functionName: 'reallocate' as const,
-    args: [params.allocations] as const,
+    args: [params.allocations as readonly {
+      marketParams: {
+        loanToken: `0x${string}`;
+        collateralToken: `0x${string}`;
+        oracle: `0x${string}`;
+        irm: `0x${string}`;
+        lltv: bigint;
+      };
+      assets: bigint;
+    }[]] as const,
   }),
 };
 

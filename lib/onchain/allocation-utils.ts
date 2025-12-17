@@ -30,29 +30,74 @@ export function uniqueKeyToAddress(uniqueKey: string): Address {
 }
 
 /**
+ * MarketParams struct as defined in Morpho Blue
+ * Matches the struct used in the reallocate function
+ */
+export interface MarketParams {
+  loanToken: Address;
+  collateralToken: Address;
+  oracle: Address;
+  irm: Address;
+  lltv: bigint;
+}
+
+/**
  * MarketAllocation struct for reallocate function
+ * Matches Morpho documentation: https://docs.morpho.org/get-started/resources/contracts/morpho-vaults
  */
 export interface MarketAllocation {
-  market: Address;
+  marketParams: MarketParams;
   assets: bigint;
 }
 
 /**
+ * Maximum uint256 value (type(uint256).max)
+ * Used for the last allocation to capture all remaining funds (dust)
+ */
+export const MAX_UINT256 = BigInt('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff');
+
+/**
  * Prepare allocations array for reallocate function
- * Converts uniqueKey strings to addresses and amounts to bigint
+ * Converts market data to MarketParams struct and amounts to bigint
+ * 
+ * Note: The last allocation should use MAX_UINT256 for assets to ensure
+ * all remaining withdrawn liquidity is supplied (prevents dust).
+ * See Morpho docs: https://docs.morpho.org/get-started/resources/contracts/morpho-vaults
  */
 export function prepareAllocations(
   allocations: Array<{
-    uniqueKey: string;
+    loanAssetAddress: string;
+    collateralAssetAddress: string;
+    oracleAddress: string;
+    irmAddress: string;
+    lltv: string | number | bigint;
     assets: string | number | bigint;
-  }>
+  }>,
+  useMaxForLast: boolean = false
 ): MarketAllocation[] {
-  return allocations.map((alloc) => ({
-    market: uniqueKeyToAddress(alloc.uniqueKey),
-    assets: typeof alloc.assets === 'bigint' 
-      ? alloc.assets 
-      : BigInt(alloc.assets.toString()),
-  }));
+  const result = allocations.map((alloc, index) => {
+    const isLast = index === allocations.length - 1;
+    const assets = useMaxForLast && isLast
+      ? MAX_UINT256
+      : (typeof alloc.assets === 'bigint' 
+          ? alloc.assets 
+          : BigInt(alloc.assets.toString()));
+    
+    return {
+      marketParams: {
+        loanToken: getAddress(alloc.loanAssetAddress),
+        collateralToken: getAddress(alloc.collateralAssetAddress),
+        oracle: getAddress(alloc.oracleAddress),
+        irm: getAddress(alloc.irmAddress),
+        lltv: typeof alloc.lltv === 'bigint' 
+          ? alloc.lltv 
+          : BigInt(alloc.lltv.toString()),
+      },
+      assets,
+    };
+  });
+  
+  return result;
 }
 
 /**
@@ -63,21 +108,23 @@ export function calculateAllocationChanges(
   currentAllocations: Array<{
     uniqueKey: string;
     supplyAssets: bigint;
+    marketParams: MarketParams;
   }>,
   targetAllocations: Array<{
     uniqueKey: string;
     targetAssets: bigint;
+    marketParams: MarketParams;
   }>
 ): MarketAllocation[] {
   // Create maps for easy lookup
-  const currentMap = new Map<string, bigint>();
+  const currentMap = new Map<string, { assets: bigint; marketParams: MarketParams }>();
   currentAllocations.forEach((alloc) => {
-    currentMap.set(alloc.uniqueKey, alloc.supplyAssets);
+    currentMap.set(alloc.uniqueKey, { assets: alloc.supplyAssets, marketParams: alloc.marketParams });
   });
 
-  const targetMap = new Map<string, bigint>();
+  const targetMap = new Map<string, { assets: bigint; marketParams: MarketParams }>();
   targetAllocations.forEach((alloc) => {
-    targetMap.set(alloc.uniqueKey, alloc.targetAssets);
+    targetMap.set(alloc.uniqueKey, { assets: alloc.targetAssets, marketParams: alloc.marketParams });
   });
 
   // Calculate net changes
@@ -85,14 +132,22 @@ export function calculateAllocationChanges(
   const allMarkets = new Set([...currentMap.keys(), ...targetMap.keys()]);
 
   for (const uniqueKey of allMarkets) {
-    const current = currentMap.get(uniqueKey) ?? BigInt(0);
-    const target = targetMap.get(uniqueKey) ?? BigInt(0);
-    const change = target - current;
+    const current = currentMap.get(uniqueKey);
+    const target = targetMap.get(uniqueKey);
+    const currentAssets = current?.assets ?? BigInt(0);
+    const targetAssets = target?.assets ?? BigInt(0);
+    const change = targetAssets - currentAssets;
 
     // Only include markets with non-zero changes
     if (change !== BigInt(0)) {
+      // Use target marketParams if available, otherwise current
+      const marketParams = target?.marketParams ?? current?.marketParams;
+      if (!marketParams) {
+        throw new Error(`Missing marketParams for market ${uniqueKey}`);
+      }
+      
       changes.push({
-        market: uniqueKeyToAddress(uniqueKey),
+        marketParams,
         assets: change > BigInt(0) ? change : -change, // Always positive, contract handles direction
       });
     }
@@ -100,8 +155,10 @@ export function calculateAllocationChanges(
 
   // Sort by market address for consistency
   return changes.sort((a, b) => {
-    if (a.market < b.market) return -1;
-    if (a.market > b.market) return 1;
+    const aAddr = a.marketParams.loanToken;
+    const bAddr = b.marketParams.loanToken;
+    if (aAddr < bAddr) return -1;
+    if (aAddr > bAddr) return 1;
     return 0;
   });
 }
@@ -114,6 +171,24 @@ export function validateAllocations(
   allocations: MarketAllocation[],
   currentTotal: bigint
 ): { valid: boolean; error?: string } {
+  // Validate that all MarketParams are present
+  for (const alloc of allocations) {
+    if (!alloc.marketParams) {
+      return {
+        valid: false,
+        error: 'Missing marketParams in allocation',
+      };
+    }
+    // Validate all required fields
+    if (!alloc.marketParams.loanToken || !alloc.marketParams.collateralToken ||
+        !alloc.marketParams.oracle || !alloc.marketParams.irm) {
+      return {
+        valid: false,
+        error: 'Missing required fields in marketParams',
+      };
+    }
+  }
+
   // Calculate total allocation
   const total = allocations.reduce((sum, alloc) => sum + alloc.assets, BigInt(0));
 

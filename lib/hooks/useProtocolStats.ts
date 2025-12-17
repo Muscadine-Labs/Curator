@@ -74,8 +74,10 @@ export interface VaultDetail extends VaultWithData {
   }>;
   allocation?: Array<{
     marketKey: string;
+    loanAssetAddress?: string | null;
     loanAssetName?: string | null;
     loanAssetSymbol?: string | null;
+    collateralAssetAddress?: string | null;
     collateralAssetName?: string | null;
     collateralAssetSymbol?: string | null;
     oracleAddress?: string | null;

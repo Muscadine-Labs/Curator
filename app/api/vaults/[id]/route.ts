@@ -193,8 +193,8 @@ export async function GET(
               supplyCap
               market {
                 uniqueKey
-                loanAsset { name symbol }
-                collateralAsset { name symbol }
+                loanAsset { address name symbol }
+                collateralAsset { address name symbol }
                 oracleAddress
                 irmAddress
                 lltv
@@ -449,8 +449,8 @@ export async function GET(
           supplyCap?: string | null;
           market?: {
             uniqueKey?: string;
-            loanAsset?: { name?: string | null; symbol?: string | null } | null;
-            collateralAsset?: { name?: string | null; symbol?: string | null } | null;
+            loanAsset?: { address?: string | null; name?: string | null; symbol?: string | null } | null;
+            collateralAsset?: { address?: string | null; name?: string | null; symbol?: string | null } | null;
             oracleAddress?: string | null;
             irmAddress?: string | null;
             lltv?: string | null;
@@ -603,8 +603,8 @@ export async function GET(
         : (mv?.state?.allocation || []).map((a: {
             market?: {
               uniqueKey?: string | null;
-              loanAsset?: { name?: string | null; symbol?: string | null } | null;
-              collateralAsset?: { name?: string | null; symbol?: string | null } | null;
+              loanAsset?: { address?: string | null; name?: string | null; symbol?: string | null } | null;
+              collateralAsset?: { address?: string | null; name?: string | null; symbol?: string | null } | null;
               oracleAddress?: string | null;
               irmAddress?: string | null;
               lltv?: string | number | null;
@@ -623,8 +623,10 @@ export async function GET(
             try {
               return {
                 marketKey: a.market?.uniqueKey ?? '',
+                loanAssetAddress: a.market?.loanAsset?.address ?? null,
                 loanAssetName: a.market?.loanAsset?.name ?? null,
                 loanAssetSymbol: a.market?.loanAsset?.symbol ?? null,
+                collateralAssetAddress: a.market?.collateralAsset?.address ?? null,
                 collateralAssetName: a.market?.collateralAsset?.name ?? null,
                 collateralAssetSymbol: a.market?.collateralAsset?.symbol ?? null,
                 oracleAddress: a.market?.oracleAddress ?? null,

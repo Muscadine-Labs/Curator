@@ -15,7 +15,7 @@ import { createWalletClient, createPublicClient, http, getAddress, Address, pars
 import { privateKeyToAccount } from 'viem/accounts';
 import { base } from 'viem/chains';
 import { VAULT_ABI } from '../lib/onchain/client';
-import { prepareAllocations } from '../lib/onchain/allocation-utils';
+import { prepareAllocations, MAX_UINT256 } from '../lib/onchain/allocation-utils';
 
 // Get RPC URL
 function getRpcUrl(): string {
@@ -41,7 +41,11 @@ function getPrivateKey(): `0x${string}` {
 }
 
 interface AllocationConfig {
-  uniqueKey: string;
+  loanAssetAddress: string;
+  collateralAssetAddress: string;
+  oracleAddress: string;
+  irmAddress: string;
+  lltv: string; // LLTV as string (will be converted to bigint)
   amount: string; // Amount in human-readable format (e.g., "1000.5")
   decimals?: number; // Default 18
 }
@@ -66,30 +70,29 @@ async function allocateFromFile(
 
   const decimals = config.decimals ?? 18;
   const allocations = config.allocations.map((alloc) => ({
-    uniqueKey: alloc.uniqueKey,
+    loanAssetAddress: alloc.loanAssetAddress,
+    collateralAssetAddress: alloc.collateralAssetAddress,
+    oracleAddress: alloc.oracleAddress,
+    irmAddress: alloc.irmAddress,
+    lltv: alloc.lltv,
     assets: parseUnits(alloc.amount, alloc.decimals ?? decimals),
   }));
 
   await executeAllocation(vaultAddress, allocations);
 }
 
-async function allocateSingle(
-  vaultAddress: Address,
-  marketUniqueKey: string,
-  amount: string,
-  decimals: number = 18
-): Promise<void> {
-  const allocations = [{
-    uniqueKey: marketUniqueKey,
-    assets: parseUnits(amount, decimals),
-  }];
-
-  await executeAllocation(vaultAddress, allocations);
-}
+// Removed allocateSingle - use --file option instead with full MarketParams
 
 async function executeAllocation(
   vaultAddress: Address,
-  allocations: Array<{ uniqueKey: string; assets: bigint }>
+  allocations: Array<{
+    loanAssetAddress: string;
+    collateralAssetAddress: string;
+    oracleAddress: string;
+    irmAddress: string;
+    lltv: string;
+    assets: bigint;
+  }>
 ): Promise<void> {
   const account = privateKeyToAccount(getPrivateKey());
   const rpcUrl = getRpcUrl();
@@ -106,11 +109,14 @@ async function executeAllocation(
   });
 
   // Prepare allocations for contract
-  const contractAllocations = prepareAllocations(allocations);
+  // Set useMaxForLast=true to ensure the last allocation uses MAX_UINT256 for dust handling
+  const contractAllocations = prepareAllocations(allocations, true);
 
   console.log('Prepared allocations:');
   contractAllocations.forEach((alloc, i) => {
-    console.log(`  ${i + 1}. Market: ${alloc.market}, Amount: ${alloc.assets.toString()}`);
+    const assetsDisplay = alloc.assets === MAX_UINT256 ? 'MAX (all remaining)' : alloc.assets.toString();
+    const marketDisplay = `${alloc.marketParams.loanToken}/${alloc.marketParams.collateralToken}`;
+    console.log(`  ${i + 1}. Market: ${marketDisplay}, Amount: ${assetsDisplay}`);
   });
 
   // Validate allocations
@@ -127,7 +133,16 @@ async function executeAllocation(
       address: vaultAddress,
       abi: VAULT_ABI,
       functionName: 'reallocate',
-      args: [contractAllocations as Array<{ market: Address; assets: bigint }>],
+      args: [contractAllocations as readonly {
+        marketParams: {
+          loanToken: `0x${string}`;
+          collateralToken: `0x${string}`;
+          oracle: `0x${string}`;
+          irm: `0x${string}`;
+          lltv: bigint;
+        };
+        assets: bigint;
+      }[]],
     });
 
     console.log(`\n✅ Transaction submitted: ${hash}`);
@@ -156,11 +171,9 @@ async function main() {
   if (args.length < 2) {
     console.error(`
 Usage:
-  tsx scripts/allocate-v1.ts <vault-address> <market-unique-key> <amount> [decimals]
   tsx scripts/allocate-v1.ts <vault-address> --file <path-to-json>
 
 Examples:
-  tsx scripts/allocate-v1.ts 0x123... 0xabc... 1000
   tsx scripts/allocate-v1.ts 0x123... --file ./allocations.json
 
 Allocation file format:
@@ -169,12 +182,18 @@ Allocation file format:
   "decimals": 18,
   "allocations": [
     {
-      "uniqueKey": "0x...",
+      "loanAssetAddress": "0x...",
+      "collateralAssetAddress": "0x...",
+      "oracleAddress": "0x...",
+      "irmAddress": "0x...",
+      "lltv": "860000000000000000",
       "amount": "1000.5",
       "decimals": 18
     }
   ]
 }
+
+Note: The last allocation will automatically use MAX_UINT256 to capture all remaining funds (dust).
     `);
     process.exit(1);
   }
@@ -188,14 +207,9 @@ Allocation file format:
     }
     await allocateFromFile(vaultAddress, args[2]);
   } else {
-    if (args.length < 3) {
-      console.error('Error: Missing market unique key or amount');
-      process.exit(1);
-    }
-    const marketUniqueKey = args[1];
-    const amount = args[2];
-    const decimals = args[3] ? parseInt(args[3], 10) : 18;
-    await allocateSingle(vaultAddress, marketUniqueKey, amount, decimals);
+    console.error('Error: Direct allocation requires --file option with MarketParams');
+    console.error('Use --file option with a JSON file containing full market parameters');
+    process.exit(1);
   }
 }
 

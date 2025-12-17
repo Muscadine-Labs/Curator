@@ -197,6 +197,7 @@ export const VAULT_ABI = [
     outputs: [{ name: '', type: 'address' }],
   },
   // Reallocate function for MetaMorpho V1 vaults
+  // Matches Morpho documentation: https://docs.morpho.org/get-started/resources/contracts/morpho-vaults
   {
     name: 'reallocate',
     type: 'function',
@@ -206,7 +207,17 @@ export const VAULT_ABI = [
         name: 'allocations',
         type: 'tuple[]',
         components: [
-          { name: 'market', type: 'address' },
+          {
+            name: 'marketParams',
+            type: 'tuple',
+            components: [
+              { name: 'loanToken', type: 'address' },
+              { name: 'collateralToken', type: 'address' },
+              { name: 'oracle', type: 'address' },
+              { name: 'irm', type: 'address' },
+              { name: 'lltv', type: 'uint256' },
+            ],
+          },
           { name: 'assets', type: 'uint256' },
         ],
       },
