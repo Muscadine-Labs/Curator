@@ -190,10 +190,14 @@ export function validateAllocations(
   }
 
   // Calculate total allocation
-  const total = allocations.reduce((sum, alloc) => sum + alloc.assets, BigInt(0));
+  // Exclude allocations with MAX_UINT256 from the sum (special case for dust handling)
+  // The last allocation typically uses MAX_UINT256 to capture all remaining funds
+  const allocationsToSum = allocations.filter(alloc => alloc.assets !== MAX_UINT256);
+  const total = allocationsToSum.reduce((sum, alloc) => sum + alloc.assets, BigInt(0));
 
   // For reallocate, we need withdrawals to match supplies
   // The contract will handle this, but we can validate that we're not over-allocating
+  // When MAX_UINT256 is used, we only validate the sum of non-MAX allocations
   if (total > currentTotal * BigInt(2)) {
     return {
       valid: false,
