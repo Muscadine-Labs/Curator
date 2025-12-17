@@ -221,33 +221,44 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
       const decimals = vault?.assetDecimals ?? 18;
       
       for (const alloc of allocations.values()) {
-        // Validate required fields for MarketParams
-        if (!alloc.loanAssetAddress || !alloc.collateralAssetAddress || 
-            !alloc.oracleAddress || !alloc.irmAddress || alloc.lltv === null || alloc.lltv === undefined) {
-          alert(`Missing market parameters for ${alloc.marketName}. Cannot reallocate.`);
-          return;
-        }
-
         // Parse user input to bigint
         const targetValue = parseFloat(alloc.targetAssets) || 0;
         const targetAssets = BigInt(Math.floor(targetValue * 10 ** decimals));
         const currentAssets = alloc.currentAssets;
         
-        // Only include if there's a change
+        // Only validate and include markets that have a change
         if (targetAssets !== currentAssets) {
+          // Validate required fields for MarketParams (only for markets being changed)
+          const missingFields: string[] = [];
+          if (!alloc.loanAssetAddress) missingFields.push('loanAssetAddress');
+          if (!alloc.collateralAssetAddress) missingFields.push('collateralAssetAddress');
+          if (!alloc.oracleAddress) missingFields.push('oracleAddress');
+          if (!alloc.irmAddress) missingFields.push('irmAddress');
+          if (alloc.lltv === null || alloc.lltv === undefined) missingFields.push('lltv');
+          
+          if (missingFields.length > 0) {
+            console.error(`Missing market parameters for ${alloc.marketName}:`, {
+              missingFields,
+              allocation: alloc,
+            });
+            alert(`Missing market parameters for ${alloc.marketName}: ${missingFields.join(', ')}. Cannot reallocate. Please ensure all market data is loaded.`);
+            return;
+          }
+
+          // At this point, we know all fields are present (validated above)
           // Construct MarketParams struct
           // lltv comes from GraphQL as a number (like 0.86 for 86%), needs to be converted to wei (1e18)
           // If it's already a ratio (0-1), multiply by 1e18; if it's a percentage (0-100), multiply by 1e16
-          const lltvValue = alloc.lltv ?? 0;
+          const lltvValue = alloc.lltv!; // Safe because we validated above
           const lltvBigInt = lltvValue > 1 
             ? BigInt(Math.floor(lltvValue * 1e16)) // Percentage (86 -> 860000000000000000)
             : BigInt(Math.floor(lltvValue * 1e18)); // Ratio (0.86 -> 860000000000000000)
           
           const marketParams: MarketParams = {
-            loanToken: getAddress(alloc.loanAssetAddress),
-            collateralToken: getAddress(alloc.collateralAssetAddress),
-            oracle: getAddress(alloc.oracleAddress),
-            irm: getAddress(alloc.irmAddress),
+            loanToken: getAddress(alloc.loanAssetAddress!), // Safe because we validated above
+            collateralToken: getAddress(alloc.collateralAssetAddress!), // Safe because we validated above
+            oracle: getAddress(alloc.oracleAddress!), // Safe because we validated above
+            irm: getAddress(alloc.irmAddress!), // Safe because we validated above
             lltv: lltvBigInt,
           };
 
@@ -545,17 +556,23 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
                     >
                       {alloc.marketName}
                     </a>
-                    {alloc.lltv !== null && alloc.lltv !== undefined && (
-                      <span className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-                        LTV: {alloc.lltv > 1 ? alloc.lltv.toFixed(2) : (alloc.lltv * 100).toFixed(2)}%
-                      </span>
-                    )}
                     {alloc.isIdle && (
                       <Badge variant="outline" className="text-xs">
                         Idle
                       </Badge>
                     )}
                   </div>
+                  {alloc.lltv !== null && alloc.lltv !== undefined && (
+                    <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+                      {/* LTV is stored as wei format (860000000000000000 = 0.86 = 86%), convert to percentage */}
+                      LTV: {alloc.lltv > 1e17 
+                        ? (Number(alloc.lltv) / 1e16).toFixed(2) // If > 1e17, it's in wei format, divide by 1e16 for percentage
+                        : alloc.lltv > 1 
+                          ? alloc.lltv.toFixed(2) // Already a percentage
+                          : (alloc.lltv * 100).toFixed(2) // Ratio, convert to percentage
+                      }%
+                    </div>
+                  )}
                 </div>
                 <div className={isEditing ? "col-span-3 text-right" : "col-span-8 text-right"}>
                   <p className="text-xs sm:text-sm font-medium break-words">
