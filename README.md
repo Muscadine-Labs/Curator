@@ -59,6 +59,14 @@ If your wallet is on a different network, the app will prompt you to switch to B
 - **Simplified Configuration**: Only vault addresses need to be configured - everything else is dynamic
 - **Vault Routes**: V1 vaults at `/vault/v1/[address]`, V2 vaults at `/vault/v2/[address]`
 - **Sidebar Navigation**: Dynamically categorizes and displays vaults in appropriate sections
+- **Allocation System Refactor (Jan 2025)**:
+  - **Correct Morpho V1 Semantics**: `reallocate` now correctly expects FINAL TARGET balances per market, not deltas
+  - **New `buildReallocateTargets` Function**: Replaces old delta-based `calculateAllocationChanges` - builds final target allocations matching Morpho Vaults V1 contract requirements
+  - **MAX_UINT256 Dust Handling**: Last allocation automatically uses `type(uint256).max` to capture all remaining funds and prevent dust reverts
+  - **Market Identification**: Markets identified by `MarketParams` struct (no address conversion needed)
+  - **Improved Validation**: Only validates markets with current or target assets, skips markets with missing data if not being allocated to
+  - **Enhanced UI**: Allocation table shows token symbols with LTV on left, market info (Utilization, Liquidity, Borrow APY, Supply APY) on right
+  - **Missing Data Indicators**: Visual badges show markets with incomplete market parameters
 
 ## Setup
 
@@ -177,6 +185,8 @@ References:
   RoleList.tsx              # Protocol roles (Coming Soon)
   AllocatorList.tsx         # Allocators list (Coming Soon)
   morpho/RatingBadge.tsx    # Risk rating badge
+  morpho/AllocationV1.tsx   # V1 vault allocation management with reallocate support
+  morpho/MarketRiskV1.tsx   # V1 market risk analysis
   ui/*                      # shadcn/ui components
 
 /lib
@@ -188,6 +198,9 @@ References:
   format/number.ts          # Number formatting utilities
   wallet/config.ts          # Wallet configuration (wagmi + OnchainKit)
   onchain/*                 # Viem client and contract interfaces
+    allocation-utils.ts     # Allocation helpers: buildReallocateTargets, prepareAllocations, validateAllocations
+    vault-writes.ts         # Vault write configurations for wagmi
+    client.ts               # Viem public client and contract ABIs
   utils/*                   # Utilities (rate limit, error handling, logger)
 ```
 
@@ -220,6 +233,45 @@ Production checklist:
 - Resilient reads with try/catch patterns
 - Fallback to default values for missing methods
 
+### Allocation System (V1 Vaults)
+
+The allocation system for Morpho Vaults V1 follows the exact semantics required by the `reallocate` function:
+
+**Key Principles:**
+- `reallocate(MarketAllocation[])` expects **FINAL TARGET balances**, not deltas
+- `MarketAllocation.assets` represents the desired final supply per market
+- Markets are identified by `MarketParams` struct (loanToken, collateralToken, oracle, irm, lltv)
+- The last allocation must use `MAX_UINT256` to capture all remaining funds (dust handling)
+
+**Functions:**
+- `buildReallocateTargets(currentAllocations, targetAllocations)`: Builds final target allocations from current and target states
+- `prepareAllocations(allocations, useMaxForLast)`: Converts allocation data to `MarketAllocation[]` format
+- `validateAllocations(allocations, currentTotal)`: Validates allocation structure and totals
+
+**Usage Example:**
+```typescript
+import { buildReallocateTargets } from '@/lib/onchain/allocation-utils';
+
+const currentAllocations = [
+  {
+    marketId: '0x...',
+    supplyAssets: BigInt('1000000000000000000'),
+    marketParams: { loanToken, collateralToken, oracle, irm, lltv }
+  }
+];
+
+const targetAllocations = [
+  {
+    marketId: '0x...',
+    targetAssets: BigInt('2000000000000000000'), // Final desired amount
+    marketParams: { loanToken, collateralToken, oracle, irm, lltv }
+  }
+];
+
+const allocations = buildReallocateTargets(currentAllocations, targetAllocations);
+// Last allocation will have assets = MAX_UINT256 for dust handling
+```
+
 ## Why addresses are in `.env.example`
 
 We include public addresses in `.env.example` so you can:
@@ -234,6 +286,22 @@ No secrets are committed; only public on-chain addresses are shown for convenien
 - `totalAssets()`: TVL calculation
 - `performanceFeeBps()`: Fee rate (defaults to 200 bps)
 
+## Scripts
+
+### Allocation Scripts
+
+**`scripts/allocate-v1.ts`**: Allocate funds to V1 vaults
+```bash
+tsx scripts/allocate-v1.ts <vault-address> --file allocations.json
+```
+
+**`scripts/rebalance-v1.ts`**: Rebalance V1 vault allocations based on target percentages
+```bash
+tsx scripts/rebalance-v1.ts <vault-address> --targets targets.json
+```
+
+Both scripts use the new `buildReallocateTargets` function and correctly handle final target balances (not deltas).
+
 ## Contributing
 
 1. Follow TypeScript best practices
@@ -242,6 +310,7 @@ No secrets are committed; only public on-chain addresses are shown for convenien
 4. Add loading states for better UX
 5. Ensure responsive design
 6. Test with both mock and on-chain data
+7. **Allocation Changes**: When working with V1 vault allocations, always use `buildReallocateTargets` - never compute deltas manually. The `reallocate` function expects final target balances.
 
 ## Contact
 

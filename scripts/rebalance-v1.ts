@@ -2,8 +2,8 @@
 /**
  * Script to rebalance a Morpho V1 vault based on target allocations
  * 
- * This script calculates the net changes needed to reach target allocations
- * and executes a reallocate transaction.
+ * This script builds final target allocations (not deltas) and executes a reallocate transaction.
+ * The reallocate function expects FINAL TARGET balances per market, not changes.
  * 
  * Usage:
  *   tsx scripts/rebalance-v1.ts <vault-address> --targets targets.json
@@ -17,6 +17,8 @@
  *     { "uniqueKey": "0x...", "targetPercent": 20 }
  *   ]
  * }
+ * 
+ * Note: The last allocation will automatically use MAX_UINT256 to capture all remaining funds (dust).
  */
 
 import { createWalletClient, createPublicClient, http, getAddress, Address } from 'viem';
@@ -24,7 +26,8 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { base } from 'viem/chains';
 import { VAULT_ABI } from '../lib/onchain/client';
 import { 
-  calculateAllocationChanges 
+  buildReallocateTargets,
+  type MarketParams
 } from '../lib/onchain/allocation-utils';
 
 // Get RPC URL
@@ -61,11 +64,11 @@ interface RebalanceConfig {
 }
 
 async function fetchCurrentAllocations(vaultAddress: Address): Promise<Array<{
-  uniqueKey: string;
+  marketId?: string;
   supplyAssets: bigint;
+  marketParams: MarketParams;
 }>> {
-  // This would typically come from GraphQL API
-  // For now, we'll need to fetch from the API endpoint
+  // Fetch from the API endpoint
   const response = await fetch(`http://localhost:3000/api/vaults/${vaultAddress}`);
   if (!response.ok) {
     throw new Error(`Failed to fetch vault data: ${response.statusText}`);
@@ -77,12 +80,59 @@ async function fetchCurrentAllocations(vaultAddress: Address): Promise<Array<{
     return [];
   }
 
-  return vault.allocation.map((alloc: { marketKey: string; supplyAssets?: string | number | null }) => ({
-    uniqueKey: alloc.marketKey,
-    supplyAssets: alloc.supplyAssets 
-      ? BigInt(Math.floor(parseFloat(alloc.supplyAssets.toString()) * 1e18))
-      : BigInt(0),
-  }));
+  interface AllocationData {
+    marketKey?: string;
+    loanAssetAddress?: string | null;
+    collateralAssetAddress?: string | null;
+    oracleAddress?: string | null;
+    irmAddress?: string | null;
+    lltv?: number | string | null;
+    supplyAssets?: string | number | null;
+  }
+
+  return (vault.allocation as AllocationData[])
+    .filter((alloc) => {
+      // Only include allocations with complete market params
+      return alloc.loanAssetAddress && 
+             alloc.collateralAssetAddress && 
+             alloc.oracleAddress && 
+             alloc.irmAddress && 
+             alloc.lltv != null;
+    })
+    .map((alloc) => {
+      // Parse supplyAssets
+      let supplyAssets: bigint;
+      if (typeof alloc.supplyAssets === 'string') {
+        try {
+          supplyAssets = BigInt(alloc.supplyAssets);
+        } catch {
+          supplyAssets = BigInt(0);
+        }
+      } else if (typeof alloc.supplyAssets === 'number') {
+        supplyAssets = BigInt(Math.floor(alloc.supplyAssets));
+      } else {
+        supplyAssets = BigInt(0);
+      }
+
+      // Convert lltv to bigint (handle different formats)
+      // Safe: filtered above to ensure lltv is not null
+      const lltvValue = typeof alloc.lltv === 'number' ? alloc.lltv : parseFloat(alloc.lltv as string);
+      const lltvBigInt = lltvValue > 1 
+        ? BigInt(Math.floor(lltvValue * 1e16)) // Percentage (86 -> 860000000000000000)
+        : BigInt(Math.floor(lltvValue * 1e18)); // Ratio (0.86 -> 860000000000000000)
+
+      return {
+        marketId: alloc.marketKey,
+        supplyAssets,
+        marketParams: {
+          loanToken: getAddress(alloc.loanAssetAddress!), // Safe: filtered above
+          collateralToken: getAddress(alloc.collateralAssetAddress!), // Safe: filtered above
+          oracle: getAddress(alloc.oracleAddress!), // Safe: filtered above
+          irm: getAddress(alloc.irmAddress!), // Safe: filtered above
+          lltv: lltvBigInt,
+        },
+      };
+    });
 }
 
 async function fetchTotalAssets(vaultAddress: Address, rpcUrl: string): Promise<bigint> {
@@ -125,42 +175,55 @@ async function rebalance(
   console.log(`Total vault assets: ${totalAssets.toString()}`);
   console.log(`Current allocations: ${currentAllocations.length} markets`);
 
-  // Calculate target allocations
-  const targetAllocations = config.targets.map((target) => ({
-    uniqueKey: target.uniqueKey,
-    targetAssets: (totalAssets * BigInt(Math.floor(target.targetPercent * 1e18))) / BigInt(1e20),
-  }));
+  // Build target allocations with MarketParams
+  // We need to match targets to current allocations to get MarketParams
+  const targetAllocations = config.targets
+    .map((target) => {
+      // Find the current allocation for this market to get MarketParams
+      const current = currentAllocations.find(c => c.marketId === target.uniqueKey);
+      if (!current) {
+        console.warn(`Warning: Market ${target.uniqueKey} not found in current allocations. Skipping.`);
+        return null;
+      }
 
-  console.log('\nTarget allocations:');
+      const targetAssets = (totalAssets * BigInt(Math.floor(target.targetPercent * 1e18))) / BigInt(1e20);
+      
+      return {
+        marketId: target.uniqueKey,
+        targetAssets, // Final desired amount (not delta)
+        marketParams: current.marketParams,
+      };
+    })
+    .filter((t): t is NonNullable<typeof t> => t !== null);
+
+  console.log('\nTarget allocations (final amounts):');
   targetAllocations.forEach((target) => {
     const percent = (Number(target.targetAssets) / Number(totalAssets)) * 100;
-    console.log(`  ${target.uniqueKey}: ${percent.toFixed(2)}% (${target.targetAssets.toString()})`);
+    console.log(`  ${target.marketId}: ${percent.toFixed(2)}% (${target.targetAssets.toString()})`);
   });
 
-  // Calculate changes
-  console.log('\nCalculating allocation changes...');
-  const changes = calculateAllocationChanges(
+  // Build final target allocations using buildReallocateTargets
+  // This function builds final target allocations (not deltas) and ensures
+  // the last allocation uses MAX_UINT256 for dust handling
+  console.log('\nBuilding reallocate targets...');
+  const finalAllocations = buildReallocateTargets(
     currentAllocations,
     targetAllocations
   );
 
-  if (changes.length === 0) {
-    console.log('✅ No changes needed - vault is already at target allocations');
+  if (finalAllocations.length === 0) {
+    console.log('✅ No allocations to rebalance');
     return;
   }
 
-  console.log('\nAllocation changes:');
-  changes.forEach((change, i) => {
-    const direction = change.assets > BigInt(0) ? '→ Supply' : '← Withdraw';
-    console.log(`  ${i + 1}. ${change.market}: ${direction} ${change.assets.toString()}`);
+  console.log('\nFinal allocations for reallocate:');
+  finalAllocations.forEach((alloc, i) => {
+    const isLast = i === finalAllocations.length - 1;
+    const assetsDisplay = isLast && alloc.assets === BigInt('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff')
+      ? 'MAX_UINT256 (all remaining)'
+      : alloc.assets.toString();
+    console.log(`  ${i + 1}. Market: ${alloc.marketParams.loanToken}/${alloc.marketParams.collateralToken}, Assets: ${assetsDisplay}`);
   });
-
-  // We need to map back to uniqueKey - for now, we'll use the market address directly
-  // In practice, you'd maintain a mapping
-  const finalAllocations = changes.map(change => ({
-    market: change.market,
-    assets: change.assets,
-  }));
 
   const account = privateKeyToAccount(getPrivateKey());
 
@@ -182,7 +245,16 @@ async function rebalance(
       address: vaultAddress,
       abi: VAULT_ABI,
       functionName: 'reallocate',
-      args: [finalAllocations as Array<{ market: Address; assets: bigint }>],
+      args: [finalAllocations as readonly {
+        marketParams: {
+          loanToken: `0x${string}`;
+          collateralToken: `0x${string}`;
+          oracle: `0x${string}`;
+          irm: `0x${string}`;
+          lltv: bigint;
+        };
+        assets: bigint;
+      }[]],
     });
 
     console.log(`\n✅ Transaction submitted: ${hash}`);

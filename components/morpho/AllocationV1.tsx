@@ -13,7 +13,6 @@ import {
   formatAllocationAmount,
   validateAllocations,
   buildReallocateTargets,
-  type MarketAllocation,
   type MarketParams
 } from '@/lib/onchain/allocation-utils';
 import { formatCompactUSD, formatPercentage } from '@/lib/format/number';
@@ -221,6 +220,18 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
 
   const handleSave = async () => {
     if (!vault || !connectedAddress) return;
+    
+    // Check if vault data is still loading
+    if (isLoading) {
+      alert('Vault data is still loading. Please wait...');
+      return;
+    }
+    
+    // Check if we have allocation data
+    if (!vault.allocation || vault.allocation.length === 0) {
+      alert('No allocation data available. Cannot reallocate.');
+      return;
+    }
 
     try {
       // Get decimals from vault asset (default to 18 if not available)
@@ -240,8 +251,23 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
         marketParams: MarketParams;
       }> = [];
       
-      // Validate all markets have required fields before building allocations
+      // Validate and build allocations
+      // Only include markets that have a target allocation > 0 OR currently have assets
+      // Skip markets with missing required fields if they're not being allocated to
       for (const alloc of allocations.values()) {
+        // Parse user input to bigint (final target amount, not delta)
+        const targetValue = parseFloat(alloc.targetAssets) || 0;
+        const targetAssets = BigInt(Math.floor(targetValue * Number(BigInt(10) ** BigInt(decimals))));
+        const hasCurrentAssets = alloc.currentAssets > BigInt(0);
+        const hasTargetAssets = targetAssets > BigInt(0);
+        
+        // Only process markets that have current assets OR target assets
+        // Markets with neither can be skipped (they're not part of the allocation)
+        if (!hasCurrentAssets && !hasTargetAssets) {
+          continue;
+        }
+        
+        // Validate required fields for markets that need to be included
         const missingFields: string[] = [];
         if (!alloc.loanAssetAddress) missingFields.push('loanAssetAddress');
         if (!alloc.collateralAssetAddress) missingFields.push('collateralAssetAddress');
@@ -253,8 +279,10 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
           console.error(`Missing market parameters for ${alloc.marketName}:`, {
             missingFields,
             allocation: alloc,
+            hasCurrentAssets,
+            hasTargetAssets,
           });
-          alert(`Missing market parameters for ${alloc.marketName}: ${missingFields.join(', ')}. Cannot reallocate. Please ensure all market data is loaded.`);
+          alert(`Missing market parameters for ${alloc.marketName}: ${missingFields.join(', ')}. Cannot reallocate. Please ensure all market data is loaded. If this market should not be included, set its allocation to 0.`);
           return;
         }
 
@@ -273,25 +301,25 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
           irm: getAddress(alloc.irmAddress!), // Safe because we validated above
           lltv: lltvBigInt,
         };
-
-        // Parse user input to bigint (final target amount, not delta)
-        const targetValue = parseFloat(alloc.targetAssets) || 0;
-        const targetAssets = BigInt(Math.floor(targetValue * Number(BigInt(10) ** BigInt(decimals))));
         
-        // Add to current allocations
-        currentAllocations.push({
-          marketId: alloc.uniqueKey,
-          supplyAssets: alloc.currentAssets,
-          marketParams,
-        });
+        // Add to current allocations (only if they have current assets)
+        if (hasCurrentAssets) {
+          currentAllocations.push({
+            marketId: alloc.uniqueKey,
+            supplyAssets: alloc.currentAssets,
+            marketParams,
+          });
+        }
         
-        // Add to target allocations (always include, even if unchanged)
+        // Add to target allocations (only if they have target assets)
         // reallocate expects ALL final target balances, not just changes
-        targetAllocations.push({
-          marketId: alloc.uniqueKey,
-          targetAssets, // Final desired amount
-          marketParams,
-        });
+        if (hasTargetAssets) {
+          targetAllocations.push({
+            marketId: alloc.uniqueKey,
+            targetAssets, // Final desired amount
+            marketParams,
+          });
+        }
       }
 
       // Build reallocate targets using the new function
@@ -541,11 +569,12 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
 
         {/* Allocation Table */}
         <div className="space-y-2 overflow-x-auto">
-          <div className="grid grid-cols-12 gap-2 sm:gap-4 p-2 text-xs font-medium text-slate-600 dark:text-slate-400 border-b min-w-[600px]">
-            <div className="col-span-4">Market</div>
-            <div className={isEditing ? "col-span-3 text-right" : "col-span-8 text-right"}>Current</div>
+          <div className="grid grid-cols-12 gap-2 sm:gap-4 p-2 text-xs font-medium text-slate-600 dark:text-slate-400 border-b min-w-[800px]">
+            <div className="col-span-3">Market</div>
+            <div className={isEditing ? "col-span-3 text-right" : "col-span-7 text-right"}>Current</div>
             {isEditing && <div className="col-span-3 text-right">{inputMode === 'percentage' ? 'New %' : 'New Allocation'}</div>}
-            {isEditing && <div className="col-span-2 text-right">{inputMode === 'percentage' ? 'Amount' : '%'}</div>}
+            {isEditing && <div className="col-span-1 text-right">{inputMode === 'percentage' ? 'Amount' : '%'}</div>}
+            <div className="col-span-2 text-right">Market Info</div>
           </div>
 
           {sortedAllocations.map((alloc) => {
@@ -562,13 +591,14 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
               <div
                 key={alloc.uniqueKey}
                 className={cn(
-                  "grid grid-cols-12 gap-2 sm:gap-4 p-3 rounded-lg border min-w-[600px]",
+                  "grid grid-cols-12 gap-2 sm:gap-4 p-3 rounded-lg border min-w-[800px]",
                   alloc.isIdle 
                     ? "bg-slate-100/50 dark:bg-slate-800/50 opacity-75" 
                     : "bg-white dark:bg-slate-900"
                 )}
               >
-                <div className="col-span-4">
+                {/* Left: Market name and LTV */}
+                <div className="col-span-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <a
                       href={`https://app.morpho.org/base/market/${alloc.uniqueKey}`}
@@ -583,33 +613,30 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
                         Idle
                       </Badge>
                     )}
-                  </div>
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    {alloc.lltv !== null && alloc.lltv !== undefined && (
-                      <span>
-                        LTV: {alloc.lltv > 1e17 
-                          ? (Number(alloc.lltv) / 1e16).toFixed(2) // If > 1e17, it's in wei format, divide by 1e16 for percentage
-                          : alloc.lltv > 1 
-                            ? alloc.lltv.toFixed(2) // Already a percentage
-                            : (alloc.lltv * 100).toFixed(2) // Ratio, convert to percentage
-                        }%
-                      </span>
-                    )}
-                    {alloc.supplyApy !== null && alloc.supplyApy !== undefined && (
-                      <span>Supply APY: {formatPercentage(alloc.supplyApy, 2)}</span>
-                    )}
-                    {alloc.borrowApy !== null && alloc.borrowApy !== undefined && (
-                      <span>Borrow APY: {formatPercentage(alloc.borrowApy, 2)}</span>
-                    )}
-                    {alloc.utilization !== null && alloc.utilization !== undefined && (
-                      <span>Utilization: {formatPercentage(alloc.utilization, 2)}</span>
-                    )}
-                    {alloc.liquidityAssetsUsd !== null && alloc.liquidityAssetsUsd !== undefined && (
-                      <span>Liquidity: {formatCompactUSD(alloc.liquidityAssetsUsd)}</span>
+                    {(!alloc.loanAssetAddress || !alloc.collateralAssetAddress || !alloc.oracleAddress || !alloc.irmAddress || alloc.lltv === null || alloc.lltv === undefined) && (
+                      <Badge variant="outline" className="text-xs bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800">
+                        Missing Data
+                      </Badge>
                     )}
                   </div>
+                  {alloc.lltv !== null && alloc.lltv !== undefined ? (
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                      LTV: {alloc.lltv > 1e17 
+                        ? (Number(alloc.lltv) / 1e16).toFixed(2) // If > 1e17, it's in wei format, divide by 1e16 for percentage
+                        : alloc.lltv > 1 
+                          ? alloc.lltv.toFixed(2) // Already a percentage
+                          : (alloc.lltv * 100).toFixed(2) // Ratio, convert to percentage
+                      }%
+                    </p>
+                  ) : (
+                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                      LTV: Not available
+                    </p>
+                  )}
                 </div>
-                <div className={isEditing ? "col-span-3 text-right" : "col-span-8 text-right"}>
+                
+                {/* Middle: Current allocation */}
+                <div className={isEditing ? "col-span-3 text-right" : "col-span-7 text-right"}>
                   <p className="text-xs sm:text-sm font-medium break-words">
                     {formatAllocationAmount(alloc.currentAssets, alloc.decimals)}
                   </p>
@@ -620,6 +647,8 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
                     {currentPercent.toFixed(2)}%
                   </p>
                 </div>
+                
+                {/* Editing: New allocation input */}
                 {isEditing && (
                   <>
                     <div className="col-span-3">
@@ -637,7 +666,7 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
                           : `${parseFloat(alloc.targetPercentage || '0').toFixed(2)}%`}
                       </p>
                     </div>
-                    <div className="col-span-2 text-right">
+                    <div className="col-span-1 text-right">
                       <p className="text-xs sm:text-sm font-medium break-words">
                         {inputMode === 'percentage' 
                           ? formatAllocationAmount(alloc.currentAssets, alloc.decimals)
@@ -646,6 +675,30 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
                     </div>
                   </>
                 )}
+                
+                {/* Right: Market info (Utilization, Liquidity, Borrow APY, Supply APY) */}
+                <div className="col-span-2 text-right space-y-1">
+                  {alloc.utilization !== null && alloc.utilization !== undefined && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Utilization: {formatPercentage(alloc.utilization, 2)}
+                    </p>
+                  )}
+                  {alloc.liquidityAssetsUsd !== null && alloc.liquidityAssetsUsd !== undefined && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Liquidity: {formatCompactUSD(alloc.liquidityAssetsUsd)}
+                    </p>
+                  )}
+                  {alloc.borrowApy !== null && alloc.borrowApy !== undefined && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Borrow APY: {formatPercentage(alloc.borrowApy, 2)}
+                    </p>
+                  )}
+                  {alloc.supplyApy !== null && alloc.supplyApy !== undefined && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Supply APY: {formatPercentage(alloc.supplyApy, 2)}
+                    </p>
+                  )}
+                </div>
               </div>
             );
           })}
