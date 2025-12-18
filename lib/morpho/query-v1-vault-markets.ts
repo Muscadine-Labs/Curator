@@ -55,6 +55,8 @@ const VAULT_V1_MARKETS_QUERY = gql`
               utilization
               supplyApy
               borrowApy
+              realizedBadDebt
+              unrealizedBadDebt
             }
           }
         }
@@ -100,6 +102,8 @@ export type V1VaultMarketData = {
     utilization: number | null;
     supplyApy: number | null;
     borrowApy: number | null;
+    realizedBadDebt: number | null;
+    unrealizedBadDebt: number | null;
   } | null;
   // Vault allocation data for this market
   vaultSupplyAssets: string | null; // Raw amount supplied by vault
@@ -150,6 +154,8 @@ export type V1VaultMarketsQueryResponse = {
             utilization: number | null;
             supplyApy: number | null;
             borrowApy: number | null;
+            realizedBadDebt: number | null;
+            unrealizedBadDebt: number | null;
           } | null;
         } | null;
       }> | null;

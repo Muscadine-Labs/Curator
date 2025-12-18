@@ -91,6 +91,8 @@ export interface MarketRiskScores {
   oracleScore: number; // [0, 100] - Oracle Freshness & Reliability
   marketRiskScore: number; // [0, 100]
   grade: MarketRiskGrade;
+  realizedBadDebt?: number | null; // Realized bad debt amount (USD)
+  unrealizedBadDebt?: number | null; // Unrealized bad debt amount (USD)
 }
 
 /**
@@ -502,15 +504,36 @@ export async function computeV1MarketRiskScores(
     baseMarketRiskScore
   );
 
-  // Map to letter grade
-  const grade = getMarketRiskGrade(marketRiskScore);
+  // Check for bad debt and override grade if present
+  const realizedBadDebt = market.state?.realizedBadDebt ?? null;
+  const unrealizedBadDebt = market.state?.unrealizedBadDebt ?? null;
+  
+  let finalGrade: MarketRiskGrade;
+  let finalScore = marketRiskScore;
+  
+  // If market has any realized bad debt, automatically grade F
+  if (realizedBadDebt != null && realizedBadDebt > 0) {
+    finalGrade = 'F';
+    finalScore = 0; // F grade corresponds to score < 60, set to 0 for clarity
+  }
+  // If market has any unrealized bad debt, make it grade D
+  else if (unrealizedBadDebt != null && unrealizedBadDebt > 0) {
+    finalGrade = 'D';
+    finalScore = 60; // D grade corresponds to score 60-64, set to 60 for clarity
+  }
+  // Otherwise use calculated grade
+  else {
+    finalGrade = getMarketRiskGrade(marketRiskScore);
+  }
 
   return {
     liquidationHeadroomScore,
     utilizationScore,
     coverageRatioScore,
     oracleScore,
-    marketRiskScore,
-    grade,
+    marketRiskScore: finalScore,
+    grade: finalGrade,
+    realizedBadDebt,
+    unrealizedBadDebt,
   };
 }

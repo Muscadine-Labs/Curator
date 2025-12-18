@@ -325,6 +325,28 @@ export function MarketRiskV1({ vaultAddress }: MarketRiskV1Props) {
                 )}
               </div>
 
+              {/* Bad Debt Disclaimer - Show if market has bad debt */}
+              {!isIdle && scores && (
+                (scores.realizedBadDebt != null && scores.realizedBadDebt > 0) || 
+                (scores.unrealizedBadDebt != null && scores.unrealizedBadDebt > 0)
+              ) && (
+                <div className="rounded-lg border-2 border-red-500/50 bg-red-50 dark:bg-red-950/20 p-3">
+                  <p className="text-sm font-semibold text-red-700 dark:text-red-400 mb-1">
+                    ⚠️ Bad Debt Warning
+                  </p>
+                  {'realizedBadDebt' in scores && scores.realizedBadDebt != null && scores.realizedBadDebt > 0 && (
+                    <p className="text-xs text-red-600 dark:text-red-300">
+                      This market has {formatCompactUSD(scores.realizedBadDebt)} of realized bad debt. Grade automatically set to F.
+                    </p>
+                  )}
+                  {'unrealizedBadDebt' in scores && scores.unrealizedBadDebt != null && scores.unrealizedBadDebt > 0 && (
+                    <p className="text-xs text-red-600 dark:text-red-300">
+                      This market has {formatCompactUSD(scores.unrealizedBadDebt)} of unrealized bad debt. Grade automatically set to D.
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* Component Scores - Only show if not idle */}
               {!isIdle && scores && (
                 <>

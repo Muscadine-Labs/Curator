@@ -19,6 +19,8 @@ export interface V1MarketRiskData {
     oracleScore: number;
     marketRiskScore: number;
     grade: string;
+    realizedBadDebt?: number | null;
+    unrealizedBadDebt?: number | null;
   } | null; // null for idle markets
   oracleTimestampData?: {
     chainlinkAddress: string | null;
