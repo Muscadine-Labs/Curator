@@ -45,7 +45,7 @@ export default function VaultsPage() {
 
   const isLoading = morpho.isLoading || supplied.isLoading || vaultsQuery.isLoading;
   const error = morpho.error || supplied.error || vaultsQuery.error;
-  const vaults = vaultsQuery.data || [];
+  const vaults = useMemo(() => vaultsQuery.data || [], [vaultsQuery.data]);
 
   const mergedMarkets = useMemo(() => {
     if (!supplied.data?.markets || !morpho.data?.markets) return [];

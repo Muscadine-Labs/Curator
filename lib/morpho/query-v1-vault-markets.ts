@@ -55,8 +55,6 @@ const VAULT_V1_MARKETS_QUERY = gql`
               utilization
               supplyApy
               borrowApy
-              realizedBadDebt
-              unrealizedBadDebt
             }
           }
         }

@@ -208,8 +208,6 @@ export async function GET(
                   borrowApy
                   utilization
                   liquidityAssetsUsd
-                  realizedBadDebt
-                  unrealizedBadDebt
                 }
               }
             }
