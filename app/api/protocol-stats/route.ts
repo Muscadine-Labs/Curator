@@ -156,7 +156,7 @@ export async function GET(request: Request) {
             address,
             chainId: BASE_CHAIN_ID,
             options: {
-              startTimestamp: getDaysAgoTimestamp(30),
+              startTimestamp: getDaysAgoTimestamp(90),
               endTimestamp: Math.floor(Date.now() / 1000),
               interval: 'DAY'
             }
@@ -174,8 +174,12 @@ export async function GET(request: Request) {
             };
           }
         }
-      } catch {
-        // Vault not found or error fetching, skip it
+      } catch (error) {
+        // Log error for debugging but don't fail the entire request
+        logger.warn('Failed to fetch TVL data for vault', {
+          address,
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
       return null;
     });
@@ -192,6 +196,19 @@ export async function GET(request: Request) {
     const tvlByVault = tvlByVaultResults
       .filter((v): v is NonNullable<typeof v> => v !== null)
       .map(({ performanceFee: _performanceFee, ...rest }) => rest); // eslint-disable-line @typescript-eslint/no-unused-vars
+    
+    // Log vault data for debugging
+    logger.info('TVL by vault data fetched', {
+      totalVaults: tvlByVault.length,
+      vaults: tvlByVault.map(v => ({
+        name: v.name,
+        dataPoints: v.data.length,
+        dateRange: v.data.length > 0 ? {
+          first: v.data[0].date,
+          last: v.data[v.data.length - 1].date,
+        } : null,
+      })),
+    });
     
     // Initialize totals (will be updated from DefiLlama if available)
     let totalFeesGenerated = 0;
