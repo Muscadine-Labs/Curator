@@ -6,7 +6,6 @@ import {
   DAYS_30_MS,
   getDaysAgoTimestamp,
 } from '@/lib/constants';
-import { shouldUseV2Query } from '@/lib/config/vaults';
 import { handleApiError } from '@/lib/utils/error-handler';
 import { createRateLimitMiddleware, RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS } from '@/lib/utils/rate-limit';
 import { morphoGraphQLClient } from '@/lib/morpho/graphql-client';
@@ -113,11 +112,12 @@ export async function GET(request: Request) {
         `;
         const v2Result = await morphoGraphQLClient.request<{ vaultV2ByAddress?: { name?: string; address?: string; performanceFee?: number; totalAssetsUsd?: number } | null }>(v2CheckQuery, { address, chainId: BASE_CHAIN_ID });
         
-        if (v2Result.vaultV2ByAddress?.name) {
+        // Check if V2 vault exists (not null/undefined), even if name is missing
+        if (v2Result.vaultV2ByAddress !== null && v2Result.vaultV2ByAddress !== undefined) {
           // This is a V2 vault, use current TVL as a single data point
           const currentDate = new Date().toISOString();
           return {
-            name: v2Result.vaultV2ByAddress.name,
+            name: v2Result.vaultV2ByAddress.name || `V2 Vault ${address.slice(0, 6)}...`,
             address: address.toLowerCase(),
             data: v2Result.vaultV2ByAddress.totalAssetsUsd != null ? [{
               date: currentDate,
@@ -138,42 +138,91 @@ export async function GET(request: Request) {
         `;
         const v1Result = await morphoGraphQLClient.request<{ vault?: { name?: string; address?: string } | null }>(v1CheckQuery, { address, chainId: BASE_CHAIN_ID });
         
-        if (v1Result.vault?.name && !shouldUseV2Query(v1Result.vault.name)) {
+        logger.info('V1 vault check result', {
+          address,
+          hasVault: !!v1Result.vault,
+          vaultName: v1Result.vault?.name,
+        });
+        
+        // If V2 check returned null/undefined, this is a V1 vault (or doesn't exist)
+        // Try to fetch historical data for V1 vaults
+        if (v1Result.vault) {
           // This is a V1 vault, fetch historical data
-          const historicalQuery = gql`
-            query VaultHistoricalTvl($address: String!, $chainId: Int!, $options: TimeseriesOptions) {
-              vault: vaultByAddress(address: $address, chainId: $chainId) {
-                name
-                address
-                historicalState {
-                  totalAssetsUsd(options: $options) {
-                    x
-                    y
+          try {
+            const historicalQuery = gql`
+              query VaultHistoricalTvl($address: String!, $chainId: Int!, $options: TimeseriesOptions) {
+                vault: vaultByAddress(address: $address, chainId: $chainId) {
+                  name
+                  address
+                  historicalState {
+                    totalAssetsUsd(options: $options) {
+                      x
+                      y
+                    }
                   }
                 }
               }
-            }
-          `;
-          const histResult = await morphoGraphQLClient.request<{ vault?: { name?: string; address?: string; historicalState?: { totalAssetsUsd?: Array<{ x?: number; y?: number }> } } | null }>(historicalQuery, {
-            address,
-            chainId: BASE_CHAIN_ID,
-            options: {
-              startTimestamp: getDaysAgoTimestamp(90),
-              endTimestamp: Math.floor(Date.now() / 1000),
-              interval: 'DAY'
-            }
-          });
-          
-          if (histResult.vault?.name && histResult.vault?.historicalState?.totalAssetsUsd) {
-            return {
-              name: histResult.vault.name,
-              address: address.toLowerCase(),
-              data: histResult.vault.historicalState.totalAssetsUsd.map(point => ({
+            `;
+            const histResult = await morphoGraphQLClient.request<{ vault?: { name?: string; address?: string; historicalState?: { totalAssetsUsd?: Array<{ x?: number; y?: number }> } } | null }>(historicalQuery, {
+              address,
+              chainId: BASE_CHAIN_ID,
+              options: {
+                startTimestamp: getDaysAgoTimestamp(30), // Start with 30 days, same as DefiLlama range
+                endTimestamp: Math.floor(Date.now() / 1000),
+                interval: 'DAY'
+              }
+            });
+            
+            logger.info('V1 vault historical query result', {
+              address,
+              hasVault: !!histResult.vault,
+              vaultName: histResult.vault?.name,
+              hasHistoricalState: !!histResult.vault?.historicalState,
+              hasTotalAssetsUsd: !!histResult.vault?.historicalState?.totalAssetsUsd,
+              dataPointsCount: histResult.vault?.historicalState?.totalAssetsUsd?.length ?? 0,
+              firstPoint: histResult.vault?.historicalState?.totalAssetsUsd?.[0],
+            });
+            
+            if (histResult.vault?.historicalState?.totalAssetsUsd) {
+              const dataPoints = histResult.vault.historicalState.totalAssetsUsd.map(point => ({
                 date: point.x ? new Date(point.x * 1000).toISOString() : '',
                 value: point.y || 0,
-              })).filter(p => p.date),
-              performanceFee: null, // V1 vaults don't contribute performanceFee here (they're already in morphoVaults)
-            };
+              })).filter(p => p.date);
+              
+              logger.info('V1 vault historical data processed', {
+                address,
+                name: histResult.vault.name,
+                rawDataPoints: histResult.vault.historicalState.totalAssetsUsd.length,
+                processedDataPoints: dataPoints.length,
+              });
+              
+              if (dataPoints.length > 0) {
+                return {
+                  name: histResult.vault.name || `Vault ${address.slice(0, 6)}...`,
+                  address: address.toLowerCase(),
+                  data: dataPoints,
+                  performanceFee: null, // V1 vaults don't contribute performanceFee here (they're already in morphoVaults)
+                };
+              } else {
+                logger.warn('V1 vault historical data filtered out (no valid dates)', {
+                  address,
+                  name: histResult.vault.name,
+                  rawDataPoints: histResult.vault.historicalState.totalAssetsUsd.length,
+                });
+              }
+            } else {
+              logger.warn('V1 vault has no historical data', {
+                address,
+                name: histResult.vault?.name,
+                hasHistoricalState: !!histResult.vault?.historicalState,
+                hasTotalAssetsUsd: !!histResult.vault?.historicalState?.totalAssetsUsd,
+              });
+            }
+          } catch (histError) {
+            logger.warn('Failed to fetch V1 vault historical data', {
+              address,
+              error: histError instanceof Error ? histError.message : String(histError),
+            });
           }
         }
       } catch (error) {
@@ -187,6 +236,17 @@ export async function GET(request: Request) {
     });
 
     const tvlByVaultResults = await Promise.all(tvlByVaultPromises);
+    
+    // Log all results before filtering
+    logger.info('TVL by vault results (before filtering)', {
+      totalResults: tvlByVaultResults.length,
+      results: tvlByVaultResults.map(v => v ? {
+        name: v.name,
+        address: v.address,
+        dataPoints: v.data.length,
+        isV2: v.data.length === 1,
+      } : null),
+    });
     
     // Extract V2 performance fees before filtering out the performanceFee field
     const v2PerformanceFees = tvlByVaultResults
@@ -209,7 +269,11 @@ export async function GET(request: Request) {
     
     // Log vault data for debugging
     logger.info('TVL by vault data fetched', {
-      totalVaults: tvlByVault.length,
+      totalResults: tvlByVaultResults.length,
+      nonNullResults: tvlByVaultResults.filter(v => v !== null).length,
+      v1Vaults: tvlByVaultResults.filter(v => v !== null && v.data.length >= 2).length,
+      v2Vaults: tvlByVaultResults.filter(v => v !== null && v.data.length === 1).length,
+      finalTvlByVaultCount: tvlByVault.length,
       vaults: tvlByVault.map(v => ({
         name: v.name,
         dataPoints: v.data.length,

@@ -19,7 +19,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { RatingBadge } from '@/components/morpho/RatingBadge';
 import { formatCompactUSD, formatPercentage } from '@/lib/format/number';
 import type { MorphoMarketMetrics } from '@/lib/morpho/types';
-import { getVaultByAddress } from '@/lib/config/vaults';
 import { useVaultRisk } from '@/lib/hooks/useVaultRisk';
 
 export default function VaultDetailPage() {
@@ -102,7 +101,6 @@ export default function VaultDetailPage() {
   }
 
   const ratingLabel = vault.riskTier ? vault.riskTier.toUpperCase() : 'N/A';
-  const vaultConfig = getVaultByAddress(vault.address);
   const vaultVersion = vault.version ?? 'v2';
 
   return (
@@ -232,7 +230,7 @@ export default function VaultDetailPage() {
                       <p className="text-lg font-semibold text-slate-900">
                         {vault.parameters?.performanceFeeBps 
                           ? `${(vault.parameters.performanceFeeBps / 100).toFixed(2)}%` 
-                          : `${(vaultConfig?.performanceFeeBps ?? 200) / 100}%`}
+                          : '2.00%'}
                       </p>
                       <p className="text-xs text-slate-500">Fee charged on yield generated</p>
                     </div>

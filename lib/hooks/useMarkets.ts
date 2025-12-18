@@ -2,8 +2,18 @@ import { useQuery } from '@tanstack/react-query';
 
 export interface SuppliedMarket {
   uniqueKey: string;
+  collateralAsset?: {
+    symbol?: string;
+  };
+  loanAsset?: {
+    symbol?: string;
+  };
   state?: {
     utilization?: number;
+    supplyAssetsUsd?: number;
+    borrowAssetsUsd?: number;
+    supplyApy?: number;
+    borrowApy?: number;
     rewards?: Array<{
       supplyApr?: number;
     }>;
