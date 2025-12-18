@@ -103,11 +103,11 @@ export default function VaultDetailPage() {
 
   const ratingLabel = vault.riskTier ? vault.riskTier.toUpperCase() : 'N/A';
   const vaultConfig = getVaultByAddress(vault.address);
-  const vaultVersion = vaultConfig?.version ?? 'v2';
+  const vaultVersion = vault.version ?? 'v2';
 
   return (
     <AppShell
-      title={vault.name}
+      title={vault.name ?? 'Vault'}
       description={`${vault.symbol} • ${vault.asset ?? ''}`}
       actions={
         <div className="flex items-center gap-2">
@@ -201,8 +201,8 @@ export default function VaultDetailPage() {
 
           <TabsContent value="roles">
             <div className="grid gap-6 md:grid-cols-2">
-              <RoleList />
-              <AllocatorList />
+              <RoleList vaultAddress={vault.address as `0x${string}`} />
+              <AllocatorList vaultAddress={vault.address as `0x${string}`} />
             </div>
           </TabsContent>
 

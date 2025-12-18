@@ -91,11 +91,13 @@ export async function GET(request: Request) {
     const morphoVaults = data.vaults?.items?.filter((v): v is Vault => v !== null) ?? [];
     const positions = data.vaultPositions?.items?.filter((p): p is VaultPosition => p !== null) ?? [];
 
-    const totalDeposited = morphoVaults.reduce((sum, v) => sum + (v.state?.totalAssetsUsd ?? 0), 0);
+    // Calculate totalDeposited from V1 vaults (from main query)
+    let totalDeposited = morphoVaults.reduce((sum, v) => sum + (v.state?.totalAssetsUsd ?? 0), 0);
     const activeVaults = vaultAddresses.length;
 
     // Fetch historical TVL data per vault (V1 has historical, V2 has current only)
     // Also collect V2 performance fees for revenue calculation
+    // Note: V2 vaults will be added to totalDeposited below
     const tvlByVaultPromises = addresses.map(async (address) => {
       try {
         // First check if it's a V2 vault (also fetch performanceFee for revenue calculation)
@@ -193,9 +195,17 @@ export async function GET(request: Request) {
       .map(v => ({ performanceFee: v.performanceFee as number }));
     
     // Extract TVL data (remove performanceFee field)
+    // Filter to only include V1 vaults (those with historical data, data.length >= 2)
+    // V2 vaults only have 1 data point (current TVL) so they're excluded from "By Vault" view
     const tvlByVault = tvlByVaultResults
-      .filter((v): v is NonNullable<typeof v> => v !== null)
+      .filter((v): v is NonNullable<typeof v> => v !== null && v.data.length >= 2)
       .map(({ performanceFee: _performanceFee, ...rest }) => rest); // eslint-disable-line @typescript-eslint/no-unused-vars
+    
+    // Add V2 vault TVL to totalDeposited (V2 vaults have data.length === 1)
+    const v2VaultTvl = tvlByVaultResults
+      .filter((v): v is NonNullable<typeof v> => v !== null && v.data.length === 1)
+      .reduce((sum, v) => sum + (v.data[0]?.value ?? 0), 0);
+    totalDeposited += v2VaultTvl;
     
     // Log vault data for debugging
     logger.info('TVL by vault data fetched', {

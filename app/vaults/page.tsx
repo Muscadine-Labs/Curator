@@ -29,7 +29,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { RatingBadge } from '@/components/morpho/RatingBadge';
 import { formatCompactUSD, formatPercentage } from '@/lib/format/number';
-import { vaults } from '@/lib/config/vaults';
+import { useVaultList } from '@/lib/hooks/useProtocolStats';
 import { AppShell } from '@/components/layout/AppShell';
 
 type MergedMarket = SuppliedMarket & {
@@ -41,9 +41,11 @@ export default function VaultsPage() {
   const router = useRouter();
   const morpho = useMorphoMarkets();
   const supplied = useMarketsSupplied();
+  const vaultsQuery = useVaultList();
 
-  const isLoading = morpho.isLoading || supplied.isLoading;
-  const error = morpho.error || supplied.error;
+  const isLoading = morpho.isLoading || supplied.isLoading || vaultsQuery.isLoading;
+  const error = morpho.error || supplied.error || vaultsQuery.error;
+  const vaults = vaultsQuery.data || [];
 
   const mergedMarkets = useMemo(() => {
     if (!supplied.data?.markets || !morpho.data?.markets) return [];
@@ -124,7 +126,7 @@ export default function VaultsPage() {
         markets: vaultMarkets,
       };
     });
-  }, [supplied.data, mergedMarkets]);
+  }, [supplied.data, mergedMarkets, vaults]);
 
 
   return (
