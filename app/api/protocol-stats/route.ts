@@ -94,6 +94,14 @@ export async function GET(request: Request) {
     let totalDeposited = morphoVaults.reduce((sum, v) => sum + (v.state?.totalAssetsUsd ?? 0), 0);
     const activeVaults = vaultAddresses.length;
 
+    // Create a map of V1 vault current TVL for fallback
+    const v1VaultCurrentTvl = new Map<string, number>();
+    morphoVaults.forEach(v => {
+      if (v.address && v.state?.totalAssetsUsd != null) {
+        v1VaultCurrentTvl.set(v.address.toLowerCase(), v.state.totalAssetsUsd);
+      }
+    });
+
     // Fetch historical TVL data per vault (V1 has historical, V2 has current only)
     // Also collect V2 performance fees for revenue calculation
     // Note: V2 vaults will be added to totalDeposited below
@@ -189,11 +197,38 @@ export async function GET(request: Request) {
                 value: point.y || 0,
               })).filter(p => p.date);
               
+              // Get current TVL from morphoVaults to ensure we have latest data point
+              const currentTvl = v1VaultCurrentTvl.get(address.toLowerCase());
+              const currentDate = new Date().toISOString();
+              
+              // Add current TVL if it's not already the latest point or if we have no historical data
+              if (dataPoints.length > 0) {
+                // Check if latest point is today (within last 24 hours)
+                const latestPoint = dataPoints[dataPoints.length - 1];
+                const latestDate = new Date(latestPoint.date);
+                const hoursSinceLatest = (Date.now() - latestDate.getTime()) / (1000 * 60 * 60);
+                
+                // Add current TVL if latest point is more than 12 hours old, or if current TVL differs
+                if (hoursSinceLatest > 12 || (currentTvl != null && Math.abs(latestPoint.value - currentTvl) > 0.01)) {
+                  dataPoints.push({
+                    date: currentDate,
+                    value: currentTvl ?? latestPoint.value,
+                  });
+                }
+              } else if (currentTvl != null) {
+                // No historical data, but we have current TVL - use it
+                dataPoints.push({
+                  date: currentDate,
+                  value: currentTvl,
+                });
+              }
+              
               logger.info('V1 vault historical data processed', {
                 address,
                 name: histResult.vault.name,
                 rawDataPoints: histResult.vault.historicalState.totalAssetsUsd.length,
                 processedDataPoints: dataPoints.length,
+                hasCurrentTvl: currentTvl != null,
               });
               
               if (dataPoints.length > 0) {
@@ -211,7 +246,26 @@ export async function GET(request: Request) {
                 });
               }
             } else {
-              logger.warn('V1 vault has no historical data', {
+              // No historical data, but try to use current TVL if available
+              const currentTvl = v1VaultCurrentTvl.get(address.toLowerCase());
+              if (currentTvl != null) {
+                logger.info('V1 vault using current TVL (no historical data)', {
+                  address,
+                  name: histResult.vault?.name,
+                  currentTvl,
+                });
+                return {
+                  name: histResult.vault?.name || `Vault ${address.slice(0, 6)}...`,
+                  address: address.toLowerCase(),
+                  data: [{
+                    date: new Date().toISOString(),
+                    value: currentTvl,
+                  }],
+                  performanceFee: null,
+                };
+              }
+              
+              logger.warn('V1 vault has no historical data and no current TVL', {
                 address,
                 name: histResult.vault?.name,
                 hasHistoricalState: !!histResult.vault?.historicalState,
@@ -255,10 +309,11 @@ export async function GET(request: Request) {
       .map(v => ({ performanceFee: v.performanceFee as number }));
     
     // Extract TVL data (remove performanceFee field)
-    // Filter to only include V1 vaults (those with historical data, data.length >= 2)
+    // Filter to only include V1 vaults (those with at least 1 data point)
     // V2 vaults only have 1 data point (current TVL) so they're excluded from "By Vault" view
+    // V1 vaults should have historical data, but we allow them even with just current TVL
     const tvlByVault = tvlByVaultResults
-      .filter((v): v is NonNullable<typeof v> => v !== null && v.data.length >= 2)
+      .filter((v): v is NonNullable<typeof v> => v !== null && v.data.length >= 1)
       .map(({ performanceFee: _performanceFee, ...rest }) => rest); // eslint-disable-line @typescript-eslint/no-unused-vars
     
     // Add V2 vault TVL to totalDeposited (V2 vaults have data.length === 1)
@@ -271,8 +326,9 @@ export async function GET(request: Request) {
     logger.info('TVL by vault data fetched', {
       totalResults: tvlByVaultResults.length,
       nonNullResults: tvlByVaultResults.filter(v => v !== null).length,
-      v1Vaults: tvlByVaultResults.filter(v => v !== null && v.data.length >= 2).length,
-      v2Vaults: tvlByVaultResults.filter(v => v !== null && v.data.length === 1).length,
+      v1VaultsWithHistorical: tvlByVaultResults.filter(v => v !== null && v.data.length >= 2).length,
+      v1VaultsWithCurrentOnly: tvlByVaultResults.filter(v => v !== null && v.data.length === 1 && v.performanceFee === null).length,
+      v2Vaults: tvlByVaultResults.filter(v => v !== null && v.data.length === 1 && v.performanceFee !== null).length,
       finalTvlByVaultCount: tvlByVault.length,
       vaults: tvlByVault.map(v => ({
         name: v.name,
