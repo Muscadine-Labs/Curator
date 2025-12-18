@@ -230,7 +230,7 @@ export default function VaultDetailPage() {
                       <p className="text-lg font-semibold text-slate-900">
                         {vault.parameters?.performanceFeeBps 
                           ? `${(vault.parameters.performanceFeeBps / 100).toFixed(2)}%` 
-                          : '2.00%'}
+                          : null}
                       </p>
                       <p className="text-xs text-slate-500">Fee charged on yield generated</p>
                     </div>

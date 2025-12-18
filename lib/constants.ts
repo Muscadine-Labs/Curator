@@ -51,11 +51,6 @@ export const EXTERNAL_API_TIMEOUT_MS = 60000; // 60 seconds
 export const RATE_LIMIT_REQUESTS_PER_MINUTE = 60;
 export const RATE_LIMIT_REQUESTS_PER_HOUR = 1000;
 
-// Dune API Configuration
-export const DUNE_API_BASE = 'https://api.dune.com/api/v1';
-export const DUNE_MAX_WAIT_TIME_MS = 120000; // 2 minutes
-export const DUNE_POLL_INTERVAL_MS = 2000; // 2 seconds
-
 // Fee Splitter Addresses
 export const FEE_SPLITTER_V1 = '0x194DeC45D34040488f355823e1F94C0434304188' as const;
 export const FEE_SPLITTER_V2 = '0x3690Eb8735fE51c695d2f2Da289D1FA447137E24' as const;

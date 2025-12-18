@@ -5,8 +5,12 @@
  * Documentation: https://docs.dune.com/api-reference
  */
 
-import { DUNE_API_BASE, DUNE_MAX_WAIT_TIME_MS, DUNE_POLL_INTERVAL_MS } from '@/lib/constants';
 import { fetchExternalApi } from '@/lib/utils/fetch-with-timeout';
+
+// Dune API Configuration (only used in this service)
+const DUNE_API_BASE = 'https://api.dune.com/api/v1';
+const DUNE_MAX_WAIT_TIME_MS = 120000; // 2 minutes
+const DUNE_POLL_INTERVAL_MS = 2000; // 2 seconds
 
 export interface DuneQueryResult {
   execution_id: string;
