@@ -314,7 +314,8 @@ export async function GET(request: Request) {
       ]);
       
       // Calculate average performance fee rate from all vaults (V1 + V2)
-      let avgPerformanceFeeRate = 0.02; // Default 2%
+      // Only calculate revenue if we have actual fee data
+      let avgPerformanceFeeRate: number | null = null;
       
       // Collect V1 vault performance fees
       const v1FeeRates = morphoVaults
@@ -338,14 +339,18 @@ export async function GET(request: Request) {
         feesTrendDaily = getDailyFeesChart(feesData);
         feesTrendCumulative = getCumulativeFeesChart(feesData);
         
-        // Get daily and cumulative revenue (curator fees)
-        revenueTrendDaily = getDailyRevenueChart(feesData, avgPerformanceFeeRate);
-        revenueTrendCumulative = getCumulativeRevenueChart(feesData, avgPerformanceFeeRate);
+        // Get daily and cumulative revenue (curator fees) - only if we have fee rate
+        if (avgPerformanceFeeRate !== null) {
+          revenueTrendDaily = getDailyRevenueChart(feesData, avgPerformanceFeeRate);
+          revenueTrendCumulative = getCumulativeRevenueChart(feesData, avgPerformanceFeeRate);
+        }
         
         // Update totals from DefiLlama
         if (feesData.totalAllTime) {
           totalInterestGenerated = feesData.totalAllTime;
-          totalFeesGenerated = feesData.totalAllTime * avgPerformanceFeeRate;
+          if (avgPerformanceFeeRate !== null) {
+            totalFeesGenerated = feesData.totalAllTime * avgPerformanceFeeRate;
+          }
         }
         
         logger.info('DefiLlama fees data loaded', {

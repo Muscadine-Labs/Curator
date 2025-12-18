@@ -7,7 +7,10 @@ import { http } from 'wagmi';
 import { base } from 'viem/chains';
 
 // Create wagmi config with RainbowKit
-const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'demo';
+const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
+if (!projectId) {
+  throw new Error('NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID environment variable is required');
+}
 
 // Get default wallets and add Rabby
 const { wallets } = getDefaultWallets({
@@ -34,7 +37,9 @@ const config = getDefaultConfig({
     [base.id]: http(
       process.env.NEXT_PUBLIC_ALCHEMY_API_KEY
         ? `https://base-mainnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`
-        : `https://base-mainnet.g.alchemy.com/v2/demo` // Fallback for build
+        : (() => {
+            throw new Error('NEXT_PUBLIC_ALCHEMY_API_KEY environment variable is required');
+          })()
     ),
   },
 });

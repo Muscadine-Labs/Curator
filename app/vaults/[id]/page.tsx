@@ -101,7 +101,7 @@ export default function VaultDetailPage() {
   }
 
   const ratingLabel = vault.riskTier ? vault.riskTier.toUpperCase() : 'N/A';
-  const vaultVersion = vault.version ?? 'v2';
+  const vaultVersion = vault.version;
 
   return (
     <AppShell
