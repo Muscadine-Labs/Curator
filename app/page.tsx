@@ -58,7 +58,7 @@ export default function Home() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <ChartTvl
             totalData={stats?.tvlTrend}
-            vaultData={stats?.tvlByVault}
+            coinData={stats?.tvlByCoin}
             isLoading={isLoading}
             title="TVL Over Time"
           />

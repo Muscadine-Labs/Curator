@@ -103,7 +103,7 @@ export async function GET(request: Request) {
     });
 
     // Fetch historical TVL data per vault (V1 has historical, V2 has current only)
-    // Also collect V2 performance fees for revenue calculation
+    // Also collect V2 performance fees for revenue calculation and asset information
     // Note: V2 vaults will be added to totalDeposited below
     const tvlByVaultPromises = addresses.map(async (address) => {
       try {
@@ -115,18 +115,22 @@ export async function GET(request: Request) {
               address
               performanceFee
               totalAssetsUsd
+              asset { symbol address }
             }
           }
         `;
-        const v2Result = await morphoGraphQLClient.request<{ vaultV2ByAddress?: { name?: string; address?: string; performanceFee?: number; totalAssetsUsd?: number } | null }>(v2CheckQuery, { address, chainId: BASE_CHAIN_ID });
+        const v2Result = await morphoGraphQLClient.request<{ vaultV2ByAddress?: { name?: string; address?: string; performanceFee?: number; totalAssetsUsd?: number; asset?: { symbol?: string; address?: string } | null } | null }>(v2CheckQuery, { address, chainId: BASE_CHAIN_ID });
         
         // Check if V2 vault exists (not null/undefined), even if name is missing
         if (v2Result.vaultV2ByAddress !== null && v2Result.vaultV2ByAddress !== undefined) {
           // This is a V2 vault, use current TVL as a single data point
           const currentDate = new Date().toISOString();
+          const assetSymbol = v2Result.vaultV2ByAddress.asset?.symbol || 'UNKNOWN';
           return {
             name: v2Result.vaultV2ByAddress.name || `V2 Vault ${address.slice(0, 6)}...`,
             address: address.toLowerCase(),
+            assetSymbol: assetSymbol,
+            assetAddress: v2Result.vaultV2ByAddress.asset?.address?.toLowerCase() || null,
             data: v2Result.vaultV2ByAddress.totalAssetsUsd != null ? [{
               date: currentDate,
               value: v2Result.vaultV2ByAddress.totalAssetsUsd,
@@ -141,10 +145,11 @@ export async function GET(request: Request) {
             vault: vaultByAddress(address: $address, chainId: $chainId) {
               name
               address
+              asset { symbol address }
             }
           }
         `;
-        const v1Result = await morphoGraphQLClient.request<{ vault?: { name?: string; address?: string } | null }>(v1CheckQuery, { address, chainId: BASE_CHAIN_ID });
+        const v1Result = await morphoGraphQLClient.request<{ vault?: { name?: string; address?: string; asset?: { symbol?: string; address?: string } | null } | null }>(v1CheckQuery, { address, chainId: BASE_CHAIN_ID });
         
         logger.info('V1 vault check result', {
           address,
@@ -162,6 +167,7 @@ export async function GET(request: Request) {
                 vault: vaultByAddress(address: $address, chainId: $chainId) {
                   name
                   address
+                  asset { symbol address }
                   historicalState {
                     totalAssetsUsd(options: $options) {
                       x
@@ -171,7 +177,7 @@ export async function GET(request: Request) {
                 }
               }
             `;
-            const histResult = await morphoGraphQLClient.request<{ vault?: { name?: string; address?: string; historicalState?: { totalAssetsUsd?: Array<{ x?: number; y?: number }> } } | null }>(historicalQuery, {
+            const histResult = await morphoGraphQLClient.request<{ vault?: { name?: string; address?: string; asset?: { symbol?: string; address?: string } | null; historicalState?: { totalAssetsUsd?: Array<{ x?: number; y?: number }> } } | null }>(historicalQuery, {
               address,
               chainId: BASE_CHAIN_ID,
               options: {
@@ -232,9 +238,12 @@ export async function GET(request: Request) {
               });
               
               if (dataPoints.length > 0) {
+                const assetSymbol = histResult.vault.asset?.symbol || 'UNKNOWN';
                 return {
                   name: histResult.vault.name || `Vault ${address.slice(0, 6)}...`,
                   address: address.toLowerCase(),
+                  assetSymbol: assetSymbol,
+                  assetAddress: histResult.vault.asset?.address?.toLowerCase() || null,
                   data: dataPoints,
                   performanceFee: null, // V1 vaults don't contribute performanceFee here (they're already in morphoVaults)
                 };
@@ -254,9 +263,12 @@ export async function GET(request: Request) {
                   name: histResult.vault?.name,
                   currentTvl,
                 });
+                const assetSymbol = histResult.vault?.asset?.symbol || 'UNKNOWN';
                 return {
                   name: histResult.vault?.name || `Vault ${address.slice(0, 6)}...`,
                   address: address.toLowerCase(),
+                  assetSymbol: assetSymbol,
+                  assetAddress: histResult.vault?.asset?.address?.toLowerCase() || null,
                   data: [{
                     date: new Date().toISOString(),
                     value: currentTvl,
@@ -304,7 +316,7 @@ export async function GET(request: Request) {
     
     // Extract V2 performance fees before filtering out the performanceFee field
     const v2PerformanceFees = tvlByVaultResults
-      .filter((v): v is { name: string; address: string; data: Array<{ date: string; value: number }>; performanceFee: number | null } => 
+      .filter((v): v is { name: string; address: string; assetSymbol: string; assetAddress: string | null; data: Array<{ date: string; value: number }>; performanceFee: number | null } => 
         v !== null && v.performanceFee != null && v.performanceFee !== null)
       .map(v => ({ performanceFee: v.performanceFee as number }));
     
@@ -315,6 +327,49 @@ export async function GET(request: Request) {
     const tvlByVault = tvlByVaultResults
       .filter((v): v is NonNullable<typeof v> => v !== null && v.data.length >= 1)
       .map(({ performanceFee: _performanceFee, ...rest }) => rest); // eslint-disable-line @typescript-eslint/no-unused-vars
+    
+    // Group TVL by coin/asset instead of by vault
+    // Combine all vaults with the same asset symbol
+    const tvlByCoinMap = new Map<string, {
+      name: string;
+      data: Array<{ date: string; value: number }>;
+    }>();
+    
+    tvlByVaultResults.forEach((vault) => {
+      if (!vault || vault.data.length === 0) return;
+      
+      const coinSymbol = vault.assetSymbol || 'UNKNOWN';
+      
+      if (!tvlByCoinMap.has(coinSymbol)) {
+        tvlByCoinMap.set(coinSymbol, {
+          name: coinSymbol,
+          data: [],
+        });
+      }
+      
+      const coinData = tvlByCoinMap.get(coinSymbol)!;
+      
+      // Combine data points by date, summing values for the same date
+      const dateMap = new Map<string, number>();
+      
+      // Add existing coin data
+      coinData.data.forEach(point => {
+        dateMap.set(point.date, point.value);
+      });
+      
+      // Add vault data, summing if date already exists
+      vault.data.forEach(point => {
+        const existing = dateMap.get(point.date) || 0;
+        dateMap.set(point.date, existing + point.value);
+      });
+      
+      // Convert back to array and sort by date
+      coinData.data = Array.from(dateMap.entries())
+        .map(([date, value]) => ({ date, value }))
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    });
+    
+    const tvlByCoin = Array.from(tvlByCoinMap.values());
     
     // Add V2 vault TVL to totalDeposited (V2 vaults have data.length === 1)
     const v2VaultTvl = tvlByVaultResults
@@ -461,6 +516,10 @@ export async function GET(request: Request) {
         name: v.name,
         address: v.address,
         data: v.data,
+      })),
+      tvlByCoin: tvlByCoin.map(c => ({
+        name: c.name,
+        data: c.data,
       })),
       feesTrendDaily,
       feesTrendCumulative,

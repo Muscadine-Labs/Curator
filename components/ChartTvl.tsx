@@ -14,12 +14,16 @@ interface ChartTvlProps {
     address: string;
     data: Array<{ date: string; value: number }>;
   }>;
+  coinData?: Array<{
+    name: string;
+    data: Array<{ date: string; value: number }>;
+  }>;
   isLoading?: boolean;
   title?: string;
 }
 
-// Color palette for vault lines
-const VAULT_COLORS = [
+// Color palette for coin lines
+const COIN_COLORS = [
   '#3b82f6', // blue
   '#10b981', // green
   '#f59e0b', // amber
@@ -30,25 +34,25 @@ const VAULT_COLORS = [
   '#84cc16', // lime
 ];
 
-export function ChartTvl({ totalData, vaultData, isLoading = false, title = "TVL Over Time" }: ChartTvlProps) {
-  const [viewMode, setViewMode] = useState<'total' | 'byVault'>('total');
+export function ChartTvl({ totalData, vaultData, coinData, isLoading = false, title = "TVL Over Time" }: ChartTvlProps) {
+  const [viewMode, setViewMode] = useState<'total' | 'byCoin'>('total');
   
-  // Process vault data into chart format when "By Vault" is selected
+  // Process coin data into chart format when "By Coin" is selected
   const chartData = useMemo(() => {
-    if (viewMode === 'total' || !vaultData || vaultData.length === 0) {
+    if (viewMode === 'total' || !coinData || coinData.length === 0) {
       return totalData || [];
     }
 
-    // Combine all vault data by date
+    // Combine all coin data by date
     const dateMap = new Map<string, Record<string, number | string>>();
     
-    vaultData.forEach((vault) => {
-      vault.data.forEach((point) => {
+    coinData.forEach((coin) => {
+      coin.data.forEach((point) => {
         if (!dateMap.has(point.date)) {
           dateMap.set(point.date, { date: point.date });
         }
         const entry = dateMap.get(point.date)!;
-        entry[vault.name] = point.value;
+        entry[coin.name] = point.value;
       });
     });
 
@@ -56,10 +60,10 @@ export function ChartTvl({ totalData, vaultData, isLoading = false, title = "TVL
     return Array.from(dateMap.values()).sort((a, b) => 
       new Date(a.date as string).getTime() - new Date(b.date as string).getTime()
     ) as Array<{ date: string; [key: string]: number | string }>;
-  }, [viewMode, totalData, vaultData]);
+  }, [viewMode, totalData, coinData]);
 
   const data = chartData;
-  const showToggle = totalData && vaultData && vaultData.length > 0;
+  const showToggle = totalData && coinData && coinData.length > 0;
 
   if (isLoading) {
     return (
@@ -95,10 +99,6 @@ export function ChartTvl({ totalData, vaultData, isLoading = false, title = "TVL
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
-  // Get unique vault names for lines
-  const vaultNames = viewMode === 'byVault' && vaultData 
-    ? vaultData.map(v => v.name)
-    : [];
 
   return (
     <Card>
@@ -115,11 +115,11 @@ export function ChartTvl({ totalData, vaultData, isLoading = false, title = "TVL
                 Total
               </Button>
               <Button
-                variant={viewMode === 'byVault' ? 'default' : 'outline'}
+                variant={viewMode === 'byCoin' ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setViewMode('byVault')}
+                onClick={() => setViewMode('byCoin')}
               >
-                By Vault
+                By Coin
               </Button>
             </div>
           )}
@@ -157,15 +157,15 @@ export function ChartTvl({ totalData, vaultData, isLoading = false, title = "TVL
               />
             ) : (
               <>
-                {vaultNames.map((vaultName, index) => (
+                {coinData?.map((coin, index) => (
                   <Line
-                    key={vaultName}
+                    key={coin.name}
                     type="monotone"
-                    dataKey={vaultName}
-                    stroke={VAULT_COLORS[index % VAULT_COLORS.length]}
+                    dataKey={coin.name}
+                    stroke={COIN_COLORS[index % COIN_COLORS.length]}
                     strokeWidth={2}
                     dot={false}
-                    name={vaultName}
+                    name={coin.name}
                   />
                 ))}
                 <Legend />
