@@ -132,12 +132,9 @@ export async function GET(request: Request) {
         if (v2Result.vaultV2ByAddress !== null && v2Result.vaultV2ByAddress !== undefined) {
           // This is a V2 vault, use current TVL as a single data point
           const currentDate = new Date().toISOString();
-          const assetSymbol = v2Result.vaultV2ByAddress.asset?.symbol || 'UNKNOWN';
           return {
             name: v2Result.vaultV2ByAddress.name || `V2 Vault ${address.slice(0, 6)}...`,
             address: address.toLowerCase(),
-            assetSymbol: assetSymbol,
-            assetAddress: v2Result.vaultV2ByAddress.asset?.address?.toLowerCase() || null,
             data: v2Result.vaultV2ByAddress.totalAssetsUsd != null ? [{
               date: currentDate,
               value: v2Result.vaultV2ByAddress.totalAssetsUsd,
@@ -255,7 +252,6 @@ export async function GET(request: Request) {
               }
               
               if (dataPoints.length > 0) {
-                const assetSymbol = histResult.vault?.asset?.symbol || v1Result.vault?.asset?.symbol || 'UNKNOWN';
                 const vaultName = histResult.vault?.name || v1Result.vault?.name || `Vault ${address.slice(0, 6)}...`;
                 logger.info('V1 vault returning data', {
                   address,
@@ -265,8 +261,6 @@ export async function GET(request: Request) {
                 return {
                   name: vaultName,
                   address: address.toLowerCase(),
-                  assetSymbol: assetSymbol,
-                  assetAddress: histResult.vault?.asset?.address?.toLowerCase() || v1Result.vault?.asset?.address?.toLowerCase() || null,
                   data: dataPoints,
                   performanceFee: null, // V1 vaults don't contribute performanceFee here
                 };
@@ -278,13 +272,10 @@ export async function GET(request: Request) {
                 });
                 // Fallback to current TVL if available
                 if (currentTvl != null) {
-                  const assetSymbol = histResult.vault?.asset?.symbol || v1Result.vault?.asset?.symbol || 'UNKNOWN';
                   const vaultName = histResult.vault?.name || v1Result.vault?.name || `Vault ${address.slice(0, 6)}...`;
                   return {
                     name: vaultName,
                     address: address.toLowerCase(),
-                    assetSymbol: assetSymbol,
-                    assetAddress: histResult.vault?.asset?.address?.toLowerCase() || v1Result.vault?.asset?.address?.toLowerCase() || null,
                     data: [{
                       date: new Date().toISOString(),
                       value: currentTvl,
@@ -304,13 +295,10 @@ export async function GET(request: Request) {
               });
               // No historical data, but try to use current TVL if available
               if (currentTvl != null) {
-                const assetSymbol = v1Result.vault?.asset?.symbol || histResult.vault?.asset?.symbol || 'UNKNOWN';
                 const vaultName = v1Result.vault?.name || histResult.vault?.name || `Vault ${address.slice(0, 6)}...`;
                 return {
                   name: vaultName,
                   address: address.toLowerCase(),
-                  assetSymbol: assetSymbol,
-                  assetAddress: v1Result.vault?.asset?.address?.toLowerCase() || histResult.vault?.asset?.address?.toLowerCase() || null,
                   data: [{
                     date: new Date().toISOString(),
                     value: currentTvl,
@@ -331,13 +319,10 @@ export async function GET(request: Request) {
             });
             // Fallback to current TVL if available
             if (currentTvl != null) {
-              const assetSymbol = v1Result.vault?.asset?.symbol || 'UNKNOWN';
               const vaultName = v1Result.vault?.name || `Vault ${address.slice(0, 6)}...`;
               return {
                 name: vaultName,
                 address: address.toLowerCase(),
-                assetSymbol: assetSymbol,
-                assetAddress: v1Result.vault?.asset?.address?.toLowerCase() || null,
                 data: [{
                   date: new Date().toISOString(),
                   value: currentTvl,
@@ -367,140 +352,70 @@ export async function GET(request: Request) {
     const tvlByVaultResults = await Promise.all(tvlByVaultPromises);
     
     // Log all results before filtering
-    logger.info('TVL by vault results (before filtering)', {
-      totalResults: tvlByVaultResults.length,
-      results: tvlByVaultResults.map(v => v ? {
-        name: v.name,
-        address: v.address,
-        dataPoints: v.data.length,
-        isV2: v.data.length === 1,
-      } : null),
-    });
-    
     // Extract V2 performance fees before filtering out the performanceFee field
     const v2PerformanceFees = tvlByVaultResults
-      .filter((v): v is { name: string; address: string; assetSymbol: string; assetAddress: string | null; data: Array<{ date: string; value: number }>; performanceFee: number | null } => 
+      .filter((v): v is NonNullable<typeof v> => 
         v !== null && v.performanceFee != null && v.performanceFee !== null)
       .map(v => ({ performanceFee: v.performanceFee as number }));
     
     // Extract TVL data (remove performanceFee field)
-    // Filter to only include V1 vaults with historical data (at least 2 data points)
-    // V2 vaults only have 1 data point (current TVL) so they're excluded
-    // Only V1 vaults with historical data are shown in "By Vault" view
+    // Include all vaults with at least 1 data point (V1 with historical, V2 with current)
+    // For V2 vaults with only 1 data point, create a second point 30 days ago for better chart display
+    // V1 vaults with historical data (2+ points) will show trends, V2 vaults will show current value
     
-    // Debug: Log detailed info about each vault before filtering
-    logger.info('Debug: Vault filtering analysis', {
-      totalVaults: tvlByVaultResults.length,
-      vaultDetails: tvlByVaultResults.map(v => {
-        if (!v) return { isNull: true };
-        return {
-          name: v.name,
-          address: v.address,
-          dataPoints: v.data.length,
-          performanceFee: v.performanceFee,
-          performanceFeeType: typeof v.performanceFee,
-          isNull: v.performanceFee === null,
-          isUndefined: v.performanceFee === undefined,
-          passesDataCheck: v.data.length >= 2,
-          passesFeeCheck: v.performanceFee === null || v.performanceFee === undefined,
-          wouldPassFilter: v.data.length >= 2 && (v.performanceFee === null || v.performanceFee === undefined),
-        };
-      }),
-    });
-    
+    // Include all vaults with at least 1 data point
+    // For V2 vaults with only 1 point, create a second point 30 days ago for better chart display
     const tvlByVault = tvlByVaultResults
       .filter((v): v is NonNullable<typeof v> => {
-        if (!v || v.data.length < 2) {
+        if (!v || v.data.length < 1) {
           if (v) {
-            logger.debug('Vault filtered out (insufficient data points)', {
+            logger.debug('Vault filtered out (no data points)', {
               name: v.name,
               address: v.address,
               dataPoints: v.data.length,
             });
           }
-          return false; // Need at least 2 data points for historical data
+          return false;
         }
-        // V1 vaults have performanceFee === null or undefined, V2 vaults have a number
-        const isV1 = v.performanceFee === null || v.performanceFee === undefined;
-        if (!isV1) {
-          logger.debug('Vault filtered out (not V1)', {
+        return true;
+      })
+      .map((v) => {
+        // For V2 vaults with only 1 data point, add a second point 30 days ago for better chart visualization
+        if (v.data.length === 1 && v.performanceFee !== null && v.performanceFee !== undefined) {
+          const currentPoint = v.data[0];
+          const thirtyDaysAgo = new Date(new Date(currentPoint.date).getTime() - (30 * 24 * 60 * 60 * 1000));
+          return {
             name: v.name,
             address: v.address,
-            performanceFee: v.performanceFee,
-          });
+            data: [
+              {
+                date: thirtyDaysAgo.toISOString(),
+                value: currentPoint.value, // Use same value for flat line
+              },
+              currentPoint,
+            ],
+          };
         }
-        return isV1;
-      })
-      .map(({ performanceFee: _performanceFee, assetSymbol: _assetSymbol, assetAddress: _assetAddress, ...rest }) => rest); // eslint-disable-line @typescript-eslint/no-unused-vars
+        // Remove performanceFee field for response (only needed internally for V2 identification)
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { performanceFee: _performanceFee, ...rest } = v;
+        return rest;
+      });
     
-    logger.info('Debug: After filtering', {
-      filteredCount: tvlByVault.length,
-      filteredVaults: tvlByVault.map(v => ({
-        name: v.name,
-        address: v.address,
-        dataPoints: v.data.length,
-      })),
-    });
-    
-    // Add V2 vault TVL to totalDeposited (V2 vaults have data.length === 1)
+    // Add V2 vault TVL to totalDeposited
+    // V2 vaults are identified by having performanceFee !== null
     const v2VaultTvl = tvlByVaultResults
-      .filter((v): v is NonNullable<typeof v> => v !== null && v.data.length === 1)
-      .reduce((sum, v) => sum + (v.data[0]?.value ?? 0), 0);
+      .filter((v): v is NonNullable<typeof v> => 
+        v !== null && 
+        v.performanceFee !== null && 
+        v.performanceFee !== undefined
+      )
+      .reduce((sum, v) => {
+        // Get the latest data point (last in array)
+        const latestPoint = v.data[v.data.length - 1];
+        return sum + (latestPoint?.value ?? 0);
+      }, 0);
     totalDeposited += v2VaultTvl;
-    
-    // Log vault data for debugging
-    logger.info('TVL by vault data fetched', {
-      totalResults: tvlByVaultResults.length,
-      nonNullResults: tvlByVaultResults.filter(v => v !== null).length,
-      v1VaultsWithHistorical: tvlByVaultResults.filter(v => v !== null && v.data.length >= 2).length,
-      v1VaultsWithCurrentOnly: tvlByVaultResults.filter(v => v !== null && v.data.length === 1 && v.performanceFee === null).length,
-      v2Vaults: tvlByVaultResults.filter(v => v !== null && v.data.length === 1 && v.performanceFee !== null).length,
-      finalTvlByVaultCount: tvlByVault.length,
-      vaults: tvlByVault.map(v => ({
-        name: v.name,
-        dataPoints: v.data.length,
-        dateRange: v.data.length > 0 ? {
-          first: v.data[0].date,
-          last: v.data[v.data.length - 1].date,
-        } : null,
-      })),
-    });
-    
-    // Additional detailed debug for troubleshooting
-    const v1VaultsWithHistorical = tvlByVaultResults.filter(v => 
-      v !== null && 
-      v.data.length >= 2 && 
-      (v.performanceFee === null || v.performanceFee === undefined)
-    );
-    
-    logger.info('Debug: V1 vaults with historical data breakdown', {
-      count: v1VaultsWithHistorical.length,
-      details: v1VaultsWithHistorical.map(v => v ? {
-        name: v.name,
-        address: v.address,
-        dataPoints: v.data.length,
-        firstDate: v.data[0]?.date,
-        lastDate: v.data[v.data.length - 1]?.date,
-        performanceFee: v.performanceFee,
-      } : null),
-    });
-    
-    const v1VaultsWithOnlyCurrent = tvlByVaultResults.filter(v => 
-      v !== null && 
-      v.data.length === 1 && 
-      (v.performanceFee === null || v.performanceFee === undefined)
-    );
-    
-    logger.info('Debug: V1 vaults with only current TVL', {
-      count: v1VaultsWithOnlyCurrent.length,
-      details: v1VaultsWithOnlyCurrent.map(v => v ? {
-        name: v.name,
-        address: v.address,
-        dataPoints: v.data.length,
-        date: v.data[0]?.date,
-        value: v.data[0]?.value,
-      } : null),
-    });
     
     // Initialize totals (will be updated from DefiLlama if available)
     let totalFeesGenerated = 0;
@@ -612,22 +527,6 @@ export async function GET(request: Request) {
       });
     }
 
-    // Debug info (remove in production)
-    const debugInfo = {
-      totalVaultResults: tvlByVaultResults.length,
-      nonNullResults: tvlByVaultResults.filter(v => v !== null).length,
-      v1WithHistorical: tvlByVaultResults.filter(v => v !== null && v.data.length >= 2 && (v.performanceFee === null || v.performanceFee === undefined)).length,
-      v1WithOnlyCurrent: tvlByVaultResults.filter(v => v !== null && v.data.length === 1 && (v.performanceFee === null || v.performanceFee === undefined)).length,
-      v2Vaults: tvlByVaultResults.filter(v => v !== null && v.data.length === 1 && v.performanceFee !== null).length,
-      finalTvlByVaultCount: tvlByVault.length,
-      vaultDetails: tvlByVaultResults.filter(v => v !== null).map(v => ({
-        name: v.name,
-        dataPoints: v.data.length,
-        performanceFee: v.performanceFee,
-        passesFilter: v.data.length >= 2 && (v.performanceFee === null || v.performanceFee === undefined),
-      })),
-    };
-
     const stats = {
       totalDeposited,
       totalFeesGenerated,
@@ -646,7 +545,6 @@ export async function GET(request: Request) {
       revenueTrendCumulative,
       inflowsTrendDaily,
       inflowsTrendCumulative,
-      _debug: debugInfo, // Temporary debug field
     };
 
     const responseHeaders = new Headers(rateLimitResult.headers);
