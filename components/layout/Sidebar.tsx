@@ -196,6 +196,16 @@ export function Sidebar({ onClose }: SidebarProps) {
               <Bot className="h-4 w-4" />
               <span className="truncate">Morpho-blue Liquidation Bot</span>
             </Link>
+            <Link
+              href="/bots/morpho-allocation"
+              onClick={handleLinkClick}
+              className={`flex items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 ${
+                isActive('/bots/morpho-allocation') ? 'bg-slate-900 text-white' : ''
+              }`}
+            >
+              <Bot className="h-4 w-4" />
+              <span className="truncate">Morpho-blue Allocation Bot</span>
+            </Link>
           </div>
         </div>
       </nav>

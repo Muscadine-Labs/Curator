@@ -14,16 +14,12 @@ interface ChartTvlProps {
     address: string;
     data: Array<{ date: string; value: number }>;
   }>;
-  coinData?: Array<{
-    name: string;
-    data: Array<{ date: string; value: number }>;
-  }>;
   isLoading?: boolean;
   title?: string;
 }
 
-// Color palette for coin lines
-const COIN_COLORS = [
+// Color palette for vault lines
+const VAULT_COLORS = [
   '#3b82f6', // blue
   '#10b981', // green
   '#f59e0b', // amber
@@ -34,25 +30,25 @@ const COIN_COLORS = [
   '#84cc16', // lime
 ];
 
-export function ChartTvl({ totalData, vaultData, coinData, isLoading = false, title = "TVL Over Time" }: ChartTvlProps) {
-  const [viewMode, setViewMode] = useState<'total' | 'byCoin'>('total');
+export function ChartTvl({ totalData, vaultData, isLoading = false, title = "TVL Over Time" }: ChartTvlProps) {
+  const [viewMode, setViewMode] = useState<'total' | 'byVault'>('total');
   
-  // Process coin data into chart format when "By Coin" is selected
+  // Process vault data into chart format when "By Vault" is selected
   const chartData = useMemo(() => {
-    if (viewMode === 'total' || !coinData || coinData.length === 0) {
+    if (viewMode === 'total' || !vaultData || vaultData.length === 0) {
       return totalData || [];
     }
 
-    // Combine all coin data by date
+    // Combine all vault data by date
     const dateMap = new Map<string, Record<string, number | string>>();
     
-    coinData.forEach((coin) => {
-      coin.data.forEach((point) => {
+    vaultData.forEach((vault) => {
+      vault.data.forEach((point) => {
         if (!dateMap.has(point.date)) {
           dateMap.set(point.date, { date: point.date });
         }
         const entry = dateMap.get(point.date)!;
-        entry[coin.name] = point.value;
+        entry[vault.name] = point.value;
       });
     });
 
@@ -60,10 +56,10 @@ export function ChartTvl({ totalData, vaultData, coinData, isLoading = false, ti
     return Array.from(dateMap.values()).sort((a, b) => 
       new Date(a.date as string).getTime() - new Date(b.date as string).getTime()
     ) as Array<{ date: string; [key: string]: number | string }>;
-  }, [viewMode, totalData, coinData]);
+  }, [viewMode, totalData, vaultData]);
 
   const data = chartData;
-  const showToggle = totalData && coinData && coinData.length > 0;
+  const showToggle = totalData && vaultData && vaultData.length > 0;
 
   if (isLoading) {
     return (
@@ -115,11 +111,11 @@ export function ChartTvl({ totalData, vaultData, coinData, isLoading = false, ti
                 Total
               </Button>
               <Button
-                variant={viewMode === 'byCoin' ? 'default' : 'outline'}
+                variant={viewMode === 'byVault' ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setViewMode('byCoin')}
+                onClick={() => setViewMode('byVault')}
               >
-                By Coin
+                By Vault
               </Button>
             </div>
           )}
@@ -157,15 +153,15 @@ export function ChartTvl({ totalData, vaultData, coinData, isLoading = false, ti
               />
             ) : (
               <>
-                {coinData?.map((coin, index) => (
+                {vaultData?.map((vault, index) => (
                   <Line
-                    key={coin.name}
+                    key={vault.address}
                     type="monotone"
-                    dataKey={coin.name}
-                    stroke={COIN_COLORS[index % COIN_COLORS.length]}
+                    dataKey={vault.name}
+                    stroke={VAULT_COLORS[index % VAULT_COLORS.length]}
                     strokeWidth={2}
                     dot={false}
-                    name={coin.name}
+                    name={vault.name}
                   />
                 ))}
                 <Legend />

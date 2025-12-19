@@ -321,55 +321,16 @@ export async function GET(request: Request) {
       .map(v => ({ performanceFee: v.performanceFee as number }));
     
     // Extract TVL data (remove performanceFee field)
-    // Filter to only include V1 vaults (those with at least 1 data point)
-    // V2 vaults only have 1 data point (current TVL) so they're excluded from "By Vault" view
-    // V1 vaults should have historical data, but we allow them even with just current TVL
+    // Filter to only include V1 vaults with historical data (at least 2 data points)
+    // V2 vaults only have 1 data point (current TVL) so they're excluded
+    // Only V1 vaults with historical data are shown in "By Vault" view
     const tvlByVault = tvlByVaultResults
-      .filter((v): v is NonNullable<typeof v> => v !== null && v.data.length >= 1)
-      .map(({ performanceFee: _performanceFee, ...rest }) => rest); // eslint-disable-line @typescript-eslint/no-unused-vars
-    
-    // Group TVL by coin/asset instead of by vault
-    // Combine all vaults with the same asset symbol
-    const tvlByCoinMap = new Map<string, {
-      name: string;
-      data: Array<{ date: string; value: number }>;
-    }>();
-    
-    tvlByVaultResults.forEach((vault) => {
-      if (!vault || vault.data.length === 0) return;
-      
-      const coinSymbol = vault.assetSymbol || 'UNKNOWN';
-      
-      if (!tvlByCoinMap.has(coinSymbol)) {
-        tvlByCoinMap.set(coinSymbol, {
-          name: coinSymbol,
-          data: [],
-        });
-      }
-      
-      const coinData = tvlByCoinMap.get(coinSymbol)!;
-      
-      // Combine data points by date, summing values for the same date
-      const dateMap = new Map<string, number>();
-      
-      // Add existing coin data
-      coinData.data.forEach(point => {
-        dateMap.set(point.date, point.value);
-      });
-      
-      // Add vault data, summing if date already exists
-      vault.data.forEach(point => {
-        const existing = dateMap.get(point.date) || 0;
-        dateMap.set(point.date, existing + point.value);
-      });
-      
-      // Convert back to array and sort by date
-      coinData.data = Array.from(dateMap.entries())
-        .map(([date, value]) => ({ date, value }))
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    });
-    
-    const tvlByCoin = Array.from(tvlByCoinMap.values());
+      .filter((v): v is NonNullable<typeof v> => 
+        v !== null && 
+        v.data.length >= 2 && // Only vaults with historical data (2+ points)
+        v.performanceFee === null // Only V1 vaults (V2 vaults have performanceFee)
+      )
+      .map(({ performanceFee: _performanceFee, assetSymbol: _assetSymbol, assetAddress: _assetAddress, ...rest }) => rest); // eslint-disable-line @typescript-eslint/no-unused-vars
     
     // Add V2 vault TVL to totalDeposited (V2 vaults have data.length === 1)
     const v2VaultTvl = tvlByVaultResults
@@ -516,10 +477,6 @@ export async function GET(request: Request) {
         name: v.name,
         address: v.address,
         data: v.data,
-      })),
-      tvlByCoin: tvlByCoin.map(c => ({
-        name: c.name,
-        data: c.data,
       })),
       feesTrendDaily,
       feesTrendCumulative,

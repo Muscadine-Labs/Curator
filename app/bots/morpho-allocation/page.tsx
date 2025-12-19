@@ -2,11 +2,11 @@
 
 import { AppShell } from '@/components/layout/AppShell';
 
-export default function PolymarketKalshiBotPage() {
+export default function MorphoAllocationBotPage() {
   return (
     <AppShell
-      title="Polymarket-Kalshi Arbitrage Bot"
-      description="Monitor and manage the Polymarket-Kalshi arbitrage bot."
+      title="Morpho-blue Allocation Bot"
+      description="Monitor and manage the Morpho-blue allocation bot."
     >
       <div className="space-y-6">
         {/* Page content will be added here */}
@@ -14,9 +14,4 @@ export default function PolymarketKalshiBotPage() {
     </AppShell>
   );
 }
-
-
-
-
-
 

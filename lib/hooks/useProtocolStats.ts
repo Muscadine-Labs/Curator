@@ -13,10 +13,6 @@ export interface ProtocolStats {
     address: string;
     data: Array<{ date: string; value: number }>;
   }>;
-  tvlByCoin?: Array<{
-    name: string;
-    data: Array<{ date: string; value: number }>;
-  }>;
   feesTrendDaily: Array<{ date: string; value: number }>;
   feesTrendCumulative: Array<{ date: string; value: number }>;
   revenueTrendDaily: Array<{ date: string; value: number }>;
