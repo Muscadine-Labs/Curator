@@ -101,6 +101,13 @@ export async function GET(request: Request) {
         v1VaultCurrentTvl.set(v.address.toLowerCase(), v.state.totalAssetsUsd);
       }
     });
+    
+    logger.info('V1 vaults from main query', {
+      totalMorphoVaults: morphoVaults.length,
+      vaultAddresses: morphoVaults.map(v => v.address?.toLowerCase()),
+      v1VaultCurrentTvlMap: Array.from(v1VaultCurrentTvl.entries()),
+      allAddresses: addresses.map(a => a.toLowerCase()),
+    });
 
     // Fetch historical TVL data per vault (V1 has historical, V2 has current only)
     // Also collect V2 performance fees for revenue calculation and asset information
@@ -153,14 +160,34 @@ export async function GET(request: Request) {
         
         logger.info('V1 vault check result', {
           address,
+          addressLower: address.toLowerCase(),
           hasVault: !!v1Result.vault,
           vaultName: v1Result.vault?.name,
+          hasCurrentTvl: v1VaultCurrentTvl.has(address.toLowerCase()),
+          currentTvl: v1VaultCurrentTvl.get(address.toLowerCase()),
         });
         
         // If V2 check returned null/undefined, this is a V1 vault (or doesn't exist)
-        // Try to fetch historical data for V1 vaults
-        if (v1Result.vault) {
-          // This is a V1 vault, fetch historical data
+        // Try to fetch historical data for V1 vaults using GraphQL
+        // Also check if we have current TVL from main query - if so, it's definitely a V1 vault
+        const currentTvl = v1VaultCurrentTvl.get(address.toLowerCase());
+        const isV1Vault = v1Result.vault || currentTvl != null;
+        if (isV1Vault) {
+          // If v1Result.vault is null but we have current TVL, we'll still try to fetch historical data
+          // The historical query will get the vault name and asset info
+          if (!v1Result.vault && currentTvl != null) {
+            logger.info('V1 vault found in main query but not in individual check, will fetch from historical query', {
+              address,
+              currentTvl,
+            });
+          }
+          logger.info('V1 vault detected, fetching historical data', {
+            address,
+            vaultName: v1Result.vault?.name || 'Unknown (will fetch from historical query)',
+            hasVaultFromCheck: !!v1Result.vault,
+            hasCurrentTvl: currentTvl != null,
+          });
+          // This is a V1 vault, fetch historical data from GraphQL
           try {
             const historicalQuery = gql`
               query VaultHistoricalTvl($address: String!, $chainId: Int!, $options: TimeseriesOptions) {
@@ -181,24 +208,22 @@ export async function GET(request: Request) {
               address,
               chainId: BASE_CHAIN_ID,
               options: {
-                startTimestamp: getDaysAgoTimestamp(30), // Start with 30 days, same as DefiLlama range
+                startTimestamp: getDaysAgoTimestamp(30), // 30 days of historical data
                 endTimestamp: Math.floor(Date.now() / 1000),
                 interval: 'DAY'
               }
             });
             
-            logger.info('V1 vault historical query result', {
-              address,
-              hasVault: !!histResult.vault,
-              vaultName: histResult.vault?.name,
-              hasHistoricalState: !!histResult.vault?.historicalState,
-              hasTotalAssetsUsd: !!histResult.vault?.historicalState?.totalAssetsUsd,
-              dataPointsCount: histResult.vault?.historicalState?.totalAssetsUsd?.length ?? 0,
-              firstPoint: histResult.vault?.historicalState?.totalAssetsUsd?.[0],
-            });
-            
             if (histResult.vault?.historicalState?.totalAssetsUsd) {
-              const dataPoints = histResult.vault.historicalState.totalAssetsUsd.map(point => ({
+              const rawDataPoints = histResult.vault.historicalState.totalAssetsUsd;
+              
+              logger.info('V1 vault historical data fetched', {
+                address,
+                name: histResult.vault.name || v1Result.vault?.name || 'Unknown',
+                rawDataPoints: rawDataPoints.length,
+              });
+              
+              const dataPoints = rawDataPoints.map(point => ({
                 date: point.x ? new Date(point.x * 1000).toISOString() : '',
                 value: point.y || 0,
               })).filter(p => p.date);
@@ -229,46 +254,63 @@ export async function GET(request: Request) {
                 });
               }
               
-              logger.info('V1 vault historical data processed', {
-                address,
-                name: histResult.vault.name,
-                rawDataPoints: histResult.vault.historicalState.totalAssetsUsd.length,
-                processedDataPoints: dataPoints.length,
-                hasCurrentTvl: currentTvl != null,
-              });
-              
               if (dataPoints.length > 0) {
-                const assetSymbol = histResult.vault.asset?.symbol || 'UNKNOWN';
+                const assetSymbol = histResult.vault?.asset?.symbol || v1Result.vault?.asset?.symbol || 'UNKNOWN';
+                const vaultName = histResult.vault?.name || v1Result.vault?.name || `Vault ${address.slice(0, 6)}...`;
+                logger.info('V1 vault returning data', {
+                  address,
+                  name: vaultName,
+                  dataPoints: dataPoints.length,
+                });
                 return {
-                  name: histResult.vault.name || `Vault ${address.slice(0, 6)}...`,
+                  name: vaultName,
                   address: address.toLowerCase(),
                   assetSymbol: assetSymbol,
-                  assetAddress: histResult.vault.asset?.address?.toLowerCase() || null,
+                  assetAddress: histResult.vault?.asset?.address?.toLowerCase() || v1Result.vault?.asset?.address?.toLowerCase() || null,
                   data: dataPoints,
-                  performanceFee: null, // V1 vaults don't contribute performanceFee here (they're already in morphoVaults)
+                  performanceFee: null, // V1 vaults don't contribute performanceFee here
                 };
               } else {
-                logger.warn('V1 vault historical data filtered out (no valid dates)', {
+                logger.warn('V1 vault has no valid data points after processing', {
                   address,
-                  name: histResult.vault.name,
-                  rawDataPoints: histResult.vault.historicalState.totalAssetsUsd.length,
+                  name: histResult.vault?.name || v1Result.vault?.name || 'Unknown',
+                  rawDataPoints: rawDataPoints.length,
                 });
+                // Fallback to current TVL if available
+                if (currentTvl != null) {
+                  const assetSymbol = histResult.vault?.asset?.symbol || v1Result.vault?.asset?.symbol || 'UNKNOWN';
+                  const vaultName = histResult.vault?.name || v1Result.vault?.name || `Vault ${address.slice(0, 6)}...`;
+                  return {
+                    name: vaultName,
+                    address: address.toLowerCase(),
+                    assetSymbol: assetSymbol,
+                    assetAddress: histResult.vault?.asset?.address?.toLowerCase() || v1Result.vault?.asset?.address?.toLowerCase() || null,
+                    data: [{
+                      date: new Date().toISOString(),
+                      value: currentTvl,
+                    }],
+                    performanceFee: null,
+                  };
+                }
               }
             } else {
+              logger.warn('V1 vault has no historicalState data', {
+                address,
+                name: v1Result.vault?.name || histResult.vault?.name || 'Unknown',
+                hasVaultFromCheck: !!v1Result.vault,
+                hasVaultFromHist: !!histResult.vault,
+                hasHistoricalState: !!histResult.vault?.historicalState,
+                hasTotalAssetsUsd: !!histResult.vault?.historicalState?.totalAssetsUsd,
+              });
               // No historical data, but try to use current TVL if available
-              const currentTvl = v1VaultCurrentTvl.get(address.toLowerCase());
               if (currentTvl != null) {
-                logger.info('V1 vault using current TVL (no historical data)', {
-                  address,
-                  name: histResult.vault?.name,
-                  currentTvl,
-                });
-                const assetSymbol = histResult.vault?.asset?.symbol || 'UNKNOWN';
+                const assetSymbol = v1Result.vault?.asset?.symbol || histResult.vault?.asset?.symbol || 'UNKNOWN';
+                const vaultName = v1Result.vault?.name || histResult.vault?.name || `Vault ${address.slice(0, 6)}...`;
                 return {
-                  name: histResult.vault?.name || `Vault ${address.slice(0, 6)}...`,
+                  name: vaultName,
                   address: address.toLowerCase(),
                   assetSymbol: assetSymbol,
-                  assetAddress: histResult.vault?.asset?.address?.toLowerCase() || null,
+                  assetAddress: v1Result.vault?.asset?.address?.toLowerCase() || histResult.vault?.asset?.address?.toLowerCase() || null,
                   data: [{
                     date: new Date().toISOString(),
                     value: currentTvl,
@@ -276,12 +318,10 @@ export async function GET(request: Request) {
                   performanceFee: null,
                 };
               }
-              
+              // If no historical data and no current TVL, return null (will be filtered out)
               logger.warn('V1 vault has no historical data and no current TVL', {
                 address,
-                name: histResult.vault?.name,
-                hasHistoricalState: !!histResult.vault?.historicalState,
-                hasTotalAssetsUsd: !!histResult.vault?.historicalState?.totalAssetsUsd,
+                name: v1Result.vault?.name || histResult.vault?.name || 'Unknown',
               });
             }
           } catch (histError) {
@@ -289,7 +329,30 @@ export async function GET(request: Request) {
               address,
               error: histError instanceof Error ? histError.message : String(histError),
             });
+            // Fallback to current TVL if available
+            if (currentTvl != null) {
+              const assetSymbol = v1Result.vault?.asset?.symbol || 'UNKNOWN';
+              const vaultName = v1Result.vault?.name || `Vault ${address.slice(0, 6)}...`;
+              return {
+                name: vaultName,
+                address: address.toLowerCase(),
+                assetSymbol: assetSymbol,
+                assetAddress: v1Result.vault?.asset?.address?.toLowerCase() || null,
+                data: [{
+                  date: new Date().toISOString(),
+                  value: currentTvl,
+                }],
+                performanceFee: null,
+              };
+            }
           }
+        } else {
+          // Not a V1 vault and not a V2 vault - log for debugging
+          logger.debug('Address is neither V1 nor V2 vault', {
+            address,
+            hasV1Vault: !!v1Result.vault,
+            hasCurrentTvl: v1VaultCurrentTvl.has(address.toLowerCase()),
+          });
         }
       } catch (error) {
         // Log error for debugging but don't fail the entire request
@@ -324,13 +387,60 @@ export async function GET(request: Request) {
     // Filter to only include V1 vaults with historical data (at least 2 data points)
     // V2 vaults only have 1 data point (current TVL) so they're excluded
     // Only V1 vaults with historical data are shown in "By Vault" view
+    
+    // Debug: Log detailed info about each vault before filtering
+    logger.info('Debug: Vault filtering analysis', {
+      totalVaults: tvlByVaultResults.length,
+      vaultDetails: tvlByVaultResults.map(v => {
+        if (!v) return { isNull: true };
+        return {
+          name: v.name,
+          address: v.address,
+          dataPoints: v.data.length,
+          performanceFee: v.performanceFee,
+          performanceFeeType: typeof v.performanceFee,
+          isNull: v.performanceFee === null,
+          isUndefined: v.performanceFee === undefined,
+          passesDataCheck: v.data.length >= 2,
+          passesFeeCheck: v.performanceFee === null || v.performanceFee === undefined,
+          wouldPassFilter: v.data.length >= 2 && (v.performanceFee === null || v.performanceFee === undefined),
+        };
+      }),
+    });
+    
     const tvlByVault = tvlByVaultResults
-      .filter((v): v is NonNullable<typeof v> => 
-        v !== null && 
-        v.data.length >= 2 && // Only vaults with historical data (2+ points)
-        v.performanceFee === null // Only V1 vaults (V2 vaults have performanceFee)
-      )
+      .filter((v): v is NonNullable<typeof v> => {
+        if (!v || v.data.length < 2) {
+          if (v) {
+            logger.debug('Vault filtered out (insufficient data points)', {
+              name: v.name,
+              address: v.address,
+              dataPoints: v.data.length,
+            });
+          }
+          return false; // Need at least 2 data points for historical data
+        }
+        // V1 vaults have performanceFee === null or undefined, V2 vaults have a number
+        const isV1 = v.performanceFee === null || v.performanceFee === undefined;
+        if (!isV1) {
+          logger.debug('Vault filtered out (not V1)', {
+            name: v.name,
+            address: v.address,
+            performanceFee: v.performanceFee,
+          });
+        }
+        return isV1;
+      })
       .map(({ performanceFee: _performanceFee, assetSymbol: _assetSymbol, assetAddress: _assetAddress, ...rest }) => rest); // eslint-disable-line @typescript-eslint/no-unused-vars
+    
+    logger.info('Debug: After filtering', {
+      filteredCount: tvlByVault.length,
+      filteredVaults: tvlByVault.map(v => ({
+        name: v.name,
+        address: v.address,
+        dataPoints: v.data.length,
+      })),
+    });
     
     // Add V2 vault TVL to totalDeposited (V2 vaults have data.length === 1)
     const v2VaultTvl = tvlByVaultResults
@@ -354,6 +464,42 @@ export async function GET(request: Request) {
           last: v.data[v.data.length - 1].date,
         } : null,
       })),
+    });
+    
+    // Additional detailed debug for troubleshooting
+    const v1VaultsWithHistorical = tvlByVaultResults.filter(v => 
+      v !== null && 
+      v.data.length >= 2 && 
+      (v.performanceFee === null || v.performanceFee === undefined)
+    );
+    
+    logger.info('Debug: V1 vaults with historical data breakdown', {
+      count: v1VaultsWithHistorical.length,
+      details: v1VaultsWithHistorical.map(v => v ? {
+        name: v.name,
+        address: v.address,
+        dataPoints: v.data.length,
+        firstDate: v.data[0]?.date,
+        lastDate: v.data[v.data.length - 1]?.date,
+        performanceFee: v.performanceFee,
+      } : null),
+    });
+    
+    const v1VaultsWithOnlyCurrent = tvlByVaultResults.filter(v => 
+      v !== null && 
+      v.data.length === 1 && 
+      (v.performanceFee === null || v.performanceFee === undefined)
+    );
+    
+    logger.info('Debug: V1 vaults with only current TVL', {
+      count: v1VaultsWithOnlyCurrent.length,
+      details: v1VaultsWithOnlyCurrent.map(v => v ? {
+        name: v.name,
+        address: v.address,
+        dataPoints: v.data.length,
+        date: v.data[0]?.date,
+        value: v.data[0]?.value,
+      } : null),
     });
     
     // Initialize totals (will be updated from DefiLlama if available)
@@ -466,6 +612,22 @@ export async function GET(request: Request) {
       });
     }
 
+    // Debug info (remove in production)
+    const debugInfo = {
+      totalVaultResults: tvlByVaultResults.length,
+      nonNullResults: tvlByVaultResults.filter(v => v !== null).length,
+      v1WithHistorical: tvlByVaultResults.filter(v => v !== null && v.data.length >= 2 && (v.performanceFee === null || v.performanceFee === undefined)).length,
+      v1WithOnlyCurrent: tvlByVaultResults.filter(v => v !== null && v.data.length === 1 && (v.performanceFee === null || v.performanceFee === undefined)).length,
+      v2Vaults: tvlByVaultResults.filter(v => v !== null && v.data.length === 1 && v.performanceFee !== null).length,
+      finalTvlByVaultCount: tvlByVault.length,
+      vaultDetails: tvlByVaultResults.filter(v => v !== null).map(v => ({
+        name: v.name,
+        dataPoints: v.data.length,
+        performanceFee: v.performanceFee,
+        passesFilter: v.data.length >= 2 && (v.performanceFee === null || v.performanceFee === undefined),
+      })),
+    };
+
     const stats = {
       totalDeposited,
       totalFeesGenerated,
@@ -484,6 +646,7 @@ export async function GET(request: Request) {
       revenueTrendCumulative,
       inflowsTrendDaily,
       inflowsTrendCumulative,
+      _debug: debugInfo, // Temporary debug field
     };
 
     const responseHeaders = new Headers(rateLimitResult.headers);
