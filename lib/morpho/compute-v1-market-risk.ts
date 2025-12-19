@@ -511,8 +511,8 @@ export async function computeV1MarketRiskScores(
   let finalGrade: MarketRiskGrade;
   let finalScore = marketRiskScore;
   
-  // If market has any bad debt, automatically grade F
-  if (badDebtUsd != null && badDebtUsd > 0) {
+  // If market has bad debt greater than $1.00, automatically grade F
+  if (badDebtUsd != null && badDebtUsd > 1.0) {
     finalGrade = 'F';
     finalScore = 0; // F grade corresponds to score < 60, set to 0 for clarity
   }

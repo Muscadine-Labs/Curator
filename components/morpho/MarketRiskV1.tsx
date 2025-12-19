@@ -325,8 +325,8 @@ export function MarketRiskV1({ vaultAddress }: MarketRiskV1Props) {
                 )}
               </div>
 
-              {/* Bad Debt Disclaimer - Show if market has bad debt */}
-              {!isIdle && scores && scores.realizedBadDebt != null && scores.realizedBadDebt > 0 && (
+              {/* Bad Debt Disclaimer - Show if market has bad debt greater than $1.00 */}
+              {!isIdle && scores && scores.realizedBadDebt != null && scores.realizedBadDebt > 1.0 && (
                 <div className="rounded-lg border-2 border-red-500/50 bg-red-50 dark:bg-red-950/20 p-3">
                   <p className="text-sm font-semibold text-red-700 dark:text-red-400 mb-1">
                     ⚠️ Bad Debt Warning
