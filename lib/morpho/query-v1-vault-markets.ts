@@ -47,6 +47,9 @@ const VAULT_V1_MARKETS_QUERY = gql`
             }
             irmAddress
             lltv
+            realizedBadDebt {
+              usd
+            }
             state {
               supplyAssetsUsd
               borrowAssetsUsd
@@ -92,6 +95,9 @@ export type V1VaultMarketData = {
   } | null;
   irmAddress: string | null;
   lltv: string | null; // BigInt as string
+  realizedBadDebt: {
+    usd: number | null;
+  } | null;
   state: {
     supplyAssetsUsd: number | null;
     borrowAssetsUsd: number | null;
@@ -100,8 +106,6 @@ export type V1VaultMarketData = {
     utilization: number | null;
     supplyApy: number | null;
     borrowApy: number | null;
-    realizedBadDebt: number | null;
-    unrealizedBadDebt: number | null;
   } | null;
   // Vault allocation data for this market
   vaultSupplyAssets: string | null; // Raw amount supplied by vault
@@ -144,6 +148,9 @@ export type V1VaultMarketsQueryResponse = {
           } | null;
           irmAddress: string | null;
           lltv: string | null;
+          realizedBadDebt: {
+            usd: number | null;
+          } | null;
           state: {
             supplyAssetsUsd: number | null;
             borrowAssetsUsd: number | null;
@@ -152,8 +159,6 @@ export type V1VaultMarketsQueryResponse = {
             utilization: number | null;
             supplyApy: number | null;
             borrowApy: number | null;
-            realizedBadDebt: number | null;
-            unrealizedBadDebt: number | null;
           } | null;
         } | null;
       }> | null;
@@ -199,6 +204,7 @@ export async function fetchV1VaultMarkets(
           : null,
         irmAddress: alloc.market.irmAddress,
         lltv: alloc.market.lltv,
+        realizedBadDebt: alloc.market.realizedBadDebt,
         state: alloc.market.state,
         vaultSupplyAssets: alloc.supplyAssets,
         vaultSupplyAssetsUsd: alloc.supplyAssetsUsd ?? null,

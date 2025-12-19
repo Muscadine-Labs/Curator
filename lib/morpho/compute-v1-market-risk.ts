@@ -91,8 +91,8 @@ export interface MarketRiskScores {
   oracleScore: number; // [0, 100] - Oracle Freshness & Reliability
   marketRiskScore: number; // [0, 100]
   grade: MarketRiskGrade;
-  realizedBadDebt?: number | null; // Realized bad debt amount (USD)
-  unrealizedBadDebt?: number | null; // Unrealized bad debt amount (USD)
+  realizedBadDebt?: number | null; // Realized bad debt amount (USD) from Morpho GraphQL
+  unrealizedBadDebt?: number | null; // Not available in GraphQL schema
 }
 
 /**
@@ -505,21 +505,16 @@ export async function computeV1MarketRiskScores(
   );
 
   // Check for bad debt and override grade if present
-  const realizedBadDebt = market.state?.realizedBadDebt ?? null;
-  const unrealizedBadDebt = market.state?.unrealizedBadDebt ?? null;
+  // realizedBadDebt is on the Market type (not MarketState), it's a MarketBadDebt object with usd field
+  const badDebtUsd = market.realizedBadDebt?.usd ?? null;
   
   let finalGrade: MarketRiskGrade;
   let finalScore = marketRiskScore;
   
-  // If market has any realized bad debt, automatically grade F
-  if (realizedBadDebt != null && realizedBadDebt > 0) {
+  // If market has any bad debt, automatically grade F
+  if (badDebtUsd != null && badDebtUsd > 0) {
     finalGrade = 'F';
     finalScore = 0; // F grade corresponds to score < 60, set to 0 for clarity
-  }
-  // If market has any unrealized bad debt, make it grade D
-  else if (unrealizedBadDebt != null && unrealizedBadDebt > 0) {
-    finalGrade = 'D';
-    finalScore = 60; // D grade corresponds to score 60-64, set to 60 for clarity
   }
   // Otherwise use calculated grade
   else {
@@ -533,7 +528,7 @@ export async function computeV1MarketRiskScores(
     oracleScore,
     marketRiskScore: finalScore,
     grade: finalGrade,
-    realizedBadDebt,
-    unrealizedBadDebt,
+    realizedBadDebt: badDebtUsd,
+    unrealizedBadDebt: null, // Not available in GraphQL schema
   };
 }
