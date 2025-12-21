@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getVaultCategory } from '@/lib/config/vaults';
 import { MarketRiskV1 } from '@/components/morpho/MarketRiskV1';
+import { VaultRiskV1 } from '@/components/morpho/VaultRiskV1';
 import { AllocationV1 } from '@/components/morpho/AllocationV1';
 
 export default function VaultDetailPage() {
@@ -85,7 +86,10 @@ export default function VaultDetailPage() {
 
           <TabsContent value="risk" className="space-y-4">
             {category === 'v1' ? (
-              <MarketRiskV1 vaultAddress={vaultAddress} />
+              <>
+                <VaultRiskV1 vaultAddress={vaultAddress} />
+                <MarketRiskV1 vaultAddress={vaultAddress} />
+              </>
             ) : (
               <Card>
                 <CardHeader>
