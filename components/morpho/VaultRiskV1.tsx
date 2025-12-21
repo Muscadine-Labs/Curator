@@ -124,16 +124,10 @@ export function VaultRiskV1({ vaultAddress }: VaultRiskV1Props) {
   // Calculate vault-level metrics
   const vaultTvl = data.markets[0]?.market.vaultTotalAssetsUsd ?? 0;
   
-  // Sum liquidity across all markets
-  const totalLiquidityAvailable = data.markets.reduce((sum, item) => {
-    const liquidity = item.market.state?.liquidityAssetsUsd ?? 0;
-    return sum + liquidity;
-  }, 0);
+  // Use vault liquidity from GraphQL
+  const vaultLiquidity = data.vaultLiquidity ?? 0;
 
   // Calculate weighted risk score
-  // Weight = vaultSupplyAssetsUsd / totalVaultSupply
-  // Weighted score = sum of (market risk score * weight) for all markets with scores
-  // Note: Only markets with risk scores (non-idle) are included in the calculation
   let totalVaultSupply = 0;
   let weightedRiskScoreSum = 0;
 
@@ -155,7 +149,7 @@ export function VaultRiskV1({ vaultAddress }: VaultRiskV1Props) {
 
   const vaultRiskGrade = getComponentGrade(vaultRiskScore);
   const liquidityVsTvlPercent = vaultTvl > 0 
-    ? (totalLiquidityAvailable / vaultTvl) * 100 
+    ? (vaultLiquidity / vaultTvl) * 100 
     : 0;
 
   return (
@@ -168,12 +162,12 @@ export function VaultRiskV1({ vaultAddress }: VaultRiskV1Props) {
           {/* Liquidity Available vs TVL */}
           <div className="border rounded-lg p-4 bg-slate-50/50 dark:bg-slate-900/50">
             <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">
-              Liquidity Available vs TVL
+              Vault Liquidity Available
             </p>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                  {formatCompactUSD(totalLiquidityAvailable)}
+                  {formatCompactUSD(vaultLiquidity)}
                 </p>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
                   {formatPercentage(liquidityVsTvlPercent, 2)}

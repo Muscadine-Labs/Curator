@@ -31,6 +31,7 @@ export interface V1MarketRiskData {
 
 export interface V1VaultMarketRiskResponse {
   vaultAddress: string;
+  vaultLiquidity: number | null;
   markets: V1MarketRiskData[];
 }
 
@@ -78,7 +79,7 @@ export async function GET(
     }
 
     // Fetch markets for this V1 vault
-    const markets = await fetchV1VaultMarkets(address, cfg.chainId);
+    const { markets, vaultLiquidity } = await fetchV1VaultMarkets(address, cfg.chainId);
 
     // Fetch oracle timestamp data and IRM target utilization for all active markets in parallel
     const marketDataPromises = markets.map(async (market) => {
@@ -145,6 +146,7 @@ export async function GET(
 
     const response: V1VaultMarketRiskResponse = {
       vaultAddress: address,
+      vaultLiquidity,
       markets: marketsWithScores,
     };
 

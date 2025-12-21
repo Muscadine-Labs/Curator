@@ -9,6 +9,10 @@ const VAULT_V1_MARKETS_QUERY = gql`
   query VaultV1Markets($address: String!, $chainId: Int!) {
     vault: vaultByAddress(address: $address, chainId: $chainId) {
       address
+      liquidity {
+        underlying
+        usd
+      }
       state {
         totalAssetsUsd
         allocation {
@@ -117,6 +121,10 @@ export type V1VaultMarketData = {
 export type V1VaultMarketsQueryResponse = {
   vault: {
     address: string;
+    liquidity: {
+      underlying: string | null;
+      usd: number | null;
+    } | null;
     state: {
       totalAssetsUsd: number | null;
       allocation: Array<{
@@ -172,19 +180,26 @@ export type V1VaultMarketsQueryResponse = {
 export async function fetchV1VaultMarkets(
   vaultAddress: string,
   chainId: number = BASE_CHAIN_ID
-): Promise<V1VaultMarketData[]> {
+): Promise<{
+  markets: V1VaultMarketData[];
+  vaultLiquidity: number | null;
+}> {
   const data = await morphoGraphQLClient.request<V1VaultMarketsQueryResponse>(
     VAULT_V1_MARKETS_QUERY,
     { address: vaultAddress, chainId }
   );
 
+  const vaultTotalAssetsUsd = data.vault?.state?.totalAssetsUsd ?? 0;
+  const vaultLiquidity = data.vault?.liquidity?.usd ?? null;
+
   if (!data.vault?.state?.allocation) {
-    return [];
+    return {
+      markets: [],
+      vaultLiquidity,
+    };
   }
 
-  const vaultTotalAssetsUsd = data.vault.state.totalAssetsUsd ?? 0;
-
-  return data.vault.state.allocation
+  const markets = data.vault.state.allocation
     .map((alloc) => {
       if (!alloc.market) return null;
 
@@ -215,4 +230,9 @@ export async function fetchV1VaultMarkets(
       return market;
     })
     .filter((market): market is V1VaultMarketData => market !== null);
+
+  return {
+    markets,
+    vaultLiquidity,
+  };
 }
