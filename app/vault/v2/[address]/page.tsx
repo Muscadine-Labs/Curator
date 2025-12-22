@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { Shield, Clock } from 'lucide-react';
+import { Shield } from 'lucide-react';
 import { useVault } from '@/lib/hooks/useProtocolStats';
 import { getVaultCategory } from '@/lib/config/vaults';
 import { AppShell } from '@/components/layout/AppShell';
@@ -77,16 +77,11 @@ export default function V2VaultPage() {
       }
     >
       <div className="space-y-6">
-        {/* V2 Tabs: Overview, Risk Management, Roles, Adapters, Allocations, Caps, Timelock */}
+        {/* V2 Tabs: Overview, Risk Management */}
         <Tabs defaultValue="overview" className="space-y-4">
           <TabsList className="w-full justify-start overflow-x-auto">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="risk">Risk Management</TabsTrigger>
-            <TabsTrigger value="roles">Roles</TabsTrigger>
-            <TabsTrigger value="adapters">Adapters</TabsTrigger>
-            <TabsTrigger value="allocation">Allocations</TabsTrigger>
-            <TabsTrigger value="caps">Caps</TabsTrigger>
-            <TabsTrigger value="timelock">Timelock</TabsTrigger>
           </TabsList>
 
           {/* Overview Tab */}
@@ -136,69 +131,6 @@ export default function V2VaultPage() {
           {/* Risk Management Tab */}
           <TabsContent value="risk" className="space-y-4">
             <VaultRiskV2 vaultAddress={vault.address} />
-          </TabsContent>
-
-          {/* Roles Tab */}
-          <TabsContent value="roles">
-            <Card>
-              <CardHeader>
-                <CardTitle>Roles</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-center py-8 text-slate-500">Coming Soon</p>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Adapters Tab (V2 specific) */}
-          <TabsContent value="adapters" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Adapters</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-center py-8 text-slate-500">Coming Soon</p>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Allocations Tab */}
-          <TabsContent value="allocation" className="space-y-4">
-              <Card>
-                <CardHeader>
-                <CardTitle>Allocations</CardTitle>
-                </CardHeader>
-                <CardContent>
-                <p className="text-center py-8 text-slate-500">Coming Soon</p>
-                </CardContent>
-              </Card>
-          </TabsContent>
-
-          {/* Caps Tab */}
-          <TabsContent value="caps" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Caps</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-center py-8 text-slate-500">Coming Soon</p>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Timelock Tab (V2 specific) */}
-          <TabsContent value="timelock" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Clock className="h-5 w-5" />
-                  Timelock
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-center py-8 text-slate-500">Coming Soon</p>
-              </CardContent>
-            </Card>
           </TabsContent>
         </Tabs>
       </div>

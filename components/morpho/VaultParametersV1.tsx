@@ -249,7 +249,7 @@ export function VaultParametersV1({ vaultAddress }: VaultParametersV1Props) {
     },
     {
       label: 'Timelock Duration',
-      value: formatTimelockDuration(timelockDuration),
+      value: formatTimelockDuration(timelockDuration ?? null),
       type: 'text' as const,
     },
   ];
