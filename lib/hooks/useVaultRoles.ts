@@ -16,7 +16,7 @@ export interface VaultRolesData {
 }
 
 /**
- * Hook to fetch vault roles and allocators from blockchain and GraphQL
+ * Hook to fetch vault roles and allocators from GraphQL (with blockchain fallback)
  */
 export function useVaultRoles(vaultAddress: Address | null | undefined, chainId: number = 8453) {
   return useQuery<VaultRolesData>({
@@ -26,17 +26,17 @@ export function useVaultRoles(vaultAddress: Address | null | undefined, chainId:
         throw new Error('Vault address is required');
       }
 
-      // Fetch roles from blockchain
-      const roles = await readVaultRoles(vaultAddress);
-      const pendingGuardian = await readPendingGuardian(vaultAddress);
-
-      // Try to fetch allocators from GraphQL API first (more reliable)
-      let allocators: Address[] = [];
-      
+      // Try to fetch from GraphQL first
       try {
         const query = gql`
-          query VaultAllocators($address: String!, $chainId: Int!) {
+          query VaultRoles($address: String!, $chainId: Int!) {
             vault: vaultByAddress(address: $address, chainId: $chainId) {
+              state {
+                owner
+                curator
+                guardian
+                timelock
+              }
               allocators {
                 address
               }
@@ -45,29 +45,52 @@ export function useVaultRoles(vaultAddress: Address | null | undefined, chainId:
         `;
 
         const data = await morphoGraphQLClient.request<{
-          vault: { allocators: Array<{ address: string }> } | null;
+          vault: {
+            state?: {
+              owner?: string | null;
+              curator?: string | null;
+              guardian?: string | null;
+              timelock?: string | null;
+            } | null;
+            allocators?: Array<{ address: string }> | null;
+          } | null;
         }>(query, {
           address: vaultAddress,
           chainId,
         });
 
-        if (data.vault?.allocators) {
-          allocators = data.vault.allocators
+        if (data.vault) {
+          const allocators: Address[] = (data.vault.allocators || [])
             .map((a) => a.address as Address)
             .filter((addr) => addr && addr !== '0x0000000000000000000000000000000000000000');
+
+          return {
+            owner: (data.vault.state?.owner as Address) || null,
+            curator: (data.vault.state?.curator as Address) || null,
+            guardian: (data.vault.state?.guardian as Address) || null,
+            timelock: (data.vault.state?.timelock as Address) || null,
+            pendingGuardian: null, // GraphQL doesn't have pending guardian, fallback to on-chain if needed
+            allocators,
+          };
         }
       } catch (error) {
-        console.warn('Failed to fetch allocators from GraphQL, trying on-chain:', error);
+        console.warn('Failed to fetch roles from GraphQL, trying on-chain:', error);
       }
 
-      // Fallback to on-chain read if GraphQL fails
-      if (allocators.length === 0) {
+      // Fallback to on-chain reads if GraphQL fails
+      const roles = await readVaultRoles(vaultAddress);
+      const pendingGuardian = await readPendingGuardian(vaultAddress);
+      
+      let allocators: Address[] = [];
+      try {
         const onChainAllocators = await readVaultAllocators(vaultAddress);
         if (onChainAllocators) {
           allocators = onChainAllocators.filter(
             (addr) => addr && addr !== '0x0000000000000000000000000000000000000000'
           );
         }
+      } catch (error) {
+        console.warn('Failed to fetch allocators on-chain:', error);
       }
 
       return {

@@ -14,6 +14,10 @@ import { getVaultCategory } from '@/lib/config/vaults';
 import { MarketRiskV1 } from '@/components/morpho/MarketRiskV1';
 import { VaultRiskV1 } from '@/components/morpho/VaultRiskV1';
 import { AllocationV1 } from '@/components/morpho/AllocationV1';
+import { VaultRolesV1 } from '@/components/morpho/VaultRolesV1';
+import { VaultParametersV1 } from '@/components/morpho/VaultParametersV1';
+import { VaultCapsV1 } from '@/components/morpho/VaultCapsV1';
+import { VaultQueuesV1 } from '@/components/morpho/VaultQueuesV1';
 
 export default function VaultDetailPage() {
   const params = useParams();
@@ -82,6 +86,8 @@ export default function VaultDetailPage() {
             <TabsTrigger value="parameters">Parameters</TabsTrigger>
             <TabsTrigger value="allocation">Allocation</TabsTrigger>
             <TabsTrigger value="caps">Caps</TabsTrigger>
+            <TabsTrigger value="queues">Queues</TabsTrigger>
+            <TabsTrigger value="emergency">Emergency</TabsTrigger>
           </TabsList>
 
           <TabsContent value="risk" className="space-y-4">
@@ -145,26 +151,12 @@ export default function VaultDetailPage() {
             </div>
           </TabsContent>
 
-          <TabsContent value="roles">
-            <Card>
-              <CardHeader>
-                <CardTitle>Roles</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-center py-8 text-slate-500">Coming Soon</p>
-              </CardContent>
-            </Card>
+          <TabsContent value="roles" className="space-y-4">
+            <VaultRolesV1 vaultAddress={vaultAddress} />
           </TabsContent>
 
           <TabsContent value="parameters" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Parameters</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-center py-8 text-slate-500">Coming Soon</p>
-              </CardContent>
-            </Card>
+            <VaultParametersV1 vaultAddress={vaultAddress} />
           </TabsContent>
 
           <TabsContent value="allocation" className="space-y-4">
@@ -183,12 +175,64 @@ export default function VaultDetailPage() {
           </TabsContent>
 
           <TabsContent value="caps" className="space-y-4">
+            {category === 'v1' ? (
+              <VaultCapsV1 vaultAddress={vaultAddress} />
+            ) : (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Caps</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-center py-8 text-slate-500">Coming Soon</p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="queues" className="space-y-4">
+            {category === 'v1' ? (
+              <VaultQueuesV1 vaultAddress={vaultAddress} />
+            ) : (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Queues</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-center py-8 text-slate-500">Coming Soon</p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="emergency" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Caps</CardTitle>
+                <CardTitle>Emergency</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
                 <p className="text-center py-8 text-slate-500">Coming Soon</p>
+                <div className="text-center">
+                  <Button variant="outline" asChild>
+                    <a
+                      href="https://curator-v1.morpho.org/emergency"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Visit Emergency Page
+                    </a>
+                  </Button>
+                </div>
+                <p className="text-center text-sm text-slate-600 dark:text-slate-400">
+                  For any emergency, visit{' '}
+                  <a
+                    href="https://curator-v1.morpho.org/emergency"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline"
+                  >
+                    https://curator-v1.morpho.org/emergency
+                  </a>
+                </p>
               </CardContent>
             </Card>
           </TabsContent>
