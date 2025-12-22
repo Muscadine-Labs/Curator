@@ -7,8 +7,21 @@ async function fetchVaultV2Risk(vaultAddress: string): Promise<V2VaultRiskRespon
   });
 
   if (!res.ok) {
-    const message = await res.text();
-    throw new Error(message || 'Failed to fetch vault v2 risk data');
+    const contentType = res.headers.get('content-type');
+    const text = await res.text();
+    
+    // Check if we got HTML (likely Vercel deployment protection page)
+    if (contentType?.includes('text/html') || text.trim().startsWith('<!')) {
+      throw new Error('Deployment protection is blocking API access. Please authenticate or use production deployment.');
+    }
+    
+    // Try to parse as JSON for structured error messages
+    try {
+      const json = JSON.parse(text);
+      throw new Error(json.message || json.error || 'Failed to fetch vault v2 risk data');
+    } catch {
+      throw new Error(text || 'Failed to fetch vault v2 risk data');
+    }
   }
 
   return res.json();

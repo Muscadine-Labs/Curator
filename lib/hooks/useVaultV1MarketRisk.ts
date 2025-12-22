@@ -5,8 +5,21 @@ async function fetchVaultV1MarketRisk(vaultAddress: string): Promise<V1VaultMark
   const response = await fetch(`/api/vaults/v1/${vaultAddress}/market-risk`);
   
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Failed to fetch vault market risk' }));
-    throw new Error(error.message || 'Failed to fetch vault market risk');
+    const contentType = response.headers.get('content-type');
+    const text = await response.text();
+    
+    // Check if we got HTML (likely Vercel deployment protection page)
+    if (contentType?.includes('text/html') || text.trim().startsWith('<!')) {
+      throw new Error('Deployment protection is blocking API access. Please authenticate or use production deployment.');
+    }
+    
+    // Try to parse as JSON for structured error messages
+    try {
+      const json = JSON.parse(text);
+      throw new Error(json.message || json.error || 'Failed to fetch vault market risk');
+    } catch {
+      throw new Error(text || 'Failed to fetch vault market risk');
+    }
   }
 
   return response.json();
