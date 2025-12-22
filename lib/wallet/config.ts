@@ -29,7 +29,7 @@ const walletsWithRabby = [
 ];
 
 // Supported chains: Base (default), Ethereum, Optimism, Polygon
-const chains = [base, mainnet, optimism, polygon];
+const chains = [base, mainnet, optimism, polygon] as const;
 
 // Helper to get RPC URL for a chain
 function getRpcUrl(chainId: number): string {
