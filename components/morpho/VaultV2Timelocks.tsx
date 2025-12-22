@@ -103,7 +103,7 @@ export function VaultV2Timelocks({ vaultAddress }: VaultV2TimelocksProps) {
                   </Badge>
                 ) : (
                   <Badge variant="outline" className="text-xs">
-                    {Math.round(t.durationSeconds / 3600)}h total
+                    {t.durationSeconds}s total
                   </Badge>
                 )}
               </div>

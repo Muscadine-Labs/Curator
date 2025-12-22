@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { AddressBadge } from '@/components/AddressBadge';
 import { useVaultV2Governance } from '@/lib/hooks/useVaultV2Governance';
 import { formatUSD, formatPercentage } from '@/lib/format/number';
 
@@ -99,6 +100,14 @@ export function VaultV2Allocations({ vaultAddress }: VaultV2AllocationsProps) {
                   </Badge>
                   {isLiquidity && (
                     <Badge className="bg-emerald-600 text-white text-xs">Liquidity Adapter</Badge>
+                  )}
+                </div>
+                <div className="flex flex-col items-start sm:items-end">
+                  <AddressBadge address={adapter.address} truncate={false} />
+                  {adapter.metaMorpho?.address && (
+                    <p className="text-xs text-slate-500">
+                      Underlying vault: <AddressBadge address={adapter.metaMorpho.address} truncate={false} />
+                    </p>
                   )}
                 </div>
                 <div className="text-right">

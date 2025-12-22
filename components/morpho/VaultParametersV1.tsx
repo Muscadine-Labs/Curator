@@ -210,7 +210,8 @@ export function VaultParametersV1({ vaultAddress }: VaultParametersV1Props) {
   const feeRecipient = roles?.curator || null;
   
   // Vault fee from state (in decimal, e.g., 0.05 = 5%)
-  const vaultFee = vault.parameters?.performanceFeePercent ?? 
+  // performanceFeePercent is already in percent units (e.g., 5 = 5%)
+  const vaultFeePercent = vault.parameters?.performanceFeePercent ??
     (vault.parameters?.performanceFeeBps ? vault.parameters.performanceFeeBps / 100 : null);
 
   const parameters = [
@@ -243,7 +244,7 @@ export function VaultParametersV1({ vaultAddress }: VaultParametersV1Props) {
     },
     {
       label: 'Vault Fee',
-      value: vaultFee ? `${(vaultFee * 100).toFixed(2)}%` : null,
+      value: vaultFeePercent != null ? `${vaultFeePercent.toFixed(2)}%` : null,
       type: 'text' as const,
     },
     {
@@ -259,32 +260,32 @@ export function VaultParametersV1({ vaultAddress }: VaultParametersV1Props) {
         <CardTitle>Parameters</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {parameters.map((param) => (
-          <div key={param.label} className="space-y-1">
-            <div className="text-sm font-medium text-slate-700 dark:text-slate-300">
-              {param.label}
+        <div className="grid gap-3 md:grid-cols-2">
+          {parameters.map((param) => (
+            <div key={param.label} className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+              <div className="text-xs uppercase tracking-wide text-slate-500">{param.label}</div>
+              <div className="mt-2 flex items-center gap-2">
+                {param.type === 'address' && param.value ? (
+                  <>
+                    <span className="font-mono text-sm">{param.value}</span>
+                    <a
+                      href={`https://basescan.org/address/${param.value}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </>
+                ) : (
+                  <span className="text-sm text-slate-900 dark:text-slate-100">
+                    {param.value || 'Not available'}
+                  </span>
+                )}
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              {param.type === 'address' && param.value ? (
-                <>
-                  <span className="font-mono text-sm">{param.value}</span>
-                  <a
-                    href={`https://basescan.org/address/${param.value}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
-                </>
-              ) : (
-                <span className="text-sm text-slate-900 dark:text-slate-100">
-                  {param.value || 'Not available'}
-                </span>
-              )}
-            </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </CardContent>
     </Card>
   );

@@ -1,10 +1,9 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AddressBadge } from '@/components/AddressBadge';
 import { useVaultRoles } from '@/lib/hooks/useVaultRoles';
-import { ExternalLink } from 'lucide-react';
 import type { Address } from 'viem';
 
 interface VaultRolesV1Props {
@@ -20,11 +19,11 @@ export function VaultRolesV1({ vaultAddress }: VaultRolesV1Props) {
         <CardHeader>
           <CardTitle>Roles</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <Skeleton className="h-16 w-full" />
-          <Skeleton className="h-16 w-full" />
-          <Skeleton className="h-16 w-full" />
-          <Skeleton className="h-16 w-full" />
+        <CardContent className="grid gap-4 md:grid-cols-2">
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-24 w-full" />
         </CardContent>
       </Card>
     );
@@ -45,22 +44,10 @@ export function VaultRolesV1({ vaultAddress }: VaultRolesV1Props) {
     );
   }
 
-  const roleItems = [
-    {
-      name: 'Owner',
-      address: roles.owner,
-      description: 'Safe multisig with protocol ownership',
-    },
-    {
-      name: 'Curator',
-      address: roles.curator,
-      description: 'Safe multisig with curator privileges',
-    },
-    {
-      name: 'Guardian',
-      address: roles.guardian,
-      description: 'Safe multisig with guardian privileges',
-    },
+  const roleTiles = [
+    { label: 'Owner', address: roles.owner },
+    { label: 'Curator', address: roles.curator },
+    { label: 'Guardian', address: roles.guardian },
   ];
 
   return (
@@ -69,69 +56,37 @@ export function VaultRolesV1({ vaultAddress }: VaultRolesV1Props) {
         <CardTitle>Roles</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {roleItems.map((role) => (
-          <div key={role.name} className="space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 flex-1">
-                <Badge variant="outline">{role.name}</Badge>
-                {role.address ? (
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-sm">{role.address}</span>
-                    <a
-                      href={`https://basescan.org/address/${role.address}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                    >
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                    <a
-                      href={`https://app.safe.global/home?safe=base:${role.address}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1"
-                    >
-                      Safe <ExternalLink className="h-3 w-3" />
-                    </a>
-                  </div>
-                ) : (
-                  <span className="text-sm text-slate-500 dark:text-slate-400">Not set</span>
-                )}
-              </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          {roleTiles.map((role) => (
+            <div key={role.label} className="rounded-lg border border-slate-200 p-4 dark:border-slate-700">
+              <p className="text-xs uppercase tracking-wide text-slate-500">{role.label}</p>
+              {role.address ? (
+                <div className="mt-2">
+                  <AddressBadge address={role.address} truncate={false} />
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-slate-500">Not set</p>
+              )}
             </div>
-            <p className="text-sm text-slate-600 dark:text-slate-400">{role.description}</p>
-          </div>
-        ))}
+          ))}
+        </div>
 
-        {/* Allocators */}
-        <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Badge variant="outline">Allocators</Badge>
-              <span className="text-sm text-slate-600 dark:text-slate-400">
-                {roles.allocators.length} {roles.allocators.length === 1 ? 'allocator' : 'allocators'}
-              </span>
-            </div>
-            {roles.allocators.length > 0 ? (
-              <div className="space-y-2 pl-4">
-                {roles.allocators.map((allocator, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <span className="font-mono text-sm">{allocator}</span>
-                    <a
-                      href={`https://basescan.org/address/${allocator}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                    >
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-slate-500 dark:text-slate-400 pl-4">No allocators</p>
-            )}
+        <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-700">
+          <div className="flex items-center justify-between">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Allocators</p>
+            <span className="text-xs text-slate-500">
+              {roles.allocators.length} {roles.allocators.length === 1 ? 'allocator' : 'allocators'}
+            </span>
           </div>
+          {roles.allocators.length === 0 ? (
+            <p className="mt-2 text-sm text-slate-500">No allocators configured</p>
+          ) : (
+            <div className="mt-2 space-y-2">
+              {roles.allocators.map((addr) => (
+                <AddressBadge key={addr} address={addr} truncate={false} />
+              ))}
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

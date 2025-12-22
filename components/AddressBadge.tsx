@@ -8,13 +8,15 @@ interface AddressBadgeProps {
   scanUrl?: string;
   showCopy?: boolean;
   className?: string;
+  truncate?: boolean;
 }
 
 export function AddressBadge({ 
   address, 
   scanUrl, 
   showCopy = true, 
-  className 
+  className,
+  truncate = true,
 }: AddressBadgeProps) {
 
   const handleCopy = async () => {
@@ -28,7 +30,7 @@ export function AddressBadge({
   return (
     <div className={`flex items-center gap-2 ${className}`}>
       <Badge variant="secondary" className="font-mono text-xs">
-        {formatAddress(address)}
+        {truncate ? formatAddress(address) : address}
       </Badge>
       
       {showCopy && (

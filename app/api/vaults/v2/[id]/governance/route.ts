@@ -200,19 +200,26 @@ function mapCap(graph: GraphCap | null | undefined): CapInfo | null {
   };
 
   if (graph.data?.__typename === 'AdapterCapData') {
-    return { ...base, adapterAddress: graph.data.adapterAddress ?? null };
+    const adapterData = graph.data as { __typename?: string | null; adapterAddress?: string | null };
+    return { ...base, adapterAddress: adapterData.adapterAddress ?? null };
   }
 
   if (graph.data?.__typename === 'MarketV1CapData') {
+    const marketData = graph.data as {
+      __typename?: string | null;
+      adapterAddress?: string | null;
+      market?: { uniqueKey?: string | null } | null;
+    };
     return {
       ...base,
-      adapterAddress: graph.data.adapterAddress ?? null,
-      marketKey: graph.data.market?.uniqueKey ?? null,
+      adapterAddress: marketData.adapterAddress ?? null,
+      marketKey: marketData.market?.uniqueKey ?? null,
     };
   }
 
   if (graph.data?.__typename === 'CollateralCapData') {
-    return { ...base, collateralAddress: graph.data.collateralAddress ?? null };
+    const collateralData = graph.data as { __typename?: string | null; collateralAddress?: string | null };
+    return { ...base, collateralAddress: collateralData.collateralAddress ?? null };
   }
 
   return base;

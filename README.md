@@ -225,15 +225,16 @@ References:
 
 ## Deployment
 
-Production checklist:
+Production readiness:
+
 1. ✅ All tests passing (`npm test`)
 2. ✅ Lint checks passing (`npm run lint`)
 3. ✅ Build succeeds (`npm run build`)
-4. Set `.env` with production keys and addresses
-5. Verify vault addresses are correctly configured
-6. Test wallet connection on Base network
-7. Verify all charts load and toggles work correctly
-8. Monitor logs for Morpho GraphQL and DefiLlama API errors
+4. `.env` configured with production Alchemy/WC keys and vault addresses
+5. Vaults in `/lib/config/vaults.ts` verified, categories auto-determined by name
+6. Wallet integration (RainbowKit + Coinbase OnchainKit) works with Rainbow + other connectors, defaulting to Base network
+7. Dashboard enforces Base (Chain ID 8453) by default and prompts for network switch if needed
+8. Verify charts and tabs load without missing data; API logs monitored (Morpho GraphQL + DefiLlama)
 
 ## Development Notes
 

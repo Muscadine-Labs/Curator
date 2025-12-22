@@ -247,12 +247,14 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
                   </div>
                   {alloc.lltv !== null && alloc.lltv !== undefined ? (
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                      LTV: {alloc.lltv > 1e17 
-                        ? (Number(alloc.lltv) / 1e16).toFixed(2) // If > 1e17, it's in wei format, divide by 1e16 for percentage
-                        : alloc.lltv > 1 
-                          ? alloc.lltv.toFixed(2) // Already a percentage
-                          : (alloc.lltv * 100).toFixed(2) // Ratio, convert to percentage
-                      }%
+                      LTV:{' '}
+                      {(() => {
+                        const n = Number(alloc.lltv);
+                        if (!Number.isFinite(n)) return 'N/A';
+                        if (n > 1_000_000) return `${(n / 1e18).toFixed(2)}%`;
+                        if (n <= 1) return `${(n * 100).toFixed(2)}%`;
+                        return `${n.toFixed(2)}%`;
+                      })()}
                     </p>
                   ) : (
                     <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">

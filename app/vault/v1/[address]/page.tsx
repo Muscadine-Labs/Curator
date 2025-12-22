@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { getVaultCategory } from '@/lib/config/vaults';
 import { MarketRiskV1 } from '@/components/morpho/MarketRiskV1';
 import { VaultRiskV1 } from '@/components/morpho/VaultRiskV1';
 import { AllocationV1 } from '@/components/morpho/AllocationV1';
@@ -54,9 +53,6 @@ export default function VaultDetailPage() {
     );
   }
 
-  const category = getVaultCategory(vault.name);
-  const vaultVersion = category === 'v1' ? 'V1' : category === 'prime' ? 'V2 Prime' : 'V2 Vineyard';
-
   const morphoUiUrl = vault.address 
     ? `https://app.morpho.org/base/vault/${vault.address.toLowerCase()}`
     : '#';
@@ -66,8 +62,8 @@ export default function VaultDetailPage() {
       title="Vault Details"
       actions={
         <div className="flex items-center gap-2">
-          <Badge variant="outline" className="flex items-center gap-1">
-            <Shield className="h-3 w-3" /> {vaultVersion}
+          <Badge variant="default" className="flex items-center gap-1 bg-blue-600">
+            <Shield className="h-3 w-3" /> V1
           </Badge>
           <Button variant="outline" size="sm" asChild>
             <a href={vault.address ? `https://basescan.org/address/${vault.address}` : '#'} target="_blank" rel="noreferrer">
@@ -83,29 +79,16 @@ export default function VaultDetailPage() {
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="risk">Risk Management</TabsTrigger>
             <TabsTrigger value="roles">Roles</TabsTrigger>
-            <TabsTrigger value="parameters">Parameters</TabsTrigger>
             <TabsTrigger value="allocation">Allocation</TabsTrigger>
             <TabsTrigger value="caps">Caps</TabsTrigger>
+            <TabsTrigger value="parameters">Parameters</TabsTrigger>
             <TabsTrigger value="queues">Queues</TabsTrigger>
             <TabsTrigger value="emergency">Emergency</TabsTrigger>
           </TabsList>
 
           <TabsContent value="risk" className="space-y-4">
-            {category === 'v1' ? (
-              <>
-                <VaultRiskV1 vaultAddress={vaultAddress} />
-                <MarketRiskV1 vaultAddress={vaultAddress} />
-              </>
-            ) : (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Risk Management</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-center py-8 text-slate-500">Coming Soon</p>
-                </CardContent>
-              </Card>
-            )}
+            <VaultRiskV1 vaultAddress={vaultAddress} />
+            <MarketRiskV1 vaultAddress={vaultAddress} />
           </TabsContent>
 
           <TabsContent value="overview" className="space-y-6">
@@ -160,48 +143,15 @@ export default function VaultDetailPage() {
           </TabsContent>
 
           <TabsContent value="allocation" className="space-y-4">
-            {category === 'v1' ? (
-              <AllocationV1 vaultAddress={vaultAddress} />
-            ) : (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Allocation</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-center py-8 text-slate-500">Coming Soon</p>
-                </CardContent>
-              </Card>
-            )}
+            <AllocationV1 vaultAddress={vaultAddress} />
           </TabsContent>
 
           <TabsContent value="caps" className="space-y-4">
-            {category === 'v1' ? (
-              <VaultCapsV1 vaultAddress={vaultAddress} />
-            ) : (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Caps</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-center py-8 text-slate-500">Coming Soon</p>
-                </CardContent>
-              </Card>
-            )}
+            <VaultCapsV1 vaultAddress={vaultAddress} />
           </TabsContent>
 
           <TabsContent value="queues" className="space-y-4">
-            {category === 'v1' ? (
-              <VaultQueuesV1 vaultAddress={vaultAddress} />
-            ) : (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Queues</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-center py-8 text-slate-500">Coming Soon</p>
-                </CardContent>
-              </Card>
-            )}
+            <VaultQueuesV1 vaultAddress={vaultAddress} />
           </TabsContent>
 
           <TabsContent value="emergency" className="space-y-4">

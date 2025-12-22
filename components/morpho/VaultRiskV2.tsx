@@ -239,6 +239,31 @@ export function VaultRiskV2({ vaultAddress }: VaultRiskV2Props) {
                     );
                     const idle = isMarketIdle(m.market);
 
+                    const lltvPct = (() => {
+                      if (m.market.lltv == null) return null;
+                      const n = Number(m.market.lltv);
+                      if (!Number.isFinite(n)) return null;
+                      if (n > 1_000_000) {
+                        // Values come scaled by 1e18 (e.g., 86e18 -> 86%)
+                        return n / 1e18;
+                      }
+                      if (n <= 1) return n * 100;
+                      return n; // already a percentage value
+                    })();
+                    const utilizationPct =
+                      m.market.state?.utilization != null
+                        ? m.market.state.utilization * 100
+                        : null;
+                    const supplyApyPct =
+                      m.market.state?.supplyApy != null
+                        ? m.market.state.supplyApy * 100
+                        : null;
+                    const borrowApyPct =
+                      m.market.state?.borrowApy != null
+                        ? m.market.state.borrowApy * 100
+                        : null;
+                    const liquidityUsd = m.market.state?.liquidityAssetsUsd ?? null;
+
                     return (
                       <div
                         key={m.market.uniqueKey || m.market.id}
@@ -270,6 +295,35 @@ export function VaultRiskV2({ vaultAddress }: VaultRiskV2Props) {
                           <Badge variant="outline" className="text-xs">
                             Idle
                           </Badge>
+                        )}
+                        {!idle && (
+                          <div className="grid grid-cols-1 gap-2 text-xs text-slate-600 dark:text-slate-300 sm:grid-cols-2 lg:grid-cols-4">
+                            <div>
+                              <p className="text-[11px] uppercase tracking-wide text-slate-500">LLTV</p>
+                              <p className="font-medium">
+                                {lltvPct != null ? formatPercentage(lltvPct, 2) : 'N/A'}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-[11px] uppercase tracking-wide text-slate-500">Utilization</p>
+                              <p className="font-medium">
+                                {utilizationPct != null ? formatPercentage(utilizationPct, 2) : 'N/A'}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-[11px] uppercase tracking-wide text-slate-500">Supply / Borrow APY</p>
+                              <p className="font-medium">
+                                {supplyApyPct != null ? formatPercentage(supplyApyPct, 2) : 'N/A'} /{' '}
+                                {borrowApyPct != null ? formatPercentage(borrowApyPct, 2) : 'N/A'}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-[11px] uppercase tracking-wide text-slate-500">Liquidity</p>
+                              <p className="font-medium">
+                                {liquidityUsd != null ? formatCompactUSD(liquidityUsd) : 'N/A'}
+                              </p>
+                            </div>
+                          </div>
                         )}
                       </div>
                     );

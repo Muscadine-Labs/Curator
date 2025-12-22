@@ -65,7 +65,7 @@ function RoleTile({ title, address }: { title: string; address: string | null })
       <p className="text-xs uppercase tracking-wide text-slate-500">{title}</p>
       {address ? (
         <div className="mt-2">
-          <AddressBadge address={address} />
+          <AddressBadge address={address} truncate={false} />
         </div>
       ) : (
         <p className="mt-2 text-sm text-slate-500">Not set</p>
@@ -96,7 +96,7 @@ function RoleList({
       ) : (
         <div className="mt-2 space-y-2">
           {addresses.map((addr) => (
-            <AddressBadge key={addr} address={addr} />
+            <AddressBadge key={addr} address={addr} truncate={false} />
           ))}
         </div>
       )}

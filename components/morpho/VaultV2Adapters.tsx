@@ -100,10 +100,10 @@ export function VaultV2Adapters({ vaultAddress }: VaultV2AdaptersProps) {
                       </Badge>
                     )}
                   </div>
-                  <AddressBadge address={adapter.address} />
+                  <AddressBadge address={adapter.address} truncate={false} />
                   {adapter.metaMorpho?.address && (
                     <p className="text-xs text-slate-500">
-                      Underlying vault: <AddressBadge address={adapter.metaMorpho.address} />
+                      Underlying vault: <AddressBadge address={adapter.metaMorpho.address} truncate={false} />
                     </p>
                   )}
                 </div>
