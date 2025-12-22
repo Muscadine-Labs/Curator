@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useVaultCaps } from '@/lib/hooks/useVaultCaps';
-import { formatNumber } from '@/lib/format/number';
+import { formatUSD } from '@/lib/format/number';
 import { ExternalLink } from 'lucide-react';
 import type { Address } from 'viem';
 
@@ -113,7 +113,7 @@ export function VaultCapsV1({ vaultAddress }: VaultCapsV1Props) {
                     </div>
                     <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                       {market.supplyCap !== null
-                        ? formatNumber(market.supplyCap, { decimals: 2, style: 'currency' })
+                        ? formatUSD(market.supplyCap, 2)
                         : 'Unlimited'}
                     </div>
                   </div>
@@ -124,9 +124,9 @@ export function VaultCapsV1({ vaultAddress }: VaultCapsV1Props) {
                     </div>
                     <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                       {market.supplyAssetsUsd !== null
-                        ? formatNumber(market.supplyAssetsUsd, { decimals: 2, style: 'currency' })
+                        ? formatUSD(market.supplyAssetsUsd, 2)
                         : market.supplyAssets !== null
-                        ? formatNumber(market.supplyAssets, { decimals: 2 })
+                        ? new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(market.supplyAssets)
                         : 'N/A'}
                     </div>
                     {utilization !== null && (

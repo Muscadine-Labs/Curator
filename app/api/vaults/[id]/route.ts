@@ -472,11 +472,11 @@ export async function GET(
           } | null;
         }>;
         lastTotalAssets?: string | null;
-        allocationQueues?: {
+        allocationQueues?: Array<{
           supplyQueueIndex?: number | null;
           withdrawQueueIndex?: number | null;
           market?: { uniqueKey?: string } | null;
-        } | null;
+        }> | null;
       } | null;
       historicalState?: {
         apy?: Array<{ x?: number; y?: number }>;
@@ -668,8 +668,8 @@ export async function GET(
             }
           }).filter((a): a is NonNullable<typeof a> => a !== null),
       queues: {
-        supplyQueueIndex: isV2 ? null : (mv?.state?.allocationQueues?.supplyQueueIndex ?? null),
-        withdrawQueueIndex: isV2 ? null : (mv?.state?.allocationQueues?.withdrawQueueIndex ?? null),
+        supplyQueueIndex: isV2 ? null : (Array.isArray(mv?.state?.allocationQueues) && mv.state.allocationQueues.length > 0 ? mv.state.allocationQueues[0].supplyQueueIndex ?? null : null),
+        withdrawQueueIndex: isV2 ? null : (Array.isArray(mv?.state?.allocationQueues) && mv.state.allocationQueues.length > 0 ? mv.state.allocationQueues[0].withdrawQueueIndex ?? null : null),
       },
       warnings: [],
       metadata: mv?.metadata || {},
@@ -680,10 +680,10 @@ export async function GET(
         totalAssetsUsd: mv?.historicalState?.totalAssetsUsd || [],
       },
       roles: {
-        owner: null,
-        curator: null,
-        guardian: null,
-        timelock: null,
+        owner: isV2 ? (mv?.owner?.address ?? null) : (mv?.state?.owner ?? null),
+        curator: isV2 ? (mv?.curator?.address ?? null) : (mv?.state?.curator ?? null),
+        guardian: isV2 ? null : (mv?.state?.guardian ?? null),
+        timelock: isV2 ? null : (mv?.state?.timelock ?? null),
       },
       transactions: txs.map((t) => ({
         blockNumber: t.blockNumber,
