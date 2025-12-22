@@ -288,19 +288,6 @@ No secrets are committed; only public on-chain addresses are shown for convenien
 
 ## Scripts
 
-### Allocation Scripts
-
-**`scripts/allocate-v1.ts`**: Allocate funds to V1 vaults
-```bash
-tsx scripts/allocate-v1.ts <vault-address> --file allocations.json
-```
-
-**`scripts/rebalance-v1.ts`**: Rebalance V1 vault allocations based on target percentages
-```bash
-tsx scripts/rebalance-v1.ts <vault-address> --targets targets.json
-```
-
-Both scripts use the new `buildReallocateTargets` function and correctly handle final target balances (not deltas).
 
 ## Contributing
 
@@ -310,7 +297,6 @@ Both scripts use the new `buildReallocateTargets` function and correctly handle 
 4. Add loading states for better UX
 5. Ensure responsive design
 6. Test with both mock and on-chain data
-7. **Allocation Changes**: When working with V1 vault allocations, always use `buildReallocateTargets` - never compute deltas manually. The `reallocate` function expects final target balances.
 
 ## Contact
 
