@@ -11,7 +11,7 @@ type TopbarProps = {
 
 export function Topbar({ onMenuClick }: TopbarProps) {
   return (
-    <div className="flex items-center justify-between border-b border-slate-200 bg-white/70 px-4 py-2 backdrop-blur sm:px-6 sm:py-3">
+    <div className="relative z-10 flex items-center justify-between border-b border-slate-200 bg-white/70 px-4 py-2 backdrop-blur sm:px-6 sm:py-3">
       <div className="flex items-center gap-3">
         {onMenuClick && (
           <Button
