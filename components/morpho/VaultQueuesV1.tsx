@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useVaultQueues } from '@/lib/hooks/useVaultQueues';
-import { formatNumber } from '@/lib/format/number';
+import { formatUSD } from '@/lib/format/number';
 import { ExternalLink, ArrowDown, ArrowUp } from 'lucide-react';
 import type { Address } from 'viem';
 
@@ -131,7 +131,7 @@ export function VaultQueuesV1({ vaultAddress }: VaultQueuesV1Props) {
                     <div className="flex items-center gap-4 text-xs text-slate-600 dark:text-slate-400">
                       {market.supplyAssetsUsd !== null && market.supplyAssetsUsd !== undefined && (
                         <span>
-                          Current: {formatNumber(market.supplyAssetsUsd, { decimals: 2, style: 'currency' })}
+                          Current: {formatUSD(market.supplyAssetsUsd, 2)}
                         </span>
                       )}
                       <a
