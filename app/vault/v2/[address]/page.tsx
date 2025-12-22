@@ -7,6 +7,7 @@ import { useVault } from '@/lib/hooks/useProtocolStats';
 import { getVaultCategory } from '@/lib/config/vaults';
 import { AppShell } from '@/components/layout/AppShell';
 import { KpiCard } from '@/components/KpiCard';
+import { VaultRiskV2 } from '@/components/morpho/VaultRiskV2';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -134,14 +135,7 @@ export default function V2VaultPage() {
 
           {/* Risk Management Tab */}
           <TabsContent value="risk" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Risk Management</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-center py-8 text-slate-500">Coming Soon</p>
-              </CardContent>
-            </Card>
+            <VaultRiskV2 vaultAddress={vault.address} />
           </TabsContent>
 
           {/* Roles Tab */}

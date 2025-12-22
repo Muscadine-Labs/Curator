@@ -1,0 +1,31 @@
+import { useQuery } from '@tanstack/react-query';
+import type { V2VaultRiskResponse } from '@/app/api/vaults/v2/[id]/risk/route';
+
+async function fetchVaultV2Risk(vaultAddress: string): Promise<V2VaultRiskResponse> {
+  const res = await fetch(`/api/vaults/v2/${vaultAddress}/risk`, {
+    credentials: 'omit',
+  });
+
+  if (!res.ok) {
+    const message = await res.text();
+    throw new Error(message || 'Failed to fetch vault v2 risk data');
+  }
+
+  return res.json();
+}
+
+export function useVaultV2Risk(vaultAddress: string | null | undefined) {
+  return useQuery({
+    queryKey: ['vault-v2-risk', vaultAddress],
+    queryFn: () => {
+      if (!vaultAddress) {
+        throw new Error('Vault address is required');
+      }
+      return fetchVaultV2Risk(vaultAddress);
+    },
+    enabled: Boolean(vaultAddress),
+    staleTime: 2 * 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
+  });
+}
+
