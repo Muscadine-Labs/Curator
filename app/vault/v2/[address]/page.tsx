@@ -69,8 +69,8 @@ export default function V2VaultPage() {
             <Shield className="h-3 w-3" /> {vaultBadge}
           </Badge>
           <Button variant="outline" size="sm" asChild>
-            <a href={vault.scanUrl} target="_blank" rel="noreferrer">
-              View on Base
+            <a href={vault.address ? `https://basescan.org/address/${vault.address}` : '#'} target="_blank" rel="noreferrer">
+              View on Basescan
             </a>
           </Button>
         </div>

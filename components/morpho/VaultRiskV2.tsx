@@ -84,6 +84,10 @@ export function VaultRiskV2({ vaultAddress }: VaultRiskV2Props) {
   }
 
   if (error) {
+    const isDeploymentProtection = error instanceof Error && 
+      error.message.includes('Deployment protection');
+    const apiUrl = `/api/vaults/v2/${vaultAddress}/risk`;
+    
     return (
       <Card>
         <CardHeader>
@@ -92,10 +96,31 @@ export function VaultRiskV2({ vaultAddress }: VaultRiskV2Props) {
             Risk Management
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
           <p className="text-sm text-red-600 dark:text-red-400">
             Failed to load risk data: {error instanceof Error ? error.message : 'Unknown error'}
           </p>
+          {isDeploymentProtection && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20 p-3">
+              <p className="text-xs text-amber-800 dark:text-amber-200 mb-2">
+                <strong>Preview Deployment Protection:</strong> This preview deployment requires authentication.
+              </p>
+              <p className="text-xs text-amber-700 dark:text-amber-300 mb-2">
+                To fix this, open the API route directly in your browser to authenticate:
+              </p>
+              <a
+                href={apiUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-amber-900 dark:text-amber-100 underline hover:text-amber-700 dark:hover:text-amber-300 break-all"
+              >
+                {typeof window !== 'undefined' ? window.location.origin + apiUrl : apiUrl}
+              </a>
+              <p className="text-xs text-amber-700 dark:text-amber-300 mt-2">
+                After authenticating, refresh this page. Production deployments don&apos;t require this step.
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
     );
