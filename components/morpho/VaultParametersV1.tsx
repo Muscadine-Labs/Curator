@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useVault } from '@/lib/hooks/useProtocolStats';
 import { useVaultRoles } from '@/lib/hooks/useVaultRoles';
-import { formatAddress } from '@/lib/format/number';
 import { ExternalLink } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { publicClient } from '@/lib/onchain/client';
@@ -268,7 +267,7 @@ export function VaultParametersV1({ vaultAddress }: VaultParametersV1Props) {
             <div className="flex items-center gap-2">
               {param.type === 'address' && param.value ? (
                 <>
-                  <span className="font-mono text-sm">{formatAddress(param.value)}</span>
+                  <span className="font-mono text-sm">{param.value}</span>
                   <a
                     href={`https://basescan.org/address/${param.value}`}
                     target="_blank"

@@ -11,6 +11,7 @@ export interface QueuedMarket {
   loanAsset: {
     symbol: string;
     address: string;
+    decimals: number;
   };
   collateralAsset: {
     symbol: string;
@@ -50,6 +51,7 @@ export function useVaultQueues(vaultAddress: Address | string | null | undefined
                   loanAsset {
                     symbol
                     address
+                    decimals
                   }
                   collateralAsset {
                     symbol
@@ -65,6 +67,7 @@ export function useVaultQueues(vaultAddress: Address | string | null | undefined
                   loanAsset {
                     symbol
                     address
+                    decimals
                   }
                   collateralAsset {
                     symbol
@@ -88,6 +91,7 @@ export function useVaultQueues(vaultAddress: Address | string | null | undefined
                 loanAsset?: {
                   symbol?: string | null;
                   address?: string | null;
+                  decimals?: number | null;
                 } | null;
                 collateralAsset?: {
                   symbol?: string | null;
@@ -103,6 +107,7 @@ export function useVaultQueues(vaultAddress: Address | string | null | undefined
                 loanAsset?: {
                   symbol?: string | null;
                   address?: string | null;
+                  decimals?: number | null;
                 } | null;
                 collateralAsset?: {
                   symbol?: string | null;
@@ -126,7 +131,7 @@ export function useVaultQueues(vaultAddress: Address | string | null | undefined
       // Create a map of market keys to allocation data (for supply/assets info)
       const allocationMap = new Map<string, { supplyAssets?: number | null; supplyAssetsUsd?: number | null }>();
       (data.vault.state.allocation || []).forEach((alloc) => {
-        if (alloc.market?.uniqueKey) {
+        if (alloc && alloc.market?.uniqueKey) {
           allocationMap.set(alloc.market.uniqueKey, {
             supplyAssets: alloc.supplyAssets
               ? typeof alloc.supplyAssets === 'string'
@@ -140,7 +145,7 @@ export function useVaultQueues(vaultAddress: Address | string | null | undefined
 
       // Process supply queue
       const supplyQueue: QueuedMarket[] = (data.vault.state.allocationQueues || [])
-        .filter((queue) => queue.supplyQueueIndex !== null && queue.supplyQueueIndex !== undefined && queue.market?.uniqueKey)
+        .filter((queue): queue is NonNullable<typeof queue> => queue !== null && queue.supplyQueueIndex !== null && queue.supplyQueueIndex !== undefined && !!queue.market?.uniqueKey)
         .map((queue) => {
           const allocation = allocationMap.get(queue.market!.uniqueKey!) || {};
           return {
@@ -148,6 +153,7 @@ export function useVaultQueues(vaultAddress: Address | string | null | undefined
             loanAsset: {
               symbol: queue.market!.loanAsset?.symbol || 'Unknown',
               address: queue.market!.loanAsset?.address || '',
+              decimals: queue.market!.loanAsset?.decimals ?? 18,
             },
             collateralAsset: {
               symbol: queue.market!.collateralAsset?.symbol || 'Unknown',
@@ -162,7 +168,7 @@ export function useVaultQueues(vaultAddress: Address | string | null | undefined
 
       // Process withdraw queue
       const withdrawQueue: QueuedMarket[] = (data.vault.state.allocationQueues || [])
-        .filter((queue) => queue.withdrawQueueIndex !== null && queue.withdrawQueueIndex !== undefined && queue.market?.uniqueKey)
+        .filter((queue): queue is NonNullable<typeof queue> => queue !== null && queue.withdrawQueueIndex !== null && queue.withdrawQueueIndex !== undefined && !!queue.market?.uniqueKey)
         .map((queue) => {
           const allocation = allocationMap.get(queue.market!.uniqueKey!) || {};
           return {
@@ -170,6 +176,7 @@ export function useVaultQueues(vaultAddress: Address | string | null | undefined
             loanAsset: {
               symbol: queue.market!.loanAsset?.symbol || 'Unknown',
               address: queue.market!.loanAsset?.address || '',
+              decimals: queue.market!.loanAsset?.decimals ?? 18,
             },
             collateralAsset: {
               symbol: queue.market!.collateralAsset?.symbol || 'Unknown',

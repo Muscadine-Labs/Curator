@@ -11,6 +11,7 @@ export interface MarketCap {
   loanAsset: {
     symbol: string;
     address: string;
+    decimals: number;
   };
   collateralAsset: {
     symbol: string;
@@ -51,6 +52,7 @@ export function useVaultCaps(vaultAddress: Address | string | null | undefined, 
                   loanAsset {
                     symbol
                     address
+                    decimals
                   }
                   collateralAsset {
                     symbol
@@ -82,6 +84,7 @@ export function useVaultCaps(vaultAddress: Address | string | null | undefined, 
                 loanAsset?: {
                   symbol?: string | null;
                   address?: string | null;
+                  decimals?: number | null;
                 } | null;
                 collateralAsset?: {
                   symbol?: string | null;
@@ -115,7 +118,7 @@ export function useVaultCaps(vaultAddress: Address | string | null | undefined, 
       // Create a map of market keys to queue indices
       const queueMap = new Map<string, { supplyQueueIndex: number | null; withdrawQueueIndex: number | null }>();
       queues.forEach((queue) => {
-        if (queue.market?.uniqueKey) {
+        if (queue && queue.market?.uniqueKey) {
           queueMap.set(queue.market.uniqueKey, {
             supplyQueueIndex: queue.supplyQueueIndex ?? null,
             withdrawQueueIndex: queue.withdrawQueueIndex ?? null,
@@ -123,10 +126,13 @@ export function useVaultCaps(vaultAddress: Address | string | null | undefined, 
         }
       });
 
-      const markets: MarketCap[] = allocation
-        .filter((alloc) => alloc.market?.uniqueKey)
-        .map((alloc) => {
-          const marketKey = alloc.market!.uniqueKey!;
+      // Filter out null allocations and those without valid markets
+      const validAllocations = allocation.filter(
+        (alloc): alloc is NonNullable<typeof alloc> => alloc !== null && !!alloc.market?.uniqueKey
+      );
+
+      const markets: MarketCap[] = validAllocations.map((alloc) => {
+        const marketKey = alloc.market!.uniqueKey!;
           const queueInfo = queueMap.get(marketKey) || { supplyQueueIndex: null, withdrawQueueIndex: null };
 
           return {
@@ -134,6 +140,7 @@ export function useVaultCaps(vaultAddress: Address | string | null | undefined, 
             loanAsset: {
               symbol: alloc.market!.loanAsset?.symbol || 'Unknown',
               address: alloc.market!.loanAsset?.address || '',
+              decimals: alloc.market!.loanAsset?.decimals ?? 18,
             },
             collateralAsset: {
               symbol: alloc.market!.collateralAsset?.symbol || 'Unknown',

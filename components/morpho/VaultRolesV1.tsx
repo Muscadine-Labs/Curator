@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useVaultRoles } from '@/lib/hooks/useVaultRoles';
-import { formatAddress } from '@/lib/format/number';
 import { ExternalLink } from 'lucide-react';
 import type { Address } from 'viem';
 
@@ -77,7 +76,7 @@ export function VaultRolesV1({ vaultAddress }: VaultRolesV1Props) {
                 <Badge variant="outline">{role.name}</Badge>
                 {role.address ? (
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-sm">{formatAddress(role.address)}</span>
+                    <span className="font-mono text-sm">{role.address}</span>
                     <a
                       href={`https://basescan.org/address/${role.address}`}
                       target="_blank"
@@ -117,7 +116,7 @@ export function VaultRolesV1({ vaultAddress }: VaultRolesV1Props) {
               <div className="space-y-2 pl-4">
                 {roles.allocators.map((allocator, index) => (
                   <div key={index} className="flex items-center gap-2">
-                    <span className="font-mono text-sm">{formatAddress(allocator)}</span>
+                    <span className="font-mono text-sm">{allocator}</span>
                     <a
                       href={`https://basescan.org/address/${allocator}`}
                       target="_blank"

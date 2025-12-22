@@ -8,6 +8,11 @@ import { getVaultCategory } from '@/lib/config/vaults';
 import { AppShell } from '@/components/layout/AppShell';
 import { KpiCard } from '@/components/KpiCard';
 import { VaultRiskV2 } from '@/components/morpho/VaultRiskV2';
+import { VaultV2Roles } from '@/components/morpho/VaultV2Roles';
+import { VaultV2Adapters } from '@/components/morpho/VaultV2Adapters';
+import { VaultV2Allocations } from '@/components/morpho/VaultV2Allocations';
+import { VaultV2Caps } from '@/components/morpho/VaultV2Caps';
+import { VaultV2Timelocks } from '@/components/morpho/VaultV2Timelocks';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -82,6 +87,11 @@ export default function V2VaultPage() {
           <TabsList className="w-full justify-start overflow-x-auto">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="risk">Risk Management</TabsTrigger>
+            <TabsTrigger value="roles">Roles</TabsTrigger>
+            <TabsTrigger value="adapters">Adapters</TabsTrigger>
+            <TabsTrigger value="allocations">Allocations</TabsTrigger>
+            <TabsTrigger value="caps">Caps</TabsTrigger>
+            <TabsTrigger value="timelocks">Timelocks</TabsTrigger>
           </TabsList>
 
           {/* Overview Tab */}
@@ -131,6 +141,31 @@ export default function V2VaultPage() {
           {/* Risk Management Tab */}
           <TabsContent value="risk" className="space-y-4">
             <VaultRiskV2 vaultAddress={vault.address} />
+          </TabsContent>
+
+          {/* Roles Tab */}
+          <TabsContent value="roles">
+            <VaultV2Roles vaultAddress={vault.address} />
+          </TabsContent>
+
+          {/* Adapters Tab */}
+          <TabsContent value="adapters">
+            <VaultV2Adapters vaultAddress={vault.address} />
+          </TabsContent>
+
+          {/* Allocations Tab */}
+          <TabsContent value="allocations">
+            <VaultV2Allocations vaultAddress={vault.address} />
+          </TabsContent>
+
+          {/* Caps Tab */}
+          <TabsContent value="caps">
+            <VaultV2Caps vaultAddress={vault.address} />
+          </TabsContent>
+
+          {/* Timelocks Tab */}
+          <TabsContent value="timelocks">
+            <VaultV2Timelocks vaultAddress={vault.address} />
           </TabsContent>
         </Tabs>
       </div>

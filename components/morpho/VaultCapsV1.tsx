@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useVaultCaps } from '@/lib/hooks/useVaultCaps';
-import { formatUSD } from '@/lib/format/number';
+import { formatUSD, formatTokenAmount } from '@/lib/format/number';
 import { ExternalLink } from 'lucide-react';
 import type { Address } from 'viem';
 
@@ -64,37 +64,60 @@ export function VaultCapsV1({ vaultAddress }: VaultCapsV1Props) {
     );
   }
 
+  // Sort markets by supply amount (descending) - prefer USD if available, otherwise raw amount
+  const sortedMarkets = [...data.markets].sort((a, b) => {
+    const aAmount = a.supplyAssetsUsd ?? a.supplyAssets ?? 0;
+    const bAmount = b.supplyAssetsUsd ?? b.supplyAssets ?? 0;
+    return bAmount - aAmount;
+  });
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Market Caps</CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        {data.markets.map((market) => {
+        {sortedMarkets.map((market) => {
           const marketName = formatMarketName(market.loanAsset.symbol, market.collateralAsset.symbol);
           const hasPending = (market.supplyQueueIndex !== null && market.supplyQueueIndex !== undefined) ||
                             (market.withdrawQueueIndex !== null && market.withdrawQueueIndex !== undefined);
           
-          // Calculate utilization if we have both supply and cap
-          const utilization = market.supplyCap && market.supplyAssets
-            ? (market.supplyAssets / market.supplyCap) * 100
+          // Convert raw token amounts to human-readable using decimals
+          const decimals = market.loanAsset.decimals;
+          const supplyCapTokens = market.supplyCap !== null 
+            ? market.supplyCap / Math.pow(10, decimals)
             : null;
+          const supplyAssetsTokens = market.supplyAssets !== null
+            ? market.supplyAssets / Math.pow(10, decimals)
+            : null;
+
+          // Calculate USD value for supply cap using price from supplyAssets
+          const supplyCapUsd = supplyCapTokens !== null && supplyAssetsTokens !== null && 
+            market.supplyAssetsUsd !== null && supplyAssetsTokens > 0
+            ? (supplyCapTokens / supplyAssetsTokens) * market.supplyAssetsUsd
+            : null;
+
+          // Calculate utilization if we have both supply and cap (in token units)
+          const utilization = supplyCapTokens !== null && supplyAssetsTokens !== null
+            ? (supplyAssetsTokens / supplyCapTokens) * 100
+            : null;
+
+          // Calculate Max In: remaining capacity (supplyCap - supplyAssets) in tokens
+          const maxInTokens = supplyCapTokens !== null && supplyAssetsTokens !== null
+            ? supplyCapTokens - supplyAssetsTokens
+            : null;
+
+          // Max Out: current supply that can be withdrawn in tokens
+          const maxOutTokens = supplyAssetsTokens;
 
           return (
             <div key={market.marketKey} className="border-b border-slate-200 dark:border-slate-700 pb-6 last:border-0 last:pb-0">
               <div className="space-y-4">
                 {/* Market Header */}
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-sm font-medium">
-                      {marketName}
-                    </Badge>
-                    {hasPending && (
-                      <Badge variant="secondary" className="text-xs">
-                        Pending
-                      </Badge>
-                    )}
-                  </div>
+                  <Badge variant="outline" className="text-sm font-medium">
+                    {marketName}
+                  </Badge>
                   <a
                     href={`https://app.morpho.org/markets/${market.marketKey}`}
                     target="_blank"
@@ -112,10 +135,15 @@ export function VaultCapsV1({ vaultAddress }: VaultCapsV1Props) {
                       Supply Cap
                     </div>
                     <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                      {market.supplyCap !== null
-                        ? formatUSD(market.supplyCap, 2)
+                      {supplyCapTokens !== null
+                        ? formatTokenAmount(market.supplyCap, decimals, 2) + ' ' + market.loanAsset.symbol
                         : 'Unlimited'}
                     </div>
+                    {supplyCapUsd !== null && (
+                      <div className="text-xs text-slate-500 dark:text-slate-400">
+                        {formatUSD(supplyCapUsd, 2)}
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-1">
@@ -123,12 +151,15 @@ export function VaultCapsV1({ vaultAddress }: VaultCapsV1Props) {
                       Current Supply
                     </div>
                     <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                      {market.supplyAssetsUsd !== null
-                        ? formatUSD(market.supplyAssetsUsd, 2)
-                        : market.supplyAssets !== null
-                        ? new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(market.supplyAssets)
+                      {supplyAssetsTokens !== null
+                        ? formatTokenAmount(market.supplyAssets, decimals, 2) + ' ' + market.loanAsset.symbol
                         : 'N/A'}
                     </div>
+                    {supplyAssetsTokens !== null && market.supplyAssetsUsd !== null && (
+                      <div className="text-xs text-slate-500 dark:text-slate-400">
+                        {formatUSD(market.supplyAssetsUsd, 2)}
+                      </div>
+                    )}
                     {utilization !== null && (
                       <div className="text-xs text-slate-500 dark:text-slate-400">
                         {utilization.toFixed(2)}% utilized
@@ -136,45 +167,50 @@ export function VaultCapsV1({ vaultAddress }: VaultCapsV1Props) {
                     )}
                   </div>
 
-                  {market.supplyQueueIndex !== null && market.supplyQueueIndex !== undefined && (
-                    <div className="space-y-1">
-                      <div className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                        Max In (Queue Position)
-                      </div>
-                      <div className="text-sm font-semibold text-amber-600 dark:text-amber-400">
-                        #{market.supplyQueueIndex + 1}
-                      </div>
+                  <div className="space-y-1">
+                    <div className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                      Max In
                     </div>
-                  )}
+                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                      {maxInTokens !== null && maxInTokens > 0
+                        ? new Intl.NumberFormat('en-US', { 
+                            minimumFractionDigits: 2, 
+                            maximumFractionDigits: 2 
+                          }).format(maxInTokens) + ' ' + market.loanAsset.symbol
+                        : market.supplyCap === null
+                        ? 'Unlimited'
+                        : '0.00 ' + market.loanAsset.symbol}
+                    </div>
+                    {maxInTokens !== null && maxInTokens > 0 && market.supplyAssetsUsd !== null && supplyAssetsTokens !== null && supplyAssetsTokens > 0 && (
+                      <div className="text-xs text-slate-500 dark:text-slate-400">
+                        {formatUSD((maxInTokens / supplyAssetsTokens) * market.supplyAssetsUsd, 2)}
+                      </div>
+                    )}
+                  </div>
 
-                  {market.withdrawQueueIndex !== null && market.withdrawQueueIndex !== undefined && (
-                    <div className="space-y-1">
-                      <div className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                        Max Out (Queue Position)
-                      </div>
-                      <div className="text-sm font-semibold text-amber-600 dark:text-amber-400">
-                        #{market.withdrawQueueIndex + 1}
-                      </div>
+                  <div className="space-y-1">
+                    <div className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                      Max Out
                     </div>
-                  )}
+                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                      {maxOutTokens !== null
+                        ? formatTokenAmount(market.supplyAssets, decimals, 2) + ' ' + market.loanAsset.symbol
+                        : 'N/A'}
+                    </div>
+                    {maxOutTokens !== null && market.supplyAssetsUsd !== null && (
+                      <div className="text-xs text-slate-500 dark:text-slate-400">
+                        {formatUSD(market.supplyAssetsUsd, 2)}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                {/* Pending Status */}
+                {/* Pending Badge */}
                 {hasPending && (
-                  <div className="rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 p-3">
-                    <div className="text-xs font-medium text-amber-800 dark:text-amber-200">
-                      ⚠️ This market has pending allocations in the queue
-                    </div>
-                    {market.supplyQueueIndex !== null && market.supplyQueueIndex !== undefined && (
-                      <div className="text-xs text-amber-700 dark:text-amber-300 mt-1">
-                        Supply queue position: {market.supplyQueueIndex + 1}
-                      </div>
-                    )}
-                    {market.withdrawQueueIndex !== null && market.withdrawQueueIndex !== undefined && (
-                      <div className="text-xs text-amber-700 dark:text-amber-300 mt-1">
-                        Withdraw queue position: {market.withdrawQueueIndex + 1}
-                      </div>
-                    )}
+                  <div className="flex justify-end">
+                    <Badge variant="secondary" className="text-xs">
+                      Pending
+                    </Badge>
                   </div>
                 )}
               </div>

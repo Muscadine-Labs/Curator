@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useVaultQueues } from '@/lib/hooks/useVaultQueues';
-import { formatUSD } from '@/lib/format/number';
+import { formatUSD, formatTokenAmount } from '@/lib/format/number';
 import { ExternalLink, ArrowDown, ArrowUp } from 'lucide-react';
 import type { Address } from 'viem';
 
@@ -128,17 +128,24 @@ export function VaultQueuesV1({ vaultAddress }: VaultQueuesV1Props) {
                         </Badge>
                       )}
                     </div>
-                    <div className="flex items-center gap-4 text-xs text-slate-600 dark:text-slate-400">
-                      {market.supplyAssetsUsd !== null && market.supplyAssetsUsd !== undefined && (
-                        <span>
-                          Current: {formatUSD(market.supplyAssetsUsd, 2)}
-                        </span>
-                      )}
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-4 text-xs text-slate-600 dark:text-slate-400">
+                        {market.supplyAssets !== null && market.supplyAssets !== undefined && (
+                          <span>
+                            Current: {formatTokenAmount(market.supplyAssets, market.loanAsset.decimals, 2)} {market.loanAsset.symbol}
+                          </span>
+                        )}
+                        {market.supplyAssetsUsd !== null && market.supplyAssetsUsd !== undefined && (
+                          <span>
+                            {formatUSD(market.supplyAssetsUsd, 2)}
+                          </span>
+                        )}
+                      </div>
                       <a
                         href={`https://app.morpho.org/markets/${market.marketKey}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1"
+                        className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1 text-xs"
                       >
                         View Market <ExternalLink className="h-3 w-3" />
                       </a>

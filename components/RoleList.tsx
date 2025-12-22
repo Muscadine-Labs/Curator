@@ -5,13 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { AddressBadge } from './AddressBadge';
 import { ExternalLink, Edit2, Check, X, Loader2 } from 'lucide-react';
 import { Address, isAddress } from 'viem';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { vaultWriteConfigs } from '@/lib/onchain/vault-writes';
 import { useVaultRoles } from '@/lib/hooks/useVaultRoles';
-import { formatAddress } from '@/lib/format/number';
 
 interface RoleListProps {
   vaultAddress: Address;
@@ -185,16 +183,13 @@ export function RoleList({ vaultAddress, chainId = 8453 }: RoleListProps) {
                   ) : (
                     <>
                       {role.address ? (
-                        <AddressBadge 
-                          address={role.address} 
-                          scanUrl={`https://basescan.org/address/${role.address}`}
-                        />
+                        <span className="font-mono text-sm">{role.address}</span>
                       ) : (
                         <span className="text-sm text-muted-foreground">Not set</span>
                       )}
                       {role.pendingAddress && (
                         <Badge variant="secondary" className="text-xs">
-                          Pending: {formatAddress(role.pendingAddress)}
+                          Pending: {role.pendingAddress}
                         </Badge>
                       )}
                       {role.pendingAddress && role.canEdit && (
