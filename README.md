@@ -15,7 +15,9 @@ Modern Next.js dashboard for Muscadine vaults on Morpho. Live data is sourced fr
   - **V2 Vineyard Vaults**: Automatically detected (vaults with "Vineyard" in name)
 - **Vault Detail Pages**:
   - **V1 Vaults** (`/vault/v1/[address]`): Overview, Risk Management, Roles, Parameters, Allocation, Caps
+    - **V1 Risk Management**: Weighted average risk scores across markets, market-level risk breakdown with component scores (liquidation headroom, utilization, coverage ratio, oracle freshness)
   - **V2 Vaults** (`/vault/v2/[address]`): Overview, Risk Management, Roles, Adapters, Allocations, Caps, Timelock
+    - **V2 Risk Management**: Hierarchical risk scoring - vault-level weighted average from adapters, adapter-level weighted averages from markets, and detailed market risk breakdowns per adapter
   - All vault metadata (name, symbol, asset, TVL, APY, performance fee) fetched dynamically from GraphQL
   - Direct links to Morpho UI for each vault
 - **Data Sources**: All vault data fetched dynamically from Morpho GraphQL API
@@ -47,6 +49,13 @@ If your wallet is on a different network, the app will prompt you to switch to B
 
 ## Latest Updates (Jan 2025)
 
+- **V2 Risk Management System**: Complete hierarchical risk analysis for V2 vaults
+  - **Vault-Level Risk**: Weighted average risk score across all adapters (by allocation)
+  - **Adapter-Level Risk**: Weighted average risk score for each adapter from its underlying markets
+  - **Market-Level Risk**: Detailed risk scores per market within each adapter (same scoring as V1)
+  - **Support for Adapter Types**: MetaMorphoAdapter (wraps V1 vaults) and MorphoMarketV1Adapter (direct market positions)
+  - **Risk Components**: Liquidation headroom, utilization, coverage ratio, oracle freshness (same as V1)
+  - **API Endpoint**: `/api/vaults/v2/[id]/risk` returns complete risk hierarchy
 - **Dynamic Vault Configuration**: Vault config simplified to only store addresses - all metadata (name, symbol, asset, performance fee, TVL, APY) fetched dynamically from GraphQL
 - **Automatic Vault Categorization**: Vaults automatically categorized as V1, V2 Prime, or V2 Vineyard based on their names
 - **Interactive Charts with Toggles**:
@@ -144,6 +153,8 @@ Vault configurations are defined in `/lib/config/vaults.ts`. The system uses a s
 
 - `/api/vaults` - List all vaults with TVL, APY, depositors (fetched from GraphQL)
 - `/api/vaults/[id]` - Vault detail with historical data, allocations, roles (fetched from GraphQL)
+- `/api/vaults/v1/[id]/market-risk` - V1 vault market risk analysis with weighted scores
+- `/api/vaults/v2/[id]/risk` - V2 vault hierarchical risk analysis (vault → adapters → markets)
 - `/api/protocol-stats` - Protocol aggregates with interactive chart data:
   - Total TVL trend and per-vault TVL breakdown
   - Daily and cumulative fees trends
@@ -171,6 +182,8 @@ References:
   protocol-stats/route.ts   # Protocol aggregates (TVL, users, fees trends)
   vaults/route.ts           # Vault list (Morpho GraphQL)
   vaults/[id]/route.ts      # Vault detail (Morpho + DefiLlama)
+  vaults/v1/[id]/market-risk/route.ts  # V1 vault market risk analysis
+  vaults/v2/[id]/risk/route.ts         # V2 vault hierarchical risk analysis
 
 /components
   layout/AppShell.tsx       # Shared shell with sidebar/topbar
@@ -187,14 +200,20 @@ References:
   morpho/RatingBadge.tsx    # Risk rating badge
   morpho/AllocationV1.tsx   # V1 vault allocation management with reallocate support
   morpho/MarketRiskV1.tsx   # V1 market risk analysis
+  morpho/VaultRiskV1.tsx    # V1 vault-level risk summary
+  morpho/VaultRiskV2.tsx    # V2 vault hierarchical risk (vault → adapters → markets)
   ui/*                      # shadcn/ui components
 
 /lib
   config/vaults.ts          # Vault address configurations and categorization helpers
   constants.ts              # Application constants (chain IDs, limits, etc.)
   defillama/service.ts      # DefiLlama API client with chart data processors
-  morpho/*                  # Morpho GraphQL client and query helpers
-  hooks/*                   # React Query hooks (useProtocolStats, useVault, useVaultList)
+  morpho/*                  # Morpho GraphQL client, query helpers, and risk computation
+    compute-v1-market-risk.ts  # V1 market risk scoring (liquidation headroom, utilization, coverage, oracle)
+    query-v1-vault-markets.ts  # V1 vault markets GraphQL query
+    irm-utils.ts              # IRM target utilization helpers
+    oracle-utils.ts           # Oracle timestamp and freshness helpers
+  hooks/*                   # React Query hooks (useProtocolStats, useVault, useVaultList, useVaultV2Risk)
   format/number.ts          # Number formatting utilities
   wallet/config.ts          # Wallet configuration (wagmi + OnchainKit)
   onchain/*                 # Viem client and contract interfaces

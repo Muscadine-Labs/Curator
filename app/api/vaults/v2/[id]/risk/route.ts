@@ -5,7 +5,7 @@ import { morphoGraphQLClient } from '@/lib/morpho/graphql-client';
 import { getVaultByAddress } from '@/lib/config/vaults';
 import { handleApiError, AppError } from '@/lib/utils/error-handler';
 import { createRateLimitMiddleware, RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS } from '@/lib/utils/rate-limit';
-import { BASE_CHAIN_ID, GRAPHQL_FIRST_LIMIT } from '@/lib/constants';
+import { BASE_CHAIN_ID } from '@/lib/constants';
 import { fetchV1VaultMarkets, type V1VaultMarketData } from '@/lib/morpho/query-v1-vault-markets';
 import {
   computeV1MarketRiskScores,
