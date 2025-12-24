@@ -8,13 +8,16 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { AddressBadge } from '@/components/AddressBadge';
 import { useVaultV2Governance } from '@/lib/hooks/useVaultV2Governance';
 import { formatUSD, formatNumber } from '@/lib/format/number';
+import type { VaultV2GovernanceResponse } from '@/app/api/vaults/v2/[id]/governance/route';
 
 interface VaultV2AdaptersProps {
   vaultAddress: string;
+  preloadedData?: VaultV2GovernanceResponse | null;
 }
 
-export function VaultV2Adapters({ vaultAddress }: VaultV2AdaptersProps) {
-  const { data, isLoading, error } = useVaultV2Governance(vaultAddress);
+export function VaultV2Adapters({ vaultAddress, preloadedData }: VaultV2AdaptersProps) {
+  const { data: fetchedData, isLoading, error } = useVaultV2Governance(vaultAddress);
+  const data = preloadedData ?? fetchedData;
 
   const liquidityAdapterAddress = data?.liquidityAdapter?.address?.toLowerCase();
 
@@ -23,7 +26,7 @@ export function VaultV2Adapters({ vaultAddress }: VaultV2AdaptersProps) {
     return [...data.adapters].sort((a, b) => (b.assetsUsd ?? 0) - (a.assetsUsd ?? 0));
   }, [data?.adapters]);
 
-  if (isLoading) {
+  if (!preloadedData && isLoading) {
     return (
       <Card>
         <CardHeader>

@@ -5,9 +5,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { useVaultV2Governance } from '@/lib/hooks/useVaultV2Governance';
 import { formatNumber } from '@/lib/format/number';
+import type { VaultV2GovernanceResponse } from '@/app/api/vaults/v2/[id]/governance/route';
 
 interface VaultV2CapsProps {
   vaultAddress: string;
+  preloadedData?: VaultV2GovernanceResponse | null;
 }
 
 function formatRelativeCap(relativeCap: string): string {
@@ -29,10 +31,11 @@ function formatBigIntValue(value: string): string {
   }
 }
 
-export function VaultV2Caps({ vaultAddress }: VaultV2CapsProps) {
-  const { data, isLoading, error } = useVaultV2Governance(vaultAddress);
+export function VaultV2Caps({ vaultAddress, preloadedData }: VaultV2CapsProps) {
+  const { data: fetchedData, isLoading, error } = useVaultV2Governance(vaultAddress);
+  const data = preloadedData ?? fetchedData;
 
-  if (isLoading) {
+  if (!preloadedData && isLoading) {
     return (
       <Card>
         <CardHeader>

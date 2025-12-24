@@ -7,19 +7,22 @@ import { useVaultQueues } from '@/lib/hooks/useVaultQueues';
 import { formatUSD, formatTokenAmount } from '@/lib/format/number';
 import { ExternalLink, ArrowDown, ArrowUp } from 'lucide-react';
 import type { Address } from 'viem';
+import type { VaultQueuesData } from '@/lib/hooks/useVaultQueues';
 
 interface VaultQueuesV1Props {
   vaultAddress: Address | string;
+  preloadedData?: VaultQueuesData | null;
 }
 
 function formatMarketName(loanAsset: string, collateralAsset: string): string {
   return `${loanAsset}/${collateralAsset}`;
 }
 
-export function VaultQueuesV1({ vaultAddress }: VaultQueuesV1Props) {
-  const { data, isLoading, error } = useVaultQueues(vaultAddress);
+export function VaultQueuesV1({ vaultAddress, preloadedData }: VaultQueuesV1Props) {
+  const { data: fetchedData, isLoading, error } = useVaultQueues(vaultAddress);
+  const data = preloadedData ?? fetchedData;
 
-  if (isLoading) {
+  if (!preloadedData && isLoading) {
     return (
       <div className="space-y-6">
         <Card>

@@ -4,9 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { useVaultV2Governance } from '@/lib/hooks/useVaultV2Governance';
+import type { VaultV2GovernanceResponse } from '@/app/api/vaults/v2/[id]/governance/route';
 
 interface VaultV2TimelocksProps {
   vaultAddress: string;
+  preloadedData?: VaultV2GovernanceResponse | null;
 }
 
 function formatDuration(seconds: number): string {
@@ -20,10 +22,11 @@ function formatDuration(seconds: number): string {
   return `${minutes}m`;
 }
 
-export function VaultV2Timelocks({ vaultAddress }: VaultV2TimelocksProps) {
-  const { data, isLoading, error } = useVaultV2Governance(vaultAddress);
+export function VaultV2Timelocks({ vaultAddress, preloadedData }: VaultV2TimelocksProps) {
+  const { data: fetchedData, isLoading, error } = useVaultV2Governance(vaultAddress);
+  const data = preloadedData ?? fetchedData;
 
-  if (isLoading) {
+  if (!preloadedData && isLoading) {
     return (
       <Card>
         <CardHeader>

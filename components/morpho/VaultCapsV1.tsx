@@ -7,19 +7,22 @@ import { useVaultCaps } from '@/lib/hooks/useVaultCaps';
 import { formatUSD, formatTokenAmount } from '@/lib/format/number';
 import { ExternalLink } from 'lucide-react';
 import type { Address } from 'viem';
+import type { VaultCapsData } from '@/lib/hooks/useVaultCaps';
 
 interface VaultCapsV1Props {
   vaultAddress: Address | string;
+  preloadedData?: VaultCapsData | null;
 }
 
 function formatMarketName(loanAsset: string, collateralAsset: string): string {
   return `${loanAsset}/${collateralAsset}`;
 }
 
-export function VaultCapsV1({ vaultAddress }: VaultCapsV1Props) {
-  const { data, isLoading, error } = useVaultCaps(vaultAddress);
+export function VaultCapsV1({ vaultAddress, preloadedData }: VaultCapsV1Props) {
+  const { data: fetchedData, isLoading, error } = useVaultCaps(vaultAddress);
+  const data = preloadedData ?? fetchedData;
 
-  if (isLoading) {
+  if (!preloadedData && isLoading) {
     return (
       <Card>
         <CardHeader>

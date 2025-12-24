@@ -11,6 +11,7 @@ import { isMarketIdle } from '@/lib/morpho/compute-v1-market-risk';
 
 interface VaultRiskV1Props {
   vaultAddress: string;
+  preloadedData?: import('@/app/api/vaults/v1/[id]/market-risk/route').V1VaultMarketRiskResponse | null;
 }
 
 /**
@@ -75,10 +76,11 @@ function getComponentGrade(score: number): MarketRiskGrade {
   return 'F';
 }
 
-export function VaultRiskV1({ vaultAddress }: VaultRiskV1Props) {
-  const { data, isLoading, error } = useVaultV1MarketRisk(vaultAddress);
+export function VaultRiskV1({ vaultAddress, preloadedData }: VaultRiskV1Props) {
+  const { data: fetchedData, isLoading, error } = useVaultV1MarketRisk(vaultAddress);
+  const data = preloadedData ?? fetchedData;
 
-  if (isLoading) {
+  if (!preloadedData && isLoading) {
     return (
       <Card>
         <CardHeader>

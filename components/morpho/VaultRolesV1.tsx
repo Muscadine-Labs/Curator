@@ -5,15 +5,18 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { AddressBadge } from '@/components/AddressBadge';
 import { useVaultRoles } from '@/lib/hooks/useVaultRoles';
 import type { Address } from 'viem';
+import type { VaultRolesData } from '@/lib/hooks/useVaultRoles';
 
 interface VaultRolesV1Props {
   vaultAddress: Address | string;
+  preloadedData?: VaultRolesData | null;
 }
 
-export function VaultRolesV1({ vaultAddress }: VaultRolesV1Props) {
-  const { data: roles, isLoading, error } = useVaultRoles(vaultAddress as Address);
+export function VaultRolesV1({ vaultAddress, preloadedData }: VaultRolesV1Props) {
+  const { data: fetchedRoles, isLoading, error } = useVaultRoles(vaultAddress as Address);
+  const roles = preloadedData ?? fetchedRoles;
 
-  if (isLoading) {
+  if (!preloadedData && isLoading) {
     return (
       <Card>
         <CardHeader>

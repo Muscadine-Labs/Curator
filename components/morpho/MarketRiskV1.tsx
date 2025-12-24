@@ -13,6 +13,7 @@ import { Info } from 'lucide-react';
 
 interface MarketRiskV1Props {
   vaultAddress: string;
+  preloadedData?: import('@/app/api/vaults/v1/[id]/market-risk/route').V1VaultMarketRiskResponse | null;
 }
 
 /**
@@ -96,10 +97,11 @@ function formatMarketIdentifier(
   return 'Unknown Market';
 }
 
-export function MarketRiskV1({ vaultAddress }: MarketRiskV1Props) {
-  const { data, isLoading, error } = useVaultV1MarketRisk(vaultAddress);
+export function MarketRiskV1({ vaultAddress, preloadedData }: MarketRiskV1Props) {
+  const { data: fetchedData, isLoading, error } = useVaultV1MarketRisk(vaultAddress);
+  const data = preloadedData ?? fetchedData;
 
-  if (isLoading) {
+  if (!preloadedData && isLoading) {
     return (
       <Card>
         <CardHeader>

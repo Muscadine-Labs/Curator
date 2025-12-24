@@ -13,6 +13,7 @@ import { isMarketIdle } from '@/lib/morpho/compute-v1-market-risk';
 
 interface VaultRiskV2Props {
   vaultAddress: string;
+  preloadedData?: import('@/app/api/vaults/v2/[id]/risk/route').V2VaultRiskResponse | null;
 }
 
 function getGradeColor(grade: MarketRiskGrade): string {
@@ -56,8 +57,10 @@ function formatMarketIdentifier(
   return 'Unknown Market';
 }
 
-export function VaultRiskV2({ vaultAddress }: VaultRiskV2Props) {
-  const { data, isLoading, error } = useVaultV2Risk(vaultAddress);
+export function VaultRiskV2({ vaultAddress, preloadedData }: VaultRiskV2Props) {
+  const { data: fetchedData, isLoading, error } = useVaultV2Risk(vaultAddress);
+  const data = preloadedData ?? fetchedData;
+  const isActuallyLoading = !preloadedData && isLoading;
 
   const totalAdapterAssets = data?.totalAdapterAssetsUsd ?? 0;
 
@@ -66,7 +69,7 @@ export function VaultRiskV2({ vaultAddress }: VaultRiskV2Props) {
     return [...data.adapters].sort((a, b) => (b.allocationUsd ?? 0) - (a.allocationUsd ?? 0));
   }, [data?.adapters]);
 
-  if (isLoading) {
+  if (isActuallyLoading) {
     return (
       <Card>
         <CardHeader>

@@ -3,13 +3,14 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Shield } from 'lucide-react';
-import { useVault } from '@/lib/hooks/useProtocolStats';
+import { useVaultV1Complete } from '@/lib/hooks/useVaultV1Complete';
 import { AppShell } from '@/components/layout/AppShell';
 import { KpiCard } from '@/components/KpiCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Skeleton } from '@/components/ui/skeleton';
 import { MarketRiskV1 } from '@/components/morpho/MarketRiskV1';
 import { VaultRiskV1 } from '@/components/morpho/VaultRiskV1';
 import { AllocationV1 } from '@/components/morpho/AllocationV1';
@@ -21,16 +22,39 @@ import { VaultQueuesV1 } from '@/components/morpho/VaultQueuesV1';
 export default function VaultDetailPage() {
   const params = useParams();
   const vaultAddress = params.address as string;
-  const { data: vault, isLoading } = useVault(vaultAddress);
+  const { vault, roles, caps, queues, marketRisk, isLoading, isError, error } = useVaultV1Complete(vaultAddress);
 
   if (isLoading) {
     return (
       <AppShell title="Loading vault..." description="Fetching vault data">
-        <div className="grid gap-4 md:grid-cols-3">
-          {[...Array(3)].map((_, idx) => (
-            <div key={idx} className="h-24 rounded-xl bg-slate-100" />
-          ))}
+        <div className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-3">
+            {[...Array(6)].map((_, idx) => (
+              <Skeleton key={idx} className="h-24 w-full rounded-xl" />
+            ))}
+          </div>
+          <Skeleton className="h-96 w-full rounded-xl" />
         </div>
+      </AppShell>
+    );
+  }
+
+  if (isError || !vault) {
+    return (
+      <AppShell title="Error loading vault" description={error instanceof Error ? error.message : 'Failed to load vault data'}>
+        <Card>
+          <CardHeader>
+            <CardTitle>Error</CardTitle>
+          </CardHeader>
+          <CardContent className="flex items-center justify-between">
+            <p className="text-sm text-red-600 dark:text-red-400">
+              {error instanceof Error ? error.message : 'Failed to load vault data'}
+            </p>
+            <Button asChild>
+              <Link href="/vaults">Back to vaults</Link>
+            </Button>
+          </CardContent>
+        </Card>
       </AppShell>
     );
   }
@@ -87,8 +111,8 @@ export default function VaultDetailPage() {
           </TabsList>
 
           <TabsContent value="risk" className="space-y-4">
-            <VaultRiskV1 vaultAddress={vaultAddress} />
-            <MarketRiskV1 vaultAddress={vaultAddress} />
+            <VaultRiskV1 vaultAddress={vaultAddress} preloadedData={marketRisk} />
+            <MarketRiskV1 vaultAddress={vaultAddress} preloadedData={marketRisk} />
           </TabsContent>
 
           <TabsContent value="overview" className="space-y-6">
@@ -135,7 +159,7 @@ export default function VaultDetailPage() {
           </TabsContent>
 
           <TabsContent value="roles" className="space-y-4">
-            <VaultRolesV1 vaultAddress={vaultAddress} />
+            <VaultRolesV1 vaultAddress={vaultAddress} preloadedData={roles} />
           </TabsContent>
 
           <TabsContent value="parameters" className="space-y-4">
@@ -147,11 +171,11 @@ export default function VaultDetailPage() {
           </TabsContent>
 
           <TabsContent value="caps" className="space-y-4">
-            <VaultCapsV1 vaultAddress={vaultAddress} />
+            <VaultCapsV1 vaultAddress={vaultAddress} preloadedData={caps} />
           </TabsContent>
 
           <TabsContent value="queues" className="space-y-4">
-            <VaultQueuesV1 vaultAddress={vaultAddress} />
+            <VaultQueuesV1 vaultAddress={vaultAddress} preloadedData={queues} />
           </TabsContent>
 
           <TabsContent value="emergency" className="space-y-4">

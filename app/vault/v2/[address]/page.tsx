@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Shield } from 'lucide-react';
-import { useVault } from '@/lib/hooks/useProtocolStats';
+import { useVaultV2Complete } from '@/lib/hooks/useVaultV2Complete';
 import { getVaultCategory } from '@/lib/config/vaults';
 import { AppShell } from '@/components/layout/AppShell';
 import { KpiCard } from '@/components/KpiCard';
@@ -17,20 +17,44 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function V2VaultPage() {
   const params = useParams();
   const address = params.address as string;
-  const { data: vault, isLoading } = useVault(address);
+  const { vault, risk, governance, isLoading, isError, error } = useVaultV2Complete(address);
 
   if (isLoading) {
     return (
       <AppShell title="Loading vault..." description="Fetching vault data">
-        <div className="grid gap-4 md:grid-cols-3">
-          {[...Array(3)].map((_, idx) => (
-            <div key={idx} className="h-24 rounded-xl bg-slate-100" />
-          ))}
+        <div className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-3">
+            {[...Array(6)].map((_, idx) => (
+              <Skeleton key={idx} className="h-24 w-full rounded-xl" />
+            ))}
+          </div>
+          <Skeleton className="h-96 w-full rounded-xl" />
         </div>
+      </AppShell>
+    );
+  }
+
+  if (isError || !vault) {
+    return (
+      <AppShell title="Error loading vault" description={error instanceof Error ? error.message : 'Failed to load vault data'}>
+        <Card>
+          <CardHeader>
+            <CardTitle>Error</CardTitle>
+          </CardHeader>
+          <CardContent className="flex items-center justify-between">
+            <p className="text-sm text-red-600 dark:text-red-400">
+              {error instanceof Error ? error.message : 'Failed to load vault data'}
+            </p>
+            <Button asChild>
+              <Link href="/">Back to overview</Link>
+            </Button>
+          </CardContent>
+        </Card>
       </AppShell>
     );
   }
@@ -140,32 +164,32 @@ export default function V2VaultPage() {
 
           {/* Risk Management Tab */}
           <TabsContent value="risk" className="space-y-4">
-            <VaultRiskV2 vaultAddress={vault.address} />
+            <VaultRiskV2 vaultAddress={vault.address} preloadedData={risk} />
           </TabsContent>
 
           {/* Roles Tab */}
           <TabsContent value="roles">
-            <VaultV2Roles vaultAddress={vault.address} />
+            <VaultV2Roles vaultAddress={vault.address} preloadedData={governance} />
           </TabsContent>
 
           {/* Adapters Tab */}
           <TabsContent value="adapters">
-            <VaultV2Adapters vaultAddress={vault.address} />
+            <VaultV2Adapters vaultAddress={vault.address} preloadedData={governance} />
           </TabsContent>
 
           {/* Allocations Tab */}
           <TabsContent value="allocations">
-            <VaultV2Allocations vaultAddress={vault.address} />
+            <VaultV2Allocations vaultAddress={vault.address} preloadedData={governance} />
           </TabsContent>
 
           {/* Caps Tab */}
           <TabsContent value="caps">
-            <VaultV2Caps vaultAddress={vault.address} />
+            <VaultV2Caps vaultAddress={vault.address} preloadedData={governance} />
           </TabsContent>
 
           {/* Timelocks Tab */}
           <TabsContent value="timelocks">
-            <VaultV2Timelocks vaultAddress={vault.address} />
+            <VaultV2Timelocks vaultAddress={vault.address} preloadedData={governance} />
           </TabsContent>
         </Tabs>
       </div>

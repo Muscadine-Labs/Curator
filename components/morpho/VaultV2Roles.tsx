@@ -5,15 +5,18 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { AddressBadge } from '@/components/AddressBadge';
 import { useVaultV2Governance } from '@/lib/hooks/useVaultV2Governance';
+import type { VaultV2GovernanceResponse } from '@/app/api/vaults/v2/[id]/governance/route';
 
 interface VaultV2RolesProps {
   vaultAddress: string;
+  preloadedData?: VaultV2GovernanceResponse | null;
 }
 
-export function VaultV2Roles({ vaultAddress }: VaultV2RolesProps) {
-  const { data, isLoading, error } = useVaultV2Governance(vaultAddress);
+export function VaultV2Roles({ vaultAddress, preloadedData }: VaultV2RolesProps) {
+  const { data: fetchedData, isLoading, error } = useVaultV2Governance(vaultAddress);
+  const data = preloadedData ?? fetchedData;
 
-  if (isLoading) {
+  if (!preloadedData && isLoading) {
     return (
       <Card>
         <CardHeader>

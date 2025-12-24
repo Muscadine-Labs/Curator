@@ -7,13 +7,16 @@ import { Badge } from '@/components/ui/badge';
 import { AddressBadge } from '@/components/AddressBadge';
 import { useVaultV2Governance } from '@/lib/hooks/useVaultV2Governance';
 import { formatUSD, formatPercentage } from '@/lib/format/number';
+import type { VaultV2GovernanceResponse } from '@/app/api/vaults/v2/[id]/governance/route';
 
 interface VaultV2AllocationsProps {
   vaultAddress: string;
+  preloadedData?: VaultV2GovernanceResponse | null;
 }
 
-export function VaultV2Allocations({ vaultAddress }: VaultV2AllocationsProps) {
-  const { data, isLoading, error } = useVaultV2Governance(vaultAddress);
+export function VaultV2Allocations({ vaultAddress, preloadedData }: VaultV2AllocationsProps) {
+  const { data: fetchedData, isLoading, error } = useVaultV2Governance(vaultAddress);
+  const data = preloadedData ?? fetchedData;
 
   const liquidityAdapterAddress = data?.liquidityAdapter?.address?.toLowerCase() ?? null;
 
@@ -26,7 +29,7 @@ export function VaultV2Allocations({ vaultAddress }: VaultV2AllocationsProps) {
     return { adapters: sorted, total: totalUsd };
   }, [data?.adapters]);
 
-  if (isLoading) {
+  if (!preloadedData && isLoading) {
     return (
       <Card>
         <CardHeader>
