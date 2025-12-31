@@ -2,7 +2,9 @@ import { useQuery } from '@tanstack/react-query';
 import type { V1VaultMarketRiskResponse } from '@/app/api/vaults/v1/[id]/market-risk/route';
 
 async function fetchVaultV1MarketRisk(vaultAddress: string): Promise<V1VaultMarketRiskResponse> {
-  const response = await fetch(`/api/vaults/v1/${vaultAddress}/market-risk`);
+  const response = await fetch(`/api/vaults/v1/${vaultAddress}/market-risk`, {
+    credentials: 'omit',
+  });
   
   if (!response.ok) {
     const contentType = response.headers.get('content-type');

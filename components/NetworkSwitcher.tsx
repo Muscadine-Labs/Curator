@@ -15,6 +15,7 @@ const chains = [
 async function checkApiHealth(): Promise<boolean> {
   try {
     const response = await fetch('/api/morpho-markets?limit=1', {
+      credentials: 'omit',
       signal: AbortSignal.timeout(5000), // 5 second timeout
     });
     return response.ok;

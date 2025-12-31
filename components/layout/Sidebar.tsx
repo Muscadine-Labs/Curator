@@ -177,16 +177,6 @@ export function Sidebar({ onClose }: SidebarProps) {
           </p>
           <div className="space-y-1">
             <Link
-              href="/bots/polymarket-kalshi"
-              onClick={handleLinkClick}
-              className={`flex items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 ${
-                isActive('/bots/polymarket-kalshi') ? 'bg-slate-900 text-white' : ''
-              }`}
-            >
-              <Bot className="h-4 w-4" />
-              <span className="truncate">Polymarket-Kalshi Arbitrage Bot</span>
-            </Link>
-            <Link
               href="/bots/morpho-liquidation"
               onClick={handleLinkClick}
               className={`flex items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 ${
