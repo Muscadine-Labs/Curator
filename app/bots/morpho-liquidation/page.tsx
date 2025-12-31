@@ -8,13 +8,13 @@ import { ExternalLink } from 'lucide-react';
 export default function MorphoLiquidationBotPage() {
   return (
     <AppShell
-      title="Morpho-blue Liquidation Bot"
-      description="Monitor and manage the Morpho-blue liquidation bot."
+      title="Morpho Liquidation Bot"
+      description="Monitor and manage the Morpho liquidation bot."
     >
       <div className="space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle>Morpho Blue Liquidation Bot</CardTitle>
+            <CardTitle>Morpho Liquidation Bot</CardTitle>
             <CardDescription>
               Easily configurable liquidation bot for Morpho Blue.
             </CardDescription>

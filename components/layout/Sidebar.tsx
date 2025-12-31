@@ -184,7 +184,7 @@ export function Sidebar({ onClose }: SidebarProps) {
               }`}
             >
               <Bot className="h-4 w-4" />
-              <span className="truncate">Morpho-blue Liquidation Bot</span>
+              <span className="truncate">Morpho Liquidation Bot</span>
             </Link>
             <Link
               href="/bots/morpho-allocation"
@@ -194,7 +194,7 @@ export function Sidebar({ onClose }: SidebarProps) {
               }`}
             >
               <Bot className="h-4 w-4" />
-              <span className="truncate">Morpho-blue Allocation Bot</span>
+              <span className="truncate">Morpho Allocation Bot</span>
             </Link>
           </div>
         </div>
