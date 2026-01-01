@@ -1,5 +1,6 @@
 import type { CuratorConfig, CuratorWeights } from './types';
 import { MORPHO_GRAPHQL_ENDPOINT } from '@/lib/constants';
+import { logger } from '@/lib/utils/logger';
 
 export type CuratorConfigOverrides = Partial<Omit<CuratorConfig, 'weights'>> & {
   weights?: Partial<CuratorWeights>;
@@ -73,7 +74,7 @@ function parsePctEnv(key: string): number | undefined {
   const value = parseNumberEnv(key);
   if (value === undefined) return undefined;
   if (value > 1 && value <= 100) {
-    console.warn(`[curator] ${key} looks like a percent (${value}); expected 0–1`);
+    logger.warn(`[curator] ${key} looks like a percent (${value}); expected 0–1`);
   }
   return value;
 }

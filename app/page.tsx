@@ -1,12 +1,30 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { KpiCard } from '@/components/KpiCard';
-import { ChartTvl } from '@/components/ChartTvl';
-import { ChartFees } from '@/components/ChartFees';
-import { ChartRevenue } from '@/components/ChartRevenue';
-import { ChartInflows } from '@/components/ChartInflows';
 import { useProtocolStats } from '@/lib/hooks/useProtocolStats';
 import { AppShell } from '@/components/layout/AppShell';
+
+// Lazy load chart components to reduce initial bundle size
+const ChartTvl = dynamic(() => import('@/components/ChartTvl').then(mod => ({ default: mod.ChartTvl })), {
+  loading: () => <div className="h-96 animate-pulse rounded-lg bg-slate-100" />,
+  ssr: false,
+});
+
+const ChartInflows = dynamic(() => import('@/components/ChartInflows').then(mod => ({ default: mod.ChartInflows })), {
+  loading: () => <div className="h-96 animate-pulse rounded-lg bg-slate-100" />,
+  ssr: false,
+});
+
+const ChartFees = dynamic(() => import('@/components/ChartFees').then(mod => ({ default: mod.ChartFees })), {
+  loading: () => <div className="h-96 animate-pulse rounded-lg bg-slate-100" />,
+  ssr: false,
+});
+
+const ChartRevenue = dynamic(() => import('@/components/ChartRevenue').then(mod => ({ default: mod.ChartRevenue })), {
+  loading: () => <div className="h-96 animate-pulse rounded-lg bg-slate-100" />,
+  ssr: false,
+});
 
 export default function Home() {
   const { data: stats, isLoading } = useProtocolStats();

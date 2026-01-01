@@ -22,9 +22,13 @@ import { VaultQueuesV1 } from '@/components/morpho/VaultQueuesV1';
 export default function VaultDetailPage() {
   const params = useParams();
   const vaultAddress = params.address as string;
-  const { vault, roles, caps, queues, marketRisk, isLoading, isError, error } = useVaultV1Complete(vaultAddress);
+  // Load all data in parallel - hooks will fetch independently
+  // Only block on vault data loading (needed for basic info)
+  const { vault, roles, caps, queues, marketRisk, vaultIsLoading, isError, error } = useVaultV1Complete(vaultAddress);
 
-  if (isLoading) {
+  // Only block on vault data loading (needed for basic info)
+  // Other data (roles, caps, queues, marketRisk) will load in parallel via their own hooks
+  if (vaultIsLoading) {
     return (
       <AppShell title="Loading vault..." description="Fetching vault data">
         <div className="space-y-6">

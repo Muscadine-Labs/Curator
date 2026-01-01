@@ -1,5 +1,6 @@
 import { createPublicClient, http, Address, Abi } from 'viem';
 import { base } from 'viem/chains';
+import { logger } from '@/lib/utils/logger';
 
 // Determine RPC URL based on available API keys
 // Priority: ALCHEMY_API_KEY > COINBASE_CDP_API_KEY > demo fallback
@@ -418,7 +419,11 @@ export const safeContractRead = async <T>(
     });
     return result as T;
   } catch (error) {
-    console.warn(`Failed to read ${functionName} from ${contractAddress}:`, error);
+    logger.warn(`Failed to read ${functionName} from ${contractAddress}`, {
+      contractAddress,
+      functionName,
+      error: error instanceof Error ? error : new Error(String(error)),
+    });
     return null;
   }
 };
@@ -449,7 +454,10 @@ export const multicallRead = async <T>(
       return null;
     });
   } catch (error) {
-    console.warn('Multicall failed:', error);
+    logger.warn('Multicall failed', {
+      contractCount: contracts.length,
+      error: error instanceof Error ? error : new Error(String(error)),
+    });
     return contracts.map(() => null);
   }
 };

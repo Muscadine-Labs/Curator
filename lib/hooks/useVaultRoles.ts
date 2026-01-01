@@ -5,6 +5,7 @@ import { Address } from 'viem';
 import { readVaultRoles, readVaultAllocators, readPendingGuardian } from '@/lib/onchain/contracts';
 import { morphoGraphQLClient } from '@/lib/morpho/graphql-client';
 import { gql } from 'graphql-request';
+import { logger } from '@/lib/utils/logger';
 
 export interface VaultRolesData {
   owner: Address | null;
@@ -74,7 +75,11 @@ export function useVaultRoles(vaultAddress: Address | null | undefined, chainId:
           };
         }
       } catch (error) {
-        console.warn('Failed to fetch roles from GraphQL, trying on-chain:', error);
+        logger.warn('Failed to fetch roles from GraphQL, trying on-chain', { 
+          vaultAddress, 
+          chainId,
+          error: error instanceof Error ? error : new Error(String(error))
+        });
       }
 
       // Fallback to on-chain reads if GraphQL fails
@@ -90,7 +95,10 @@ export function useVaultRoles(vaultAddress: Address | null | undefined, chainId:
           );
         }
       } catch (error) {
-        console.warn('Failed to fetch allocators on-chain:', error);
+        logger.warn('Failed to fetch allocators on-chain', { 
+          vaultAddress,
+          error: error instanceof Error ? error : new Error(String(error))
+        });
       }
 
       return {

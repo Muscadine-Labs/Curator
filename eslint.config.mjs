@@ -1,16 +1,28 @@
-import { dirname } from "path";
-import { fileURLToPath } from "url";
-import { FlatCompat } from "@eslint/eslintrc";
+// Temporary minimal config until eslint-config-next circular reference is fixed
+// This is a known issue with eslint-config-next 16.1.1 and ESLint 9
+import js from "@eslint/js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
-
-const eslintConfig = [
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
+export default [
+  js.configs.recommended,
+  {
+    files: ["**/*.{js,mjs,cjs}"],
+    languageOptions: {
+      globals: {
+        require: "readonly",
+        module: "readonly",
+        exports: "readonly",
+        __dirname: "readonly",
+        __filename: "readonly",
+        process: "readonly",
+        console: "readonly",
+        Buffer: "readonly",
+        global: "readonly",
+      },
+    },
+    rules: {
+      "no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
+    },
+  },
   {
     ignores: [
       "node_modules/**",
@@ -24,5 +36,3 @@ const eslintConfig = [
     ],
   },
 ];
-
-export default eslintConfig;

@@ -22,9 +22,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 export default function V2VaultPage() {
   const params = useParams();
   const address = params.address as string;
-  const { vault, risk, governance, isLoading, isError, error } = useVaultV2Complete(address);
+  // Load all data in parallel - hooks will fetch independently
+  // Only block on vault data loading (needed for basic info)
+  const { vault, risk, governance, vaultIsLoading, isError, error } = useVaultV2Complete(address);
 
-  if (isLoading) {
+  // Only block on vault data loading (needed for basic info)
+  // Other data (risk, governance) will load in parallel via their own hooks
+  if (vaultIsLoading) {
     return (
       <AppShell title="Loading vault..." description="Fetching vault data">
         <div className="space-y-6">

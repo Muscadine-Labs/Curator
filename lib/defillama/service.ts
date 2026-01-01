@@ -5,6 +5,7 @@
  */
 
 import { EXTERNAL_API_TIMEOUT_MS } from '@/lib/constants';
+import { logger } from '@/lib/utils/logger';
 
 const DEFILLAMA_API_BASE = 'https://api.llama.fi';
 const PROTOCOL_SLUG = 'muscadine';
@@ -52,16 +53,21 @@ export async function fetchDefiLlamaFees(): Promise<DefiLlamaFeesResponse | null
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      console.warn(`DefiLlama fees API returned ${response.status}`);
+      logger.warn('DefiLlama fees API returned non-OK status', {
+        status: response.status,
+        statusText: response.statusText,
+      });
       return null;
     }
 
     return await response.json() as DefiLlamaFeesResponse;
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-      console.warn('DefiLlama fees API request timed out');
+      logger.warn('DefiLlama fees API request timed out');
     } else {
-      console.warn('Failed to fetch DefiLlama fees:', error);
+      logger.warn('Failed to fetch DefiLlama fees', {
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
     }
     return null;
   }
@@ -86,16 +92,21 @@ export async function fetchDefiLlamaProtocol(): Promise<DefiLlamaProtocolRespons
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      console.warn(`DefiLlama protocol API returned ${response.status}`);
+      logger.warn('DefiLlama protocol API returned non-OK status', {
+        status: response.status,
+        statusText: response.statusText,
+      });
       return null;
     }
 
     return await response.json() as DefiLlamaProtocolResponse;
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-      console.warn('DefiLlama protocol API request timed out');
+      logger.warn('DefiLlama protocol API request timed out');
     } else {
-      console.warn('Failed to fetch DefiLlama protocol:', error);
+      logger.warn('Failed to fetch DefiLlama protocol', {
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
     }
     return null;
   }

@@ -11,6 +11,7 @@ import { Address, isAddress } from 'viem';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { vaultWriteConfigs } from '@/lib/onchain/vault-writes';
 import { useVaultRoles } from '@/lib/hooks/useVaultRoles';
+import { logger } from '@/lib/utils/logger';
 
 interface AllocatorListProps {
   vaultAddress: Address;
@@ -59,8 +60,11 @@ export function AllocatorList({ vaultAddress, chainId = 8453 }: AllocatorListPro
       setIsAllocator(config as any);
       setNewAllocatorAddress('');
     } catch (error) {
-      console.error('Failed to add allocator:', error);
-      alert('Failed to add allocator. Please check the console for details.');
+      logger.error('Failed to add allocator', error instanceof Error ? error : new Error(String(error)), {
+        vaultAddress,
+        allocatorAddress: address,
+      });
+      alert('Failed to add allocator. Please try again.');
     } finally {
       setIsAdding(false);
     }
@@ -80,8 +84,11 @@ export function AllocatorList({ vaultAddress, chainId = 8453 }: AllocatorListPro
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       setIsAllocator(config as any);
     } catch (error) {
-      console.error('Failed to remove allocator:', error);
-      alert('Failed to remove allocator. Please check the console for details.');
+      logger.error('Failed to remove allocator', error instanceof Error ? error : new Error(String(error)), {
+        vaultAddress,
+        allocatorAddress,
+      });
+      alert('Failed to remove allocator. Please try again.');
     }
   };
 

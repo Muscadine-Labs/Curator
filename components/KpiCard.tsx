@@ -50,9 +50,9 @@ export function KpiCard({
             <Skeleton className="h-8 w-20" />
           </div>
           {subtitle && (
-            <p className="text-xs text-muted-foreground mt-1">
+            <div className="text-xs text-muted-foreground mt-1">
               <Skeleton className="h-3 w-16" />
-            </p>
+            </div>
           )}
         </CardContent>
       </Card>

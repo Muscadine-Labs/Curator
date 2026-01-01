@@ -2,6 +2,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Copy, ExternalLink } from 'lucide-react';
 import { formatAddress } from '@/lib/format/number';
+import { logger } from '@/lib/utils/logger';
 
 interface AddressBadgeProps {
   address: string;
@@ -23,7 +24,9 @@ export function AddressBadge({
     try {
       await navigator.clipboard.writeText(address);
     } catch (err) {
-      console.error('Failed to copy address:', err);
+      logger.error('Failed to copy address', err instanceof Error ? err : new Error(String(err)), {
+        address,
+      });
     }
   };
 

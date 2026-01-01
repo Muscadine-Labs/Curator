@@ -10,6 +10,7 @@ import { Address, isAddress } from 'viem';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { vaultWriteConfigs } from '@/lib/onchain/vault-writes';
 import { useVaultRoles } from '@/lib/hooks/useVaultRoles';
+import { logger } from '@/lib/utils/logger';
 
 interface RoleListProps {
   vaultAddress: Address;
@@ -74,8 +75,12 @@ export function RoleList({ vaultAddress, chainId = 8453 }: RoleListProps) {
       setEditingRole(null);
       setEditValues({});
     } catch (error) {
-      console.error(`Failed to update ${roleName}:`, error);
-      alert(`Failed to update ${roleName}. Please check the console for details.`);
+      logger.error(`Failed to update ${roleName}`, error instanceof Error ? error : new Error(String(error)), {
+        vaultAddress,
+        roleName,
+        newAddress,
+      });
+      alert(`Failed to update ${roleName}. Please try again.`);
     }
   };
 

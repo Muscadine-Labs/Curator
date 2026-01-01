@@ -12,6 +12,8 @@ export function useVaultV1Complete(vaultAddress: string | null | undefined) {
   const queues = useVaultQueues(vaultAddress);
   const marketRisk = useVaultV1MarketRisk(vaultAddress);
 
+  // Return vault loading state separately so pages can block only on vault data
+  // Other data will load in parallel and components handle their own loading states
   const isLoading = vault.isLoading || roles.isLoading || caps.isLoading || queues.isLoading || marketRisk.isLoading;
   const isError = vault.isError || roles.isError || caps.isError || queues.isError || marketRisk.isError;
   const error = vault.error || roles.error || caps.error || queues.error || marketRisk.error;
@@ -23,6 +25,7 @@ export function useVaultV1Complete(vaultAddress: string | null | undefined) {
     queues: queues.data,
     marketRisk: marketRisk.data,
     isLoading,
+    vaultIsLoading: vault.isLoading, // Separate vault loading state
     isError,
     error,
   };

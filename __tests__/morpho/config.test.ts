@@ -151,17 +151,31 @@ describe('loadConfigFromEnv', () => {
   });
 
   it('should warn when percentage looks like percent instead of decimal', () => {
-    const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+    // Mock logger before importing config
+    jest.mock('@/lib/utils/logger', () => ({
+      logger: {
+        warn: jest.fn(),
+        error: jest.fn(),
+        info: jest.fn(),
+        debug: jest.fn(),
+      },
+    }));
+    
+    // Re-import to get mocked logger
+    jest.resetModules();
+    const { loadConfigFromEnv: loadConfigFromEnvMocked } = require('@/lib/morpho/config');
+    const { logger } = require('@/lib/utils/logger');
     
     process.env.CURATOR_PRICE_STRESS_PCT = '30'; // Looks like 30% instead of 0.3
     
-    loadConfigFromEnv();
+    loadConfigFromEnvMocked();
     
-    expect(consoleSpy).toHaveBeenCalledWith(
-      expect.stringContaining('CURATOR_PRICE_STRESS_PCT looks like a percent')
-    );
+    expect(logger.warn).toHaveBeenCalled();
+    const callArgs = (logger.warn as jest.Mock).mock.calls[0];
+    expect(callArgs[0]).toContain('CURATOR_PRICE_STRESS_PCT looks like a percent');
     
-    consoleSpy.mockRestore();
+    // Restore original module
+    jest.resetModules();
   });
 
   it('should handle invalid number env vars', () => {

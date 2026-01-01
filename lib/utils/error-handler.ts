@@ -2,6 +2,8 @@
  * Standardized Error Handling Utilities
  */
 
+import { logger } from './logger';
+
 export interface ApiError {
   message: string;
   code?: string;
@@ -68,10 +70,12 @@ export function createErrorResponse(
 export function handleApiError(error: unknown, defaultMessage?: string) {
   const { error: apiError, statusCode } = createErrorResponse(error, defaultMessage);
   
-  // Log error in development
-  if (process.env.NODE_ENV === 'development') {
-    console.error('API Error:', apiError);
-  }
+  // Log error
+  logger.error('API Error', new Error(apiError.message), {
+    code: apiError.code,
+    statusCode: apiError.statusCode,
+    details: apiError.details,
+  });
 
   return {
     error: apiError,

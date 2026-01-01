@@ -173,6 +173,34 @@ export function Sidebar({ onClose }: SidebarProps) {
 
         <div className="space-y-2">
           <p className="px-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Curator Interface
+          </p>
+          <div className="space-y-1">
+            <Link
+              href="/curator/morpho"
+              onClick={handleLinkClick}
+              className={`flex items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 ${
+                isActive('/curator/morpho') ? 'bg-slate-900 text-white' : ''
+              }`}
+            >
+              <Shield className="h-4 w-4" />
+              <span className="truncate">Morpho Curator</span>
+            </Link>
+            <Link
+              href="/curator/safe"
+              onClick={handleLinkClick}
+              className={`flex items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 ${
+                isActive('/curator/safe') ? 'bg-slate-900 text-white' : ''
+              }`}
+            >
+              <Shield className="h-4 w-4" />
+              <span className="truncate">Multisig Safe</span>
+            </Link>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <p className="px-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
             Bots
           </p>
           <div className="space-y-1">
@@ -199,10 +227,6 @@ export function Sidebar({ onClose }: SidebarProps) {
           </div>
         </div>
       </nav>
-
-      <div className="mt-auto rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
-        Resources
-      </div>
     </aside>
   );
 }
