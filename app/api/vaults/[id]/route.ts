@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getVaultByAddress, shouldUseV2Query } from '@/lib/config/vaults';
-import { GRAPHQL_FIRST_LIMIT, GRAPHQL_TRANSACTIONS_LIMIT, getDaysAgoTimestamp } from '@/lib/constants';
 import { handleApiError, AppError } from '@/lib/utils/error-handler';
 import { createRateLimitMiddleware, RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS } from '@/lib/utils/rate-limit';
 import { morphoGraphQLClient } from '@/lib/morpho/graphql-client';
@@ -14,6 +13,7 @@ import { logger } from '@/lib/utils/logger';
 export const runtime = 'nodejs';
 export const maxDuration = 60; // 60 seconds for complex vault queries
 export const revalidate = 300; // cache detail view to reduce load
+const POSITIONS_LIMIT = 200; // keep payloads small for Vercel
 
 export async function GET(
   request: NextRequest,
@@ -119,20 +119,10 @@ export async function GET(
     }
 
     // V2 vaults don't need options for historical data
-    const variables = isV2
-      ? {
-          address,
-          chainId: cfg.chainId,
-        }
-      : {
-          address,
-          chainId: cfg.chainId,
-          options: {
-            startTimestamp: getDaysAgoTimestamp(30),
-            endTimestamp: Math.floor(Date.now() / 1000),
-            interval: 'DAY'
-          }
-        };
+    const variables = {
+      address,
+      chainId: cfg.chainId,
+    };
 
     // Response type - complex nested structure from GraphQL
     // Using unknown for vault since it has deeply nested structure that matches our query
@@ -154,7 +144,7 @@ export async function GET(
     };
     
     const v1Query = gql`
-      query VaultDetail($address: String!, $chainId: Int!, $options: TimeseriesOptions) {
+      query VaultDetail($address: String!, $chainId: Int!) {
         vault: vaultByAddress(address: $address, chainId: $chainId) {
           address
           name
@@ -223,37 +213,11 @@ export async function GET(
               market { uniqueKey }
             }
           }
-          historicalState {
-            apy(options: $options) {
-              x
-              y
-            }
-            netApy(options: $options) {
-              x
-              y
-            }
-            totalAssets(options: $options) {
-              x
-              y
-            }
-            totalAssetsUsd(options: $options) {
-              x
-              y
-            }
-          }
         }
         positions: vaultPositions(
-          first: ${GRAPHQL_FIRST_LIMIT},
+          first: ${POSITIONS_LIMIT},
           where: { vaultAddress_in: [$address] }
         ) { items { user { address } } }
-        txs: transactions(
-          first: ${GRAPHQL_TRANSACTIONS_LIMIT},
-          orderBy: Timestamp,
-          orderDirection: Desc,
-          where: { vaultAddress_in: [$address] }
-        ) {
-          items { blockNumber hash type user { address } }
-        }
       }
     `;
 
@@ -285,17 +249,9 @@ export async function GET(
             supplyApr
             yearlySupplyTokens
           }
-          positions(first: ${GRAPHQL_FIRST_LIMIT}) {
+          positions(first: ${POSITIONS_LIMIT}) {
             items { user { address } }
           }
-        }
-        txs: transactions(
-          first: ${GRAPHQL_TRANSACTIONS_LIMIT},
-          orderBy: Timestamp,
-          orderDirection: Desc,
-          where: { vaultAddress_in: [$address] }
-        ) {
-          items { blockNumber hash type user { address } }
         }
       }
     `;
@@ -483,12 +439,6 @@ export async function GET(
           market?: { uniqueKey?: string } | null;
         }> | null;
       } | null;
-      historicalState?: {
-        apy?: Array<{ x?: number; y?: number }>;
-        netApy?: Array<{ x?: number; y?: number }>;
-        totalAssets?: Array<{ x?: number; y?: number }>;
-        totalAssetsUsd?: Array<{ x?: number; y?: number }>;
-      } | null;
     } | null;
     // Handle positions - v2 has positions on vault, v1 has them in separate query
     const v2Positions = mv?.positions?.items || [];
@@ -496,14 +446,12 @@ export async function GET(
     const allPositions = isV2 ? v2Positions : v1Positions;
     
     // Handle transactions - both v1 and v2 use the same transactions query
-    const txs = (data.txs?.items || []).filter(
-      (t): t is {
-        blockNumber: number;
-        hash: string;
-        type: string;
-        user?: { address?: string | null } | null;
-      } => t !== null
-    );
+    const txs: Array<{
+      blockNumber: number;
+      hash: string;
+      type: string;
+      user?: { address?: string | null } | null;
+    }> = [];
     
     const positions = allPositions.filter(
       (p): p is { user: { address: string } } => p !== null && p?.user !== null && p?.user !== undefined && p.user.address !== undefined
@@ -679,10 +627,10 @@ export async function GET(
       warnings: [],
       metadata: mv?.metadata || {},
       historicalData: {
-        apy: mv?.historicalState?.apy || [],
-        netApy: mv?.historicalState?.netApy || [],
-        totalAssets: mv?.historicalState?.totalAssets || [],
-        totalAssetsUsd: mv?.historicalState?.totalAssetsUsd || [],
+        apy: [],
+        netApy: [],
+        totalAssets: [],
+        totalAssetsUsd: [],
       },
       roles: {
         owner: isV2 ? (mv?.owner?.address ?? null) : (mv?.state?.owner ?? null),
