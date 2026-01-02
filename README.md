@@ -13,12 +13,15 @@ Next.js dashboard for Muscadine vaults on Morpho. Built on Base network.
    ```bash
    # Required
    NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_walletconnect_project_id
-   NEXT_PUBLIC_ALCHEMY_API_KEY=your_alchemy_api_key
    
    # Required (server-side - use one)
    ALCHEMY_API_KEY=your_alchemy_api_key
    # OR
    COINBASE_CDP_API_KEY=your_coinbase_cdp_api_key
+   
+   # Optional (client-side - can use same key as ALCHEMY_API_KEY)
+   # If not set, wallet connections will use demo endpoints (rate limited)
+   NEXT_PUBLIC_ALCHEMY_API_KEY=your_alchemy_api_key
    ```
 
 3. **Run development server:**
@@ -33,8 +36,11 @@ Next.js dashboard for Muscadine vaults on Morpho. Built on Base network.
 ### Required
 
 - `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` - Get from https://cloud.walletconnect.com
-- `NEXT_PUBLIC_ALCHEMY_API_KEY` - Get from https://www.alchemy.com/
 - `ALCHEMY_API_KEY` OR `COINBASE_CDP_API_KEY` - Server-side RPC (one required)
+
+### Optional
+
+- `NEXT_PUBLIC_ALCHEMY_API_KEY` - Client-side RPC for wallet connections (can use same value as `ALCHEMY_API_KEY`). If not set, uses demo endpoints.
 
 ### Optional
 

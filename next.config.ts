@@ -1,5 +1,11 @@
 import type { NextConfig } from "next";
 
+// Auto-populate NEXT_PUBLIC_ALCHEMY_API_KEY from ALCHEMY_API_KEY if not set
+// This allows using the same key for both server and client without duplicating it
+if (!process.env.NEXT_PUBLIC_ALCHEMY_API_KEY && process.env.ALCHEMY_API_KEY) {
+  process.env.NEXT_PUBLIC_ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY;
+}
+
 const nextConfig: NextConfig = {
   // Use webpack for builds to support alias configuration
   // Turbopack doesn't support false aliases yet

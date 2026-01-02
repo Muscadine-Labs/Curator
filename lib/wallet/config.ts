@@ -32,36 +32,41 @@ const walletsWithRabby = [
 const chains = [base, mainnet, optimism, polygon] as const;
 
 // Helper to get RPC URL for a chain
+// Uses NEXT_PUBLIC_ALCHEMY_API_KEY if available, otherwise falls back to demo endpoints
+// Note: Server-side ALCHEMY_API_KEY cannot be accessed from client-side code
 function getRpcUrl(chainId: number): string {
+  // Prefer client-side Alchemy key if available
   const alchemyKey = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY;
-  if (!alchemyKey) {
-    // Fallback to public RPCs if no Alchemy key
+  
+  if (alchemyKey) {
+    // Use Alchemy for all chains if key is available
     switch (chainId) {
       case base.id:
-        return 'https://base-mainnet.g.alchemy.com/v2/demo';
+        return `https://base-mainnet.g.alchemy.com/v2/${alchemyKey}`;
       case mainnet.id:
-        return 'https://eth-mainnet.g.alchemy.com/v2/demo';
+        return `https://eth-mainnet.g.alchemy.com/v2/${alchemyKey}`;
       case optimism.id:
-        return 'https://opt-mainnet.g.alchemy.com/v2/demo';
+        return `https://opt-mainnet.g.alchemy.com/v2/${alchemyKey}`;
       case polygon.id:
-        return 'https://polygon-mainnet.g.alchemy.com/v2/demo';
+        return `https://polygon-mainnet.g.alchemy.com/v2/${alchemyKey}`;
       default:
-        return 'https://base-mainnet.g.alchemy.com/v2/demo';
+        return `https://base-mainnet.g.alchemy.com/v2/${alchemyKey}`;
     }
   }
 
-  // Use Alchemy for all chains if key is available
+  // Fallback to demo endpoints (rate limited)
+  // To use your ALCHEMY_API_KEY, set NEXT_PUBLIC_ALCHEMY_API_KEY to the same value
   switch (chainId) {
     case base.id:
-      return `https://base-mainnet.g.alchemy.com/v2/${alchemyKey}`;
+      return 'https://base-mainnet.g.alchemy.com/v2/demo';
     case mainnet.id:
-      return `https://eth-mainnet.g.alchemy.com/v2/${alchemyKey}`;
+      return 'https://eth-mainnet.g.alchemy.com/v2/demo';
     case optimism.id:
-      return `https://opt-mainnet.g.alchemy.com/v2/${alchemyKey}`;
+      return 'https://opt-mainnet.g.alchemy.com/v2/demo';
     case polygon.id:
-      return `https://polygon-mainnet.g.alchemy.com/v2/${alchemyKey}`;
+      return 'https://polygon-mainnet.g.alchemy.com/v2/demo';
     default:
-      return `https://base-mainnet.g.alchemy.com/v2/${alchemyKey}`;
+      return 'https://base-mainnet.g.alchemy.com/v2/demo';
   }
 }
 

@@ -3,7 +3,7 @@
  * Uses graphql-request with SDK-generated types for type safety
  */
 import { request, type RequestDocument } from 'graphql-request';
-import { MORPHO_GRAPHQL_ENDPOINT } from '@/lib/constants';
+import { MORPHO_GRAPHQL_ENDPOINT, API_REQUEST_TIMEOUT_MS } from '@/lib/constants';
 import { logger } from '@/lib/utils/logger';
 
 export type GraphQLResponse<T> = {
@@ -42,19 +42,50 @@ export class MorphoGraphQLClient {
     document: RequestDocument,
     variables?: Record<string, unknown>
   ): Promise<T> {
+    const startTime = Date.now();
     try {
-      const data = await request<T>(this.endpoint, document, variables);
+      logger.debug('GraphQL request starting', {
+        endpoint: this.endpoint,
+        hasVariables: !!variables,
+      });
+
+      // Wrap request in a timeout promise for better Vercel compatibility
+      const headers = new Headers();
+      headers.set('Content-Type', 'application/json');
+      headers.set('Accept', 'application/json');
+      
+      const requestPromise = request<T>(this.endpoint, document, variables, headers);
+
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          reject(new Error(`GraphQL request timeout after ${API_REQUEST_TIMEOUT_MS}ms`));
+        }, API_REQUEST_TIMEOUT_MS);
+      });
+
+      const data = await Promise.race([requestPromise, timeoutPromise]);
+      const duration = Date.now() - startTime;
+      
+      logger.debug('GraphQL request succeeded', {
+        endpoint: this.endpoint,
+        duration: `${duration}ms`,
+      });
+
       return data;
     } catch (error: unknown) {
+      const duration = Date.now() - startTime;
       // Enhanced error handling with logging
       const graphqlError = error as GraphQLResponseError;
       
       // Log the error for debugging
+      const isTimeout = error instanceof Error && (error.name === 'AbortError' || error.message.includes('timeout'));
       logger.error('GraphQL request failed', error instanceof Error ? error : new Error(String(error)), {
         endpoint: this.endpoint,
+        duration: `${duration}ms`,
         status: graphqlError.response?.status,
         statusText: graphqlError.response?.statusText,
         hasErrors: !!graphqlError.response?.errors,
+        isTimeout,
+        timeoutMs: API_REQUEST_TIMEOUT_MS,
       });
 
       if (graphqlError.response?.errors) {

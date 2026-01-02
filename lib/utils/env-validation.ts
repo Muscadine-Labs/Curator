@@ -40,10 +40,8 @@ export function validateEnvVars(): EnvValidationResult {
     warnings.push('No server-side RPC API key configured. Server-side calls will use demo endpoints');
   }
 
-  // Client-side RPC key recommended
-  if (!process.env.NEXT_PUBLIC_ALCHEMY_API_KEY) {
-    warnings.push('NEXT_PUBLIC_ALCHEMY_API_KEY is not set. Client-side RPC calls will use demo endpoints');
-  }
+  // Client-side RPC key is optional - wallet config falls back to demo endpoints automatically
+  // No warning needed since it's handled gracefully
 
   return {
     isValid: errors.length === 0,
