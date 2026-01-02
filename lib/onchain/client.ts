@@ -5,9 +5,12 @@ import { logger } from '@/lib/utils/logger';
 // Determine RPC URL based on available API keys
 // Priority: NEXT_PUBLIC_ALCHEMY_API_KEY (for client bundles) >
 // ALCHEMY_API_KEY (server) > COINBASE_CDP_API_KEY > demo fallback
+// Note: NEXT_PUBLIC_* vars are replaced at build time by Next.js
+// next.config.ts auto-populates NEXT_PUBLIC_ALCHEMY_API_KEY from ALCHEMY_API_KEY
 function getRpcUrl(): string {
   // Prefer public key so client bundles can resolve it, fall back to server key
   const alchemyKey = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY || process.env.ALCHEMY_API_KEY;
+  
   if (alchemyKey) {
     return `https://base-mainnet.g.alchemy.com/v2/${alchemyKey}`;
   }
