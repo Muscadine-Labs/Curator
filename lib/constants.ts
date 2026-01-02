@@ -33,7 +33,7 @@ export const DAYS_30_SECONDS = 30 * HOURS_PER_DAY * SECONDS_PER_MINUTE;
 export const DAYS_90_MS = 90 * DAY_MS;
 
 // API Configuration
-export const MORPHO_GRAPHQL_ENDPOINT = 'https://api.morpho.org/graphql';
+export const MORPHO_GRAPHQL_ENDPOINT = process.env.MORPHO_GRAPHQL_ENDPOINT || process.env.MORPHO_API_URL || 'https://api.morpho.org/graphql';
 
 // React Query Configuration
 export const QUERY_STALE_TIME_SHORT = 2 * MINUTE_MS; // 2 minutes

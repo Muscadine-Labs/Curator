@@ -54,6 +54,14 @@ export class MorphoGraphQLClient {
       headers.set('Content-Type', 'application/json');
       headers.set('Accept', 'application/json');
       
+      // Log the endpoint being used for debugging
+      if (process.env.NODE_ENV === 'production') {
+        logger.debug('GraphQL request endpoint', {
+          endpoint: this.endpoint,
+          endpointFromEnv: process.env.MORPHO_GRAPHQL_ENDPOINT || process.env.MORPHO_API_URL || 'default',
+        });
+      }
+      
       const requestPromise = request<T>(this.endpoint, document, variables, headers);
 
       const timeoutPromise = new Promise<never>((_, reject) => {
