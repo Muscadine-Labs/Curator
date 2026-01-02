@@ -19,8 +19,9 @@ Next.js dashboard for Muscadine vaults on Morpho. Built on Base network.
    # OR
    COINBASE_CDP_API_KEY=your_coinbase_cdp_api_key
    
-   # Optional (client-side - can use same key as ALCHEMY_API_KEY)
-   # If not set, wallet connections will use demo endpoints (rate limited)
+   # Optional (client-side - auto-populated from ALCHEMY_API_KEY if not set)
+   # If not set, NEXT_PUBLIC_ALCHEMY_API_KEY will be auto-populated from ALCHEMY_API_KEY
+   # Wallet connections will use demo endpoints (rate limited) if neither is set
    NEXT_PUBLIC_ALCHEMY_API_KEY=your_alchemy_api_key
    ```
 
@@ -40,7 +41,7 @@ Next.js dashboard for Muscadine vaults on Morpho. Built on Base network.
 
 ### Optional
 
-- `NEXT_PUBLIC_ALCHEMY_API_KEY` - Client-side RPC for wallet connections (can use same value as `ALCHEMY_API_KEY`). If not set, uses demo endpoints.
+- `NEXT_PUBLIC_ALCHEMY_API_KEY` - Client-side RPC for wallet connections. Auto-populated from `ALCHEMY_API_KEY` if not explicitly set. If neither is set, uses demo endpoints (rate limited).
 
 ### Optional
 

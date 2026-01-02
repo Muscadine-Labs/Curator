@@ -6,7 +6,18 @@ if (!process.env.NEXT_PUBLIC_ALCHEMY_API_KEY && process.env.ALCHEMY_API_KEY) {
   process.env.NEXT_PUBLIC_ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY;
 }
 
+// Build env object conditionally - only include NEXT_PUBLIC_ALCHEMY_API_KEY if it's set
+const envConfig: Record<string, string> = {};
+const alchemyPublicKey = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY || process.env.ALCHEMY_API_KEY;
+if (alchemyPublicKey) {
+  envConfig.NEXT_PUBLIC_ALCHEMY_API_KEY = alchemyPublicKey;
+}
+
 const nextConfig: NextConfig = {
+  // Expose environment variables to the client
+  // This ensures NEXT_PUBLIC_ALCHEMY_API_KEY is available at runtime in production
+  // Auto-populated from ALCHEMY_API_KEY if NEXT_PUBLIC_ALCHEMY_API_KEY is not explicitly set
+  env: envConfig,
   // Use webpack for builds to support alias configuration
   // Turbopack doesn't support false aliases yet
   webpack: (config) => {
