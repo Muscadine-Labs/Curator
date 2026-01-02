@@ -13,6 +13,7 @@ import { logger } from '@/lib/utils/logger';
 // Vercel runtime configuration
 export const runtime = 'nodejs';
 export const maxDuration = 60; // 60 seconds for complex vault queries
+export const revalidate = 300; // cache detail view to reduce load
 
 export async function GET(
   request: NextRequest,

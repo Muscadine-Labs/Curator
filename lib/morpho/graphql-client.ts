@@ -2,9 +2,11 @@
  * GraphQL Client for Morpho API
  * Uses graphql-request with SDK-generated types for type safety
  */
-import { request, type RequestDocument } from 'graphql-request';
+import { type RequestDocument } from 'graphql-request';
+import { print, type DocumentNode } from 'graphql';
 import { API_REQUEST_TIMEOUT_MS } from '@/lib/constants';
 import { logger } from '@/lib/utils/logger';
+import { fetchWithTimeout } from '@/lib/utils/fetch-with-timeout';
 
 export type GraphQLResponse<T> = {
   data?: T;
@@ -53,34 +55,67 @@ export class MorphoGraphQLClient {
     variables?: Record<string, unknown>
   ): Promise<T> {
     const startTime = Date.now();
+    const query =
+      typeof document === 'string'
+        ? document
+        : print(document as DocumentNode);
+
     try {
-      // Wrap request in a timeout promise for better Vercel compatibility
       const headers = new Headers();
       headers.set('Content-Type', 'application/json');
       headers.set('Accept', 'application/json');
       
-      // Log the endpoint being used for debugging (info level so it shows in production)
-      logger.info('GraphQL request starting', {
+      // Log the endpoint being used for debugging
+      logger.debug('GraphQL request starting', {
         endpoint: this.endpoint,
         endpointFromEnv: getMorphoEndpoint(),
         hasVariables: !!variables,
         nodeEnv: process.env.NODE_ENV,
         vercel: !!process.env.VERCEL,
       });
-      
-      const requestPromise = request<T>(this.endpoint, document, variables, headers);
 
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => {
-          reject(new Error(`GraphQL request timeout after ${API_REQUEST_TIMEOUT_MS}ms`));
-        }, API_REQUEST_TIMEOUT_MS);
-      });
+      const response = await fetchWithTimeout(
+        this.endpoint,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            query,
+            variables,
+          }),
+        },
+        API_REQUEST_TIMEOUT_MS
+      );
 
-      const data = await Promise.race([requestPromise, timeoutPromise]);
+      if (!response.ok) {
+        const error = new Error(
+          `GraphQL HTTP Error: ${response.status} ${response.statusText || 'Unknown error'}`
+        );
+        logger.error('GraphQL HTTP error', error, {
+          status: response.status,
+          statusText: response.statusText,
+          endpoint: this.endpoint,
+        });
+        throw error;
+      }
+
+      const json = await response.json() as { data?: T; errors?: GraphQLError[] };
+
+      if (json.errors && json.errors.length > 0) {
+        const errorMessages = json.errors.map((e) => e.message).join(', ');
+        const error = new Error(`GraphQL Error: ${errorMessages}`);
+        logger.error('GraphQL errors', error, {
+          errors: json.errors,
+          endpoint: this.endpoint,
+        });
+        throw error;
+      }
+
+      const data = json.data as T;
       const duration = Date.now() - startTime;
       
-      // Log success for monitoring (info level so it shows in production)
-      logger.info('GraphQL request succeeded', {
+      // Log success for monitoring
+      logger.debug('GraphQL request succeeded', {
         endpoint: this.endpoint,
         duration: `${duration}ms`,
       });

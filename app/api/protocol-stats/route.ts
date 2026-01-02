@@ -26,6 +26,7 @@ import {
 // Vercel runtime configuration
 export const runtime = 'nodejs';
 export const maxDuration = 60; // 60 seconds for Vercel Pro, adjust if needed
+export const revalidate = 300; // cache heavy aggregation for 5 minutes
 
 // Type-safe response matching our query structure
 type ProtocolStatsQueryResponse = {
@@ -66,7 +67,7 @@ type V1VaultCheckResult = {
 
 // Constants
 const MIN_DATE = new Date('2025-06-01T00:00:00.000Z').getTime();
-const HISTORICAL_QUERY_DAYS = 730; // 2 years
+const HISTORICAL_QUERY_DAYS = 180; // trimmed to reduce payload/latency
 const HOURS_THRESHOLD_FOR_CURRENT_TVL = 12;
 const TVL_DIFF_THRESHOLD = 0.01;
 
