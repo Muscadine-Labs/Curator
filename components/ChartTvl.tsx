@@ -4,8 +4,9 @@ import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { formatCompactUSD } from '@/lib/format/number';
+import { filterDataByDate } from '@/lib/utils/date-filter';
 
 interface ChartTvlProps {
   totalData?: Array<{ date: string; value: number }>;
@@ -33,16 +34,53 @@ const VAULT_COLORS = [
 export function ChartTvl({ totalData, vaultData, isLoading = false, title = "TVL Over Time" }: ChartTvlProps) {
   const [viewMode, setViewMode] = useState<'total' | 'byVault'>('total');
   
+  // Filter data to exclude dates before June 1, 2025
+  const filteredTotalData = useMemo(() => filterDataByDate(totalData || []), [totalData]);
+  const filteredVaultData = useMemo(() => {
+    if (!vaultData) return undefined;
+    return vaultData.map(vault => ({
+      ...vault,
+      data: filterDataByDate(vault.data),
+    }));
+  }, [vaultData]);
+  
   // Process vault data into chart format when "By Vault" is selected
   const chartData = useMemo(() => {
-    if (viewMode === 'total' || !vaultData || vaultData.length === 0) {
-      return totalData || [];
+    if (viewMode === 'total' || !filteredVaultData || filteredVaultData.length === 0) {
+      return filteredTotalData;
     }
 
-    // Combine all vault data by date
+    // First, normalize all vault data points to start of day and deduplicate
+    const normalizedVaultData = filteredVaultData.map(vault => {
+      // Group points by normalized date and keep the latest value for each day
+      const dayMap = new Map<string, { date: string; value: number; timestamp: number }>();
+      
+      vault.data.forEach((point) => {
+        const pointDate = new Date(point.date);
+        const normalizedDate = new Date(pointDate);
+        normalizedDate.setHours(0, 0, 0, 0);
+        const dateKey = normalizedDate.toISOString();
+        
+        const existing = dayMap.get(dateKey);
+        if (!existing || pointDate.getTime() > existing.timestamp) {
+          dayMap.set(dateKey, {
+            date: dateKey,
+            value: point.value,
+            timestamp: pointDate.getTime(),
+          });
+        }
+      });
+      
+      return {
+        ...vault,
+        data: Array.from(dayMap.values()).map(({ date, value }) => ({ date, value })),
+      };
+    });
+
+    // Combine all vault data by normalized date
     const dateMap = new Map<string, Record<string, number | string>>();
     
-    vaultData.forEach((vault) => {
+    normalizedVaultData.forEach((vault) => {
       vault.data.forEach((point) => {
         if (!dateMap.has(point.date)) {
           dateMap.set(point.date, { date: point.date });
@@ -56,7 +94,7 @@ export function ChartTvl({ totalData, vaultData, isLoading = false, title = "TVL
     return Array.from(dateMap.values()).sort((a, b) => 
       new Date(a.date as string).getTime() - new Date(b.date as string).getTime()
     ) as Array<{ date: string; [key: string]: number | string }>;
-  }, [viewMode, totalData, vaultData]);
+  }, [viewMode, filteredTotalData, filteredVaultData]);
 
   const data = chartData;
   const showToggle = totalData && vaultData && vaultData.length > 0;
@@ -94,7 +132,6 @@ export function ChartTvl({ totalData, vaultData, isLoading = false, title = "TVL
     const date = new Date(tickItem);
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
-
 
   return (
     <Card>
@@ -153,7 +190,7 @@ export function ChartTvl({ totalData, vaultData, isLoading = false, title = "TVL
               />
             ) : (
               <>
-                {vaultData?.map((vault, index) => (
+                {filteredVaultData?.map((vault, index) => (
                   <Line
                     key={vault.address}
                     type="monotone"
@@ -164,7 +201,6 @@ export function ChartTvl({ totalData, vaultData, isLoading = false, title = "TVL
                     name={vault.name}
                   />
                 ))}
-                <Legend />
               </>
             )}
           </LineChart>

@@ -18,8 +18,6 @@ import {
   fetchDefiLlamaProtocol,
   getDailyFeesChart,
   getCumulativeFeesChart,
-  getDailyRevenueChart,
-  getCumulativeRevenueChart,
   getDailyInflowsChart,
   getCumulativeInflowsChart 
 } from '@/lib/defillama/service';
@@ -107,84 +105,29 @@ export async function GET(request: Request) {
       vaultAddresses: morphoVaults.map(v => v.address?.toLowerCase()),
       v1VaultCurrentTvlMap: Array.from(v1VaultCurrentTvl.entries()),
       allAddresses: addresses.map(a => a.toLowerCase()),
+      totalAddresses: addresses.length,
     });
+    
+    // Ensure all V1 vaults from main query are included in results
+    // This is a safeguard in case individual queries fail
+    const v1VaultsFromMainQuery = new Set(morphoVaults.map(v => v.address?.toLowerCase()).filter((a): a is string => !!a));
 
     // Fetch historical TVL data per vault (V1 has historical, V2 has current only)
     // Also collect V2 performance fees for revenue calculation and asset information
     // Note: V2 vaults will be added to totalDeposited below
     const tvlByVaultPromises = addresses.map(async (address) => {
       try {
-        // First check if it's a V2 vault (also fetch performanceFee for revenue calculation)
-        const v2CheckQuery = gql`
-          query CheckV2Vault($address: String!, $chainId: Int!) {
-            vaultV2ByAddress(address: $address, chainId: $chainId) {
-              name
-              address
-              performanceFee
-              totalAssetsUsd
-              asset { symbol address }
-            }
-          }
-        `;
-        const v2Result = await morphoGraphQLClient.request<{ vaultV2ByAddress?: { name?: string; address?: string; performanceFee?: number; totalAssetsUsd?: number; asset?: { symbol?: string; address?: string } | null } | null }>(v2CheckQuery, { address, chainId: BASE_CHAIN_ID });
-        
-        // Check if V2 vault exists (not null/undefined), even if name is missing
-        if (v2Result.vaultV2ByAddress !== null && v2Result.vaultV2ByAddress !== undefined) {
-          // This is a V2 vault, use current TVL as a single data point
-          const currentDate = new Date().toISOString();
-          return {
-            name: v2Result.vaultV2ByAddress.name || `V2 Vault ${address.slice(0, 6)}...`,
-            address: address.toLowerCase(),
-            data: v2Result.vaultV2ByAddress.totalAssetsUsd != null ? [{
-              date: currentDate,
-              value: v2Result.vaultV2ByAddress.totalAssetsUsd,
-            }] : [],
-            performanceFee: v2Result.vaultV2ByAddress.performanceFee ?? null,
-          };
-        }
-        
-        // Check if it's a V1 vault
-        const v1CheckQuery = gql`
-          query CheckVault($address: String!, $chainId: Int!) {
-            vault: vaultByAddress(address: $address, chainId: $chainId) {
-              name
-              address
-              asset { symbol address }
-            }
-          }
-        `;
-        const v1Result = await morphoGraphQLClient.request<{ vault?: { name?: string; address?: string; asset?: { symbol?: string; address?: string } | null } | null }>(v1CheckQuery, { address, chainId: BASE_CHAIN_ID });
-        
-        logger.info('V1 vault check result', {
-          address,
-          addressLower: address.toLowerCase(),
-          hasVault: !!v1Result.vault,
-          vaultName: v1Result.vault?.name,
-          hasCurrentTvl: v1VaultCurrentTvl.has(address.toLowerCase()),
-          currentTvl: v1VaultCurrentTvl.get(address.toLowerCase()),
-        });
-        
-        // If V2 check returned null/undefined, this is a V1 vault (or doesn't exist)
-        // Try to fetch historical data for V1 vaults using GraphQL
-        // Also check if we have current TVL from main query - if so, it's definitely a V1 vault
+        // First check if it's a V1 vault (from main query) - prioritize V1 since we know they exist
         const currentTvl = v1VaultCurrentTvl.get(address.toLowerCase());
-        const isV1Vault = v1Result.vault || currentTvl != null;
-        if (isV1Vault) {
-          // If v1Result.vault is null but we have current TVL, we'll still try to fetch historical data
-          // The historical query will get the vault name and asset info
-          if (!v1Result.vault && currentTvl != null) {
-            logger.info('V1 vault found in main query but not in individual check, will fetch from historical query', {
-              address,
-              currentTvl,
-            });
-          }
-          logger.info('V1 vault detected, fetching historical data', {
+        const isV1VaultFromMainQuery = currentTvl != null;
+        
+        if (isV1VaultFromMainQuery) {
+          // This is definitely a V1 vault, fetch historical data directly
+          logger.info('V1 vault detected from main query, fetching historical data', {
             address,
-            vaultName: v1Result.vault?.name || 'Unknown (will fetch from historical query)',
-            hasVaultFromCheck: !!v1Result.vault,
-            hasCurrentTvl: currentTvl != null,
+            currentTvl,
           });
-          // This is a V1 vault, fetch historical data from GraphQL
+          
           try {
             const historicalQuery = gql`
               query VaultHistoricalTvl($address: String!, $chainId: Int!, $options: TimeseriesOptions) {
@@ -201,11 +144,13 @@ export async function GET(request: Request) {
                 }
               }
             `;
+            // Fetch historical data from June 2024 (when vaults started) to now
+            const june2024Timestamp = Math.floor(new Date('2024-06-01').getTime() / 1000);
             const histResult = await morphoGraphQLClient.request<{ vault?: { name?: string; address?: string; asset?: { symbol?: string; address?: string } | null; historicalState?: { totalAssetsUsd?: Array<{ x?: number; y?: number }> } } | null }>(historicalQuery, {
               address,
               chainId: BASE_CHAIN_ID,
               options: {
-                startTimestamp: getDaysAgoTimestamp(30), // 30 days of historical data
+                startTimestamp: june2024Timestamp, // Historical data from June 2024
                 endTimestamp: Math.floor(Date.now() / 1000),
                 interval: 'DAY'
               }
@@ -216,43 +161,63 @@ export async function GET(request: Request) {
               
               logger.info('V1 vault historical data fetched', {
                 address,
-                name: histResult.vault.name || v1Result.vault?.name || 'Unknown',
+                name: histResult.vault.name || 'Unknown',
                 rawDataPoints: rawDataPoints.length,
               });
               
-              const dataPoints = rawDataPoints.map(point => ({
+              let dataPoints = rawDataPoints.map(point => ({
                 date: point.x ? new Date(point.x * 1000).toISOString() : '',
                 value: point.y || 0,
               })).filter(p => p.date);
               
-              // Get current TVL from morphoVaults to ensure we have latest data point
-              const currentTvl = v1VaultCurrentTvl.get(address.toLowerCase());
-              const currentDate = new Date().toISOString();
-              
-              // Add current TVL if it's not already the latest point or if we have no historical data
-              if (dataPoints.length > 0) {
-                // Check if latest point is today (within last 24 hours)
-                const latestPoint = dataPoints[dataPoints.length - 1];
-                const latestDate = new Date(latestPoint.date);
-                const hoursSinceLatest = (Date.now() - latestDate.getTime()) / (1000 * 60 * 60);
+              // Normalize all data points to start of day and deduplicate
+              const dayMap = new Map<string, { date: string; value: number; timestamp: number }>();
+              dataPoints.forEach(point => {
+                const pointDate = new Date(point.date);
+                const normalizedDate = new Date(pointDate);
+                normalizedDate.setHours(0, 0, 0, 0);
+                const dateKey = normalizedDate.toISOString();
                 
-                // Add current TVL if latest point is more than 12 hours old, or if current TVL differs
-                if (hoursSinceLatest > 12 || (currentTvl != null && Math.abs(latestPoint.value - currentTvl) > 0.01)) {
+                const existing = dayMap.get(dateKey);
+                if (!existing || pointDate.getTime() > existing.timestamp) {
+                  dayMap.set(dateKey, {
+                    date: dateKey,
+                    value: point.value,
+                    timestamp: pointDate.getTime(),
+                  });
+                }
+              });
+              
+              dataPoints = Array.from(dayMap.values()).map(({ date, value }) => ({ date, value }));
+              
+              // Normalize current date to start of day
+              const normalizedCurrentDate = new Date();
+              normalizedCurrentDate.setHours(0, 0, 0, 0);
+              const normalizedCurrentDateStr = normalizedCurrentDate.toISOString();
+              
+              // Add current TVL if latest point is a different day or value differs significantly
+              if (dataPoints.length > 0) {
+                const latestPoint = dataPoints[dataPoints.length - 1];
+                
+                // Only add if it's a different day or value differs significantly
+                if (latestPoint.date !== normalizedCurrentDateStr || Math.abs(latestPoint.value - (currentTvl ?? latestPoint.value)) > 0.01) {
+                  // Remove existing point for today if it exists
+                  dataPoints = dataPoints.filter(p => p.date !== normalizedCurrentDateStr);
                   dataPoints.push({
-                    date: currentDate,
+                    date: normalizedCurrentDateStr,
                     value: currentTvl ?? latestPoint.value,
                   });
                 }
               } else if (currentTvl != null) {
                 // No historical data, but we have current TVL - use it
                 dataPoints.push({
-                  date: currentDate,
+                  date: normalizedCurrentDateStr,
                   value: currentTvl,
                 });
               }
               
               if (dataPoints.length > 0) {
-                const vaultName = histResult.vault?.name || v1Result.vault?.name || `Vault ${address.slice(0, 6)}...`;
+                const vaultName = histResult.vault?.name || `Vault ${address.slice(0, 6)}...`;
                 logger.info('V1 vault returning data', {
                   address,
                   name: vaultName,
@@ -264,62 +229,17 @@ export async function GET(request: Request) {
                   data: dataPoints,
                   performanceFee: null, // V1 vaults don't contribute performanceFee here
                 };
-              } else {
-                logger.warn('V1 vault has no valid data points after processing', {
-                  address,
-                  name: histResult.vault?.name || v1Result.vault?.name || 'Unknown',
-                  rawDataPoints: rawDataPoints.length,
-                });
-                // Fallback to current TVL if available
-                if (currentTvl != null) {
-                  const vaultName = histResult.vault?.name || v1Result.vault?.name || `Vault ${address.slice(0, 6)}...`;
-                  return {
-                    name: vaultName,
-                    address: address.toLowerCase(),
-                    data: [{
-                      date: new Date().toISOString(),
-                      value: currentTvl,
-                    }],
-                    performanceFee: null,
-                  };
-                }
               }
-            } else {
-              logger.warn('V1 vault has no historicalState data', {
-                address,
-                name: v1Result.vault?.name || histResult.vault?.name || 'Unknown',
-                hasVaultFromCheck: !!v1Result.vault,
-                hasVaultFromHist: !!histResult.vault,
-                hasHistoricalState: !!histResult.vault?.historicalState,
-                hasTotalAssetsUsd: !!histResult.vault?.historicalState?.totalAssetsUsd,
-              });
-              // No historical data, but try to use current TVL if available
-              if (currentTvl != null) {
-                const vaultName = v1Result.vault?.name || histResult.vault?.name || `Vault ${address.slice(0, 6)}...`;
-                return {
-                  name: vaultName,
-                  address: address.toLowerCase(),
-                  data: [{
-                    date: new Date().toISOString(),
-                    value: currentTvl,
-                  }],
-                  performanceFee: null,
-                };
-              }
-              // If no historical data and no current TVL, return null (will be filtered out)
-              logger.warn('V1 vault has no historical data and no current TVL', {
-                address,
-                name: v1Result.vault?.name || histResult.vault?.name || 'Unknown',
-              });
             }
-          } catch (histError) {
-            logger.warn('Failed to fetch V1 vault historical data', {
-              address,
-              error: histError instanceof Error ? histError.message : String(histError),
-            });
-            // Fallback to current TVL if available
+            
+            // Fallback to current TVL if historical query didn't return data
             if (currentTvl != null) {
-              const vaultName = v1Result.vault?.name || `Vault ${address.slice(0, 6)}...`;
+              const vaultName = histResult.vault?.name || `Vault ${address.slice(0, 6)}...`;
+              logger.info('V1 vault using current TVL fallback', {
+                address,
+                name: vaultName,
+                currentTvl,
+              });
               return {
                 name: vaultName,
                 address: address.toLowerCase(),
@@ -330,15 +250,150 @@ export async function GET(request: Request) {
                 performanceFee: null,
               };
             }
+          } catch (histError) {
+            logger.warn('Failed to fetch V1 vault historical data', {
+              address,
+              error: histError instanceof Error ? histError.message : String(histError),
+            });
+            // Fallback to current TVL if available
+            if (currentTvl != null) {
+              logger.info('V1 vault using error fallback current TVL', {
+                address,
+                currentTvl,
+              });
+              return {
+                name: `Vault ${address.slice(0, 6)}...`,
+                address: address.toLowerCase(),
+                data: [{
+                  date: new Date().toISOString(),
+                  value: currentTvl,
+                }],
+                performanceFee: null,
+              };
+            }
           }
-        } else {
-          // Not a V1 vault and not a V2 vault - log for debugging
-          logger.debug('Address is neither V1 nor V2 vault', {
-            address,
-            hasV1Vault: !!v1Result.vault,
-            hasCurrentTvl: v1VaultCurrentTvl.has(address.toLowerCase()),
-          });
         }
+        
+        // If not a V1 vault from main query, check if it's a V2 vault
+        const v2CheckQuery = gql`
+          query CheckV2Vault($address: String!, $chainId: Int!, $options: TimeseriesOptions) {
+            vaultV2ByAddress(address: $address, chainId: $chainId) {
+              name
+              address
+              performanceFee
+              totalAssetsUsd
+              asset { symbol address }
+              historicalState {
+                totalAssetsUsd(options: $options) {
+                  x
+                  y
+                }
+              }
+            }
+          }
+        `;
+        // Fetch historical data from June 2024 (when vaults started) to now
+        const june2024Timestamp = Math.floor(new Date('2024-06-01').getTime() / 1000);
+        const v2Result = await morphoGraphQLClient.request<{ vaultV2ByAddress?: { name?: string; address?: string; performanceFee?: number; totalAssetsUsd?: number; asset?: { symbol?: string; address?: string } | null; historicalState?: { totalAssetsUsd?: Array<{ x?: number; y?: number }> } } | null }>(v2CheckQuery, { 
+          address, 
+          chainId: BASE_CHAIN_ID,
+          options: {
+            startTimestamp: june2024Timestamp, // Historical data from June 2024
+            endTimestamp: Math.floor(Date.now() / 1000),
+            interval: 'DAY'
+          }
+        });
+        
+        // Check if V2 vault exists (not null/undefined), even if name is missing
+        if (v2Result.vaultV2ByAddress !== null && v2Result.vaultV2ByAddress !== undefined) {
+          // This is a V2 vault
+          const currentDate = new Date().toISOString();
+          const currentTvl = v2Result.vaultV2ByAddress.totalAssetsUsd ?? 0;
+          
+          // Try to use historical data if available
+          let dataPoints: Array<{ date: string; value: number }> = [];
+          
+          if (v2Result.vaultV2ByAddress.historicalState?.totalAssetsUsd && v2Result.vaultV2ByAddress.historicalState.totalAssetsUsd.length > 0) {
+            // V2 vault has historical data
+            const rawDataPoints = v2Result.vaultV2ByAddress.historicalState.totalAssetsUsd;
+            dataPoints = rawDataPoints.map(point => ({
+              date: point.x ? new Date(point.x * 1000).toISOString() : '',
+              value: point.y || 0,
+            })).filter(p => p.date);
+            
+            // Normalize all existing data points to start of day
+            const normalizedPoints = dataPoints.map(point => {
+              const pointDate = new Date(point.date);
+              pointDate.setHours(0, 0, 0, 0);
+              return {
+                date: pointDate.toISOString(),
+                value: point.value,
+              };
+            });
+            
+            // Deduplicate by date, keeping the latest value for each day
+            const dayMap = new Map<string, { date: string; value: number; timestamp: number }>();
+            normalizedPoints.forEach(point => {
+              const pointDate = new Date(point.date);
+              const existing = dayMap.get(point.date);
+              if (!existing || pointDate.getTime() > existing.timestamp) {
+                dayMap.set(point.date, {
+                  date: point.date,
+                  value: point.value,
+                  timestamp: pointDate.getTime(),
+                });
+              }
+            });
+            
+            dataPoints = Array.from(dayMap.values()).map(({ date, value }) => ({ date, value }));
+            
+            // Normalize current date to start of day
+            const normalizedCurrentDate = new Date();
+            normalizedCurrentDate.setHours(0, 0, 0, 0);
+            const normalizedCurrentDateStr = normalizedCurrentDate.toISOString();
+            
+            // Add current TVL if latest point is a different day or value differs significantly
+            if (dataPoints.length > 0) {
+              const latestPoint = dataPoints[dataPoints.length - 1];
+              
+              // Only add if it's a different day or value differs significantly
+              if (latestPoint.date !== normalizedCurrentDateStr || Math.abs(latestPoint.value - currentTvl) > 0.01) {
+                // Remove existing point for today if it exists
+                dataPoints = dataPoints.filter(p => p.date !== normalizedCurrentDateStr);
+                dataPoints.push({
+                  date: normalizedCurrentDateStr,
+                  value: currentTvl,
+                });
+              }
+            } else if (currentTvl > 0) {
+              // No historical data but we have current TVL
+              dataPoints.push({
+                date: normalizedCurrentDateStr,
+                value: currentTvl,
+              });
+            }
+          } else if (currentTvl > 0) {
+            // No historical data available, use current TVL as single point
+            dataPoints = [{
+              date: currentDate,
+              value: currentTvl,
+            }];
+          }
+          
+          return {
+            name: v2Result.vaultV2ByAddress.name || `V2 Vault ${address.slice(0, 6)}...`,
+            address: address.toLowerCase(),
+            data: dataPoints,
+            performanceFee: v2Result.vaultV2ByAddress.performanceFee ?? null,
+          };
+        }
+        
+        // If we get here, it's neither a V1 vault (from main query) nor a V2 vault
+        // This shouldn't happen for configured vaults, but log it for debugging
+        logger.debug('Address is neither V1 (from main query) nor V2 vault', {
+          address,
+          hasCurrentTvl: v1VaultCurrentTvl.has(address.toLowerCase()),
+        });
       } catch (error) {
         // Log error for debugging but don't fail the entire request
         logger.warn('Failed to fetch TVL data for vault', {
@@ -351,12 +406,44 @@ export async function GET(request: Request) {
 
     const tvlByVaultResults = await Promise.all(tvlByVaultPromises);
     
-    // Log all results before filtering
-    // Extract V2 performance fees before filtering out the performanceFee field
-    const v2PerformanceFees = tvlByVaultResults
-      .filter((v): v is NonNullable<typeof v> => 
-        v !== null && v.performanceFee != null && v.performanceFee !== null)
-      .map(v => ({ performanceFee: v.performanceFee as number }));
+    // Ensure all V1 vaults from main query are included
+    // Add any missing V1 vaults that weren't returned from individual queries
+    const includedAddresses = new Set(
+      tvlByVaultResults
+        .filter((v): v is NonNullable<typeof v> => v !== null)
+        .map(v => v.address.toLowerCase())
+    );
+    
+    const missingV1Vaults = Array.from(v1VaultsFromMainQuery).filter(
+      addr => !includedAddresses.has(addr)
+    );
+    
+    if (missingV1Vaults.length > 0) {
+      logger.warn('Some V1 vaults from main query were not included in results', {
+        missingAddresses: missingV1Vaults,
+        totalMissing: missingV1Vaults.length,
+      });
+      
+      // Add missing V1 vaults with current TVL
+      for (const address of missingV1Vaults) {
+        const currentTvl = v1VaultCurrentTvl.get(address);
+        if (currentTvl != null) {
+          tvlByVaultResults.push({
+            name: `Vault ${address.slice(0, 6)}...`,
+            address: address.toLowerCase(),
+            data: [{
+              date: new Date().toISOString(),
+              value: currentTvl,
+            }],
+            performanceFee: null,
+          });
+          logger.info('Added missing V1 vault with current TVL', {
+            address,
+            currentTvl,
+          });
+        }
+      }
+    }
     
     // Extract TVL data (remove performanceFee field)
     // Include all vaults with at least 1 data point (V1 with historical, V2 with current)
@@ -430,24 +517,51 @@ export async function GET(request: Request) {
       }
     }
 
-    // Fetch DefiLlama data for charts
+    // Aggregate TVL trend from all vaults' historical data (from Morpho QL)
+    // Group all vault data points by date and sum TVL values
+    const tvlByDate = new Map<string, number>();
+    
+    for (const vault of tvlByVault) {
+      for (const point of vault.data) {
+        // Normalize date to start of day for consistent grouping
+        const date = new Date(point.date);
+        date.setHours(0, 0, 0, 0);
+        const dateKey = date.toISOString();
+        
+        const currentValue = tvlByDate.get(dateKey) || 0;
+        tvlByDate.set(dateKey, currentValue + point.value);
+      }
+    }
+    
+    // Convert to sorted array format
+    let tvlTrend: Array<{ date: string; value: number }> = Array.from(tvlByDate.entries())
+      .map(([date, value]) => ({ date, value }))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    
+    logger.info('TVL trend aggregated from Morpho QL', {
+      tvlPoints: tvlTrend.length,
+      vaultsCount: tvlByVault.length,
+      totalVaultDataPoints: tvlByVault.reduce((sum, v) => sum + v.data.length, 0),
+    });
+    
+    // Fetch DefiLlama data for charts (fees, revenue, inflows - but NOT TVL)
     let feesTrendDaily: Array<{ date: string; value: number }> = [];
     let feesTrendCumulative: Array<{ date: string; value: number }> = [];
     let revenueTrendDaily: Array<{ date: string; value: number }> = [];
     let revenueTrendCumulative: Array<{ date: string; value: number }> = [];
     let inflowsTrendDaily: Array<{ date: string; value: number }> = [];
     let inflowsTrendCumulative: Array<{ date: string; value: number }> = [];
-    let tvlTrend: Array<{ date: string; value: number }> = [];
     
     try {
       // Fetch DefiLlama fees and protocol data in parallel
+      // Note: We calculate revenue from fees × performance fee rate for better precision
+      // (DeFiLlama revenue API only returns whole dollar values)
       const [feesData, protocolData] = await Promise.all([
         fetchDefiLlamaFees(),
         fetchDefiLlamaProtocol(),
       ]);
       
-      // Calculate average performance fee rate from all vaults (V1 + V2)
-      // Only calculate revenue if we have actual fee data
+      // Calculate average performance fee rate from all vaults (V1 + V2) for precise revenue calculation
       let avgPerformanceFeeRate: number | null = null;
       
       // Collect V1 vault performance fees
@@ -455,10 +569,12 @@ export async function GET(request: Request) {
         .map(v => v.state?.fee)
         .filter((f): f is number => f !== null && f !== undefined && f > 0);
       
-      // Collect V2 vault performance fees (already collected during TVL fetch)
-      const v2FeeRates = v2PerformanceFees
-        .map(v => v.performanceFee)
-        .filter((f): f is number => f !== null && f !== undefined && f > 0 && !Number.isNaN(f));
+      // Collect V2 vault performance fees from TVL results
+      const v2FeeRates = tvlByVaultResults
+        .filter((v): v is NonNullable<typeof v> => 
+          v !== null && v.performanceFee != null && v.performanceFee !== null)
+        .map(v => v.performanceFee as number)
+        .filter((f): f is number => f > 0 && !Number.isNaN(f));
       
       // Combine all fee rates
       const allFeeRates = [...v1FeeRates, ...v2FeeRates];
@@ -472,10 +588,18 @@ export async function GET(request: Request) {
         feesTrendDaily = getDailyFeesChart(feesData);
         feesTrendCumulative = getCumulativeFeesChart(feesData);
         
-        // Get daily and cumulative revenue (curator fees) - only if we have fee rate
+        // Calculate revenue from fees × performance fee rate for better precision
+        // (DeFiLlama revenue API only returns whole dollar values)
         if (avgPerformanceFeeRate !== null) {
-          revenueTrendDaily = getDailyRevenueChart(feesData, avgPerformanceFeeRate);
-          revenueTrendCumulative = getCumulativeRevenueChart(feesData, avgPerformanceFeeRate);
+          revenueTrendDaily = feesTrendDaily.map(point => ({
+            date: point.date,
+            value: point.value * avgPerformanceFeeRate!,
+          }));
+          
+          revenueTrendCumulative = feesTrendCumulative.map(point => ({
+            date: point.date,
+            value: point.value * avgPerformanceFeeRate!,
+          }));
         }
         
         // Update totals from DefiLlama
@@ -490,6 +614,8 @@ export async function GET(request: Request) {
           totalAllTime: feesData.totalAllTime,
           chartPointsDaily: feesTrendDaily.length,
           chartPointsCumulative: feesTrendCumulative.length,
+          avgPerformanceFeeRate,
+          calculatedRevenueTotal: avgPerformanceFeeRate !== null ? feesData.totalAllTime! * avgPerformanceFeeRate : null,
         });
       }
       
@@ -499,16 +625,7 @@ export async function GET(request: Request) {
         inflowsTrendDaily = getDailyInflowsChart(protocolData, feesData);
         inflowsTrendCumulative = getCumulativeInflowsChart(protocolData, feesData);
         
-        // Get TVL trend from DefiLlama
-        if (protocolData.tvl && protocolData.tvl.length > 0) {
-          tvlTrend = protocolData.tvl.map(point => ({
-            date: new Date(point.date * 1000).toISOString(),
-            value: point.totalLiquidityUSD,
-          }));
-        }
-        
-        logger.info('DefiLlama protocol data loaded', {
-          tvlPoints: tvlTrend.length,
+        logger.info('DefiLlama protocol data loaded (for inflows only)', {
           inflowPointsDaily: inflowsTrendDaily.length,
           inflowPointsCumulative: inflowsTrendCumulative.length,
         });
@@ -517,7 +634,7 @@ export async function GET(request: Request) {
       logger.error('Failed to fetch DefiLlama data', error as Error);
     }
     
-    // Fallback to placeholder if no DefiLlama data
+    // Fallback to placeholder if no Morpho QL TVL data
     if (tvlTrend.length === 0) {
       const now = new Date();
       const thirtyDaysAgo = new Date(now.getTime() - DAYS_30_MS);
@@ -525,6 +642,7 @@ export async function GET(request: Request) {
         const date = new Date(thirtyDaysAgo.getTime() + i * DAYS_30_MS / 30);
         return { date: date.toISOString(), value: totalDeposited };
       });
+      logger.warn('No TVL trend data from Morpho QL, using fallback placeholder');
     }
 
     const stats = {
