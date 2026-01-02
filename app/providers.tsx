@@ -18,8 +18,9 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: QUERY_STALE_TIME_MEDIUM,
+      staleTime: 0, // Always refetch on mount/refresh - data is immediately stale
       refetchOnWindowFocus: false,
+      refetchOnMount: true, // Refetch when component mounts (on page refresh)
     },
   },
 });
