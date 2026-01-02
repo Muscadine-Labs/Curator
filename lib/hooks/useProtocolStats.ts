@@ -11,6 +11,7 @@ export interface ProtocolStats {
   tvlByVault?: Array<{
     name: string;
     address: string;
+    key?: string; // Unique key for each vault
     data: Array<{ date: string; value: number }>;
   }>;
   feesTrendDaily: Array<{ date: string; value: number }>;

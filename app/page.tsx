@@ -7,22 +7,22 @@ import { AppShell } from '@/components/layout/AppShell';
 
 // Lazy load chart components to reduce initial bundle size
 const ChartTvl = dynamic(() => import('@/components/ChartTvl').then(mod => ({ default: mod.ChartTvl })), {
-  loading: () => <div className="h-96 animate-pulse rounded-lg bg-slate-100" />,
+  loading: () => <div className="h-64 animate-pulse rounded-lg bg-slate-100" />,
   ssr: false,
 });
 
 const ChartInflows = dynamic(() => import('@/components/ChartInflows').then(mod => ({ default: mod.ChartInflows })), {
-  loading: () => <div className="h-96 animate-pulse rounded-lg bg-slate-100" />,
+  loading: () => <div className="h-64 animate-pulse rounded-lg bg-slate-100" />,
   ssr: false,
 });
 
 const ChartFees = dynamic(() => import('@/components/ChartFees').then(mod => ({ default: mod.ChartFees })), {
-  loading: () => <div className="h-96 animate-pulse rounded-lg bg-slate-100" />,
+  loading: () => <div className="h-64 animate-pulse rounded-lg bg-slate-100" />,
   ssr: false,
 });
 
 const ChartRevenue = dynamic(() => import('@/components/ChartRevenue').then(mod => ({ default: mod.ChartRevenue })), {
-  loading: () => <div className="h-96 animate-pulse rounded-lg bg-slate-100" />,
+  loading: () => <div className="h-64 animate-pulse rounded-lg bg-slate-100" />,
   ssr: false,
 });
 
@@ -73,7 +73,7 @@ export default function Home() {
           />
         </div>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-2">
           <ChartTvl
             totalData={stats?.tvlTrend}
             vaultData={stats?.tvlByVault}
