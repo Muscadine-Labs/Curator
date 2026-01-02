@@ -5,6 +5,9 @@ import { GRAPHQL_FIRST_LIMIT } from '@/lib/constants';
 import { handleApiError, AppError } from '@/lib/utils/error-handler';
 import { createRateLimitMiddleware, RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS } from '@/lib/utils/rate-limit';
 
+// Ensure Node.js runtime for API routes (required for external API calls)
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 export const revalidate = 300;
 
 export async function GET(request: NextRequest) {

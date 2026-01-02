@@ -22,6 +22,10 @@ import {
   getCumulativeInflowsChart 
 } from '@/lib/defillama/service';
 
+// Ensure Node.js runtime for API routes (required for external API calls)
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 // Type-safe response matching our query structure
 type ProtocolStatsQueryResponse = {
   vaults: {
