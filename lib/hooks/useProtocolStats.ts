@@ -148,8 +148,8 @@ export const useProtocolStats = () => {
       if (!response.ok) throw new Error('Failed to fetch protocol stats');
       return response.json();
     },
-    staleTime: 0, // Always refetch on refresh
-    refetchOnMount: true, // Refetch when component mounts
+    staleTime: QUERY_STALE_TIME_MEDIUM,
+    refetchInterval: QUERY_REFETCH_INTERVAL_MEDIUM,
   });
 };
 
@@ -176,8 +176,8 @@ export const useVaultList = (filters?: {
       if (!response.ok) throw new Error('Failed to fetch vaults');
       return response.json();
     },
-    staleTime: 0, // Always refetch on refresh
-    refetchOnMount: true, // Refetch when component mounts
+    staleTime: QUERY_STALE_TIME_SHORT,
+    refetchInterval: QUERY_REFETCH_INTERVAL_SHORT,
   });
 };
 
@@ -194,8 +194,8 @@ export const useVault = (id: string) => {
       return response.json();
     },
     enabled: !!id,
-    staleTime: 0, // Always refetch on refresh
-    refetchOnMount: true, // Refetch when component mounts
+    staleTime: QUERY_STALE_TIME_SHORT,
+    refetchInterval: QUERY_REFETCH_INTERVAL_SHORT,
   });
 };
 

@@ -19,8 +19,7 @@ export function useMorphoMarkets() {
   return useQuery({
     queryKey: ['morpho-markets'],
     queryFn: ({ signal }) => fetchMorphoMarkets({ signal }),
-    staleTime: 0, // Always refetch on refresh
-    refetchOnMount: true, // Refetch when component mounts
+    staleTime: 5 * 60 * 1000,
   });
 }
 
