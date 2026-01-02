@@ -8,6 +8,9 @@ import { gql } from 'graphql-request';
 import { getAddress } from 'viem';
 import { logger } from '@/lib/utils/logger';
 
+// Ensure Node.js runtime for API routes (required for external API calls)
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   // Rate limiting

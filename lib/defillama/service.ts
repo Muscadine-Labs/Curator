@@ -20,6 +20,16 @@ export interface DefiLlamaFeesResponse {
   totalDataChart: Array<[number, number]> | null; // [timestamp, dailyFees]
 }
 
+export interface DefiLlamaRevenueResponse {
+  id: string;
+  name: string;
+  total24h: number | null;
+  total7d: number | null;
+  total30d: number | null;
+  totalAllTime: number | null;
+  totalDataChart: Array<[number, number]> | null; // [timestamp, dailyRevenue]
+}
+
 export interface DefiLlamaProtocolResponse {
   id: string;
   name: string;
@@ -66,6 +76,45 @@ export async function fetchDefiLlamaFees(): Promise<DefiLlamaFeesResponse | null
       logger.warn('DefiLlama fees API request timed out');
     } else {
       logger.warn('Failed to fetch DefiLlama fees', {
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
+    }
+    return null;
+  }
+}
+
+/**
+ * Fetch revenue summary from DefiLlama
+ */
+export async function fetchDefiLlamaRevenue(): Promise<DefiLlamaRevenueResponse | null> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), EXTERNAL_API_TIMEOUT_MS);
+
+    const response = await fetch(
+      `${DEFILLAMA_API_BASE}/summary/fees/${PROTOCOL_SLUG}?dataType=dailyRevenue`,
+      { 
+        signal: controller.signal,
+        headers: { 'Accept': 'application/json' },
+      }
+    );
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      logger.warn('DefiLlama revenue API returned non-OK status', {
+        status: response.status,
+        statusText: response.statusText,
+      });
+      return null;
+    }
+
+    return await response.json() as DefiLlamaRevenueResponse;
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      logger.warn('DefiLlama revenue API request timed out');
+    } else {
+      logger.warn('Failed to fetch DefiLlama revenue', {
         error: error instanceof Error ? error : new Error(String(error)),
       });
     }
@@ -145,30 +194,30 @@ export function getCumulativeFeesChart(response: DefiLlamaFeesResponse): ChartDa
 }
 
 /**
- * Get daily revenue chart data (curator fees = daily fees * performance fee rate)
+ * Get daily revenue chart data from DefiLlama revenue API
  */
-export function getDailyRevenueChart(response: DefiLlamaFeesResponse, performanceFeeRate: number = 0.02): ChartData[] {
+export function getDailyRevenueChart(response: DefiLlamaRevenueResponse): ChartData[] {
   if (!response.totalDataChart || response.totalDataChart.length === 0) {
     return [];
   }
 
   return response.totalDataChart.map(([timestamp, dailyValue]) => ({
     date: new Date(timestamp * 1000).toISOString(),
-    value: (dailyValue || 0) * performanceFeeRate,
+    value: dailyValue || 0,
   }));
 }
 
 /**
- * Get cumulative revenue chart data (curator fees = total fees * performance fee rate)
+ * Get cumulative revenue chart data from DefiLlama revenue API
  */
-export function getCumulativeRevenueChart(response: DefiLlamaFeesResponse, performanceFeeRate: number = 0.02): ChartData[] {
+export function getCumulativeRevenueChart(response: DefiLlamaRevenueResponse): ChartData[] {
   if (!response.totalDataChart || response.totalDataChart.length === 0) {
     return [];
   }
 
   let cumulative = 0;
   return response.totalDataChart.map(([timestamp, dailyValue]) => {
-    cumulative += (dailyValue || 0) * performanceFeeRate;
+    cumulative += dailyValue || 0;
     return {
       date: new Date(timestamp * 1000).toISOString(),
       value: cumulative,

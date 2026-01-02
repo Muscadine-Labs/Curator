@@ -67,7 +67,11 @@ class Logger {
       }
     }
 
-    // In production, you would send to a logging service
+    // In production, log errors and warnings to console for debugging
+    // In a real production setup, you would send to a logging service
+    if (this.isProduction && (level === 'error' || level === 'warn')) {
+      console.error(formatted);
+    }
     // Example: sendToLoggingService(entry);
   }
 

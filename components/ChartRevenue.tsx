@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { formatCompactUSD } from '@/lib/format/number';
+import { filterDataByDate } from '@/lib/utils/date-filter';
 
 interface ChartRevenueProps {
   dailyData?: Array<{ date: string; value: number }>;
@@ -17,8 +18,14 @@ interface ChartRevenueProps {
 export function ChartRevenue({ dailyData, cumulativeData, isLoading = false, title = "Revenue" }: ChartRevenueProps) {
   const [viewMode, setViewMode] = useState<'daily' | 'cumulative'>('cumulative');
   
+  // Filter data to exclude dates after June 1, 2025
+  const filteredDailyData = useMemo(() => filterDataByDate(dailyData || []), [dailyData]);
+  const filteredCumulativeData = useMemo(() => filterDataByDate(cumulativeData || []), [cumulativeData]);
+  
   // Use the selected view mode data, fallback to cumulative if daily is not available
-  const data = viewMode === 'daily' && dailyData ? dailyData : (cumulativeData || dailyData || []);
+  const data = viewMode === 'daily' && filteredDailyData.length > 0 
+    ? filteredDailyData 
+    : (filteredCumulativeData.length > 0 ? filteredCumulativeData : filteredDailyData);
 
   if (isLoading) {
     return (
