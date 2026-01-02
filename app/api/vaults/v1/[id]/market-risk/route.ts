@@ -27,6 +27,20 @@ export interface V1MarketRiskData {
     updatedAt: number | null; // Unix timestamp in seconds
     ageSeconds: number | null;
   } | null;
+  derived?: {
+    lltvPct?: number | null;
+    priceShockPct?: number | null;
+    headroomUsd?: number | null;
+    headroomRatioPct?: number | null;
+    utilizationPct?: number | null;
+    availableLiquidityUsd?: number | null;
+    liquidatableBorrowUsd?: number | null;
+    coverageRatio?: number | null;
+    oracleAgeHours?: number | null;
+    oracleAgeDays?: number | null;
+    supplyApyPct?: number | null;
+    borrowApyPct?: number | null;
+  } | null;
 }
 
 export interface V1VaultMarketRiskResponse {
@@ -81,6 +95,10 @@ export async function GET(
     // Fetch markets for this V1 vault
     const { markets, vaultLiquidity } = await fetchV1VaultMarkets(address, cfg.chainId);
 
+    // Memoize oracle and IRM lookups to avoid duplicate RPC calls
+    const oracleCache = new Map<string, Promise<Awaited<ReturnType<typeof getOracleTimestampData>>>>();
+    const irmCache = new Map<string, Promise<number | null>>();
+
     // Fetch oracle timestamp data and IRM target utilization for all active markets in parallel
     const marketDataPromises = markets.map(async (market) => {
       if (isMarketIdle(market)) {
@@ -95,14 +113,29 @@ export async function GET(
         ? (market.oracle.data.baseFeedOne.address as Address)
         : null;
 
+      const oracleAddress = market.oracleAddress ? (market.oracleAddress as Address) : null;
+      const irmAddress = market.irmAddress ? (market.irmAddress as Address) : null;
+
+      // Create cache keys
+      const oracleKey = oracleAddress ? `${oracleAddress.toLowerCase()}-${baseFeedOneAddress?.toLowerCase() || 'null'}` : 'null';
+      const irmKey = irmAddress ? irmAddress.toLowerCase() : 'null';
+
+      // Use cached promise or create new one
+      let oraclePromise = oracleCache.get(oracleKey);
+      if (!oraclePromise) {
+        oraclePromise = getOracleTimestampData(oracleAddress, baseFeedOneAddress);
+        oracleCache.set(oracleKey, oraclePromise);
+      }
+
+      let irmPromise = irmCache.get(irmKey);
+      if (!irmPromise) {
+        irmPromise = getIRMTargetUtilizationWithFallback(irmAddress);
+        irmCache.set(irmKey, irmPromise);
+      }
+
       const [oracleTimestampData, targetUtilization] = await Promise.all([
-        getOracleTimestampData(
-          market.oracleAddress ? (market.oracleAddress as Address) : null,
-          baseFeedOneAddress
-        ),
-        getIRMTargetUtilizationWithFallback(
-          market.irmAddress ? (market.irmAddress as Address) : null
-        ),
+        oraclePromise,
+        irmPromise,
       ]);
 
       return {
@@ -113,13 +146,14 @@ export async function GET(
 
     const marketData = await Promise.all(marketDataPromises);
 
-    // Compute risk scores for each market (null for idle markets)
+    // Compute risk scores and derived metrics for each market (null for idle markets)
     const marketsWithScoresPromises = markets.map(async (market, index) => {
       if (isMarketIdle(market)) {
         return {
           market,
           scores: null,
           oracleTimestampData: null,
+          derived: null,
         };
       }
 
@@ -128,6 +162,83 @@ export async function GET(
         marketData[index].oracleTimestampData,
         marketData[index].targetUtilization
       );
+
+      // Compute derived metrics for display (pre-computed server-side to reduce client work)
+      const state = market.state;
+      const lltvRaw = market.lltv;
+      const lltvRatio = lltvRaw ? Number(lltvRaw) / 1e18 : null;
+      const lltvPct = lltvRatio !== null ? lltvRatio * 100 : null;
+
+      const loanAsset = market.loanAsset;
+      const collateralAsset = market.collateralAsset;
+      const loanSymbol = loanAsset?.symbol?.toUpperCase() || '';
+      const collateralSymbol = collateralAsset?.symbol?.toUpperCase() || '';
+
+      const isSameAsset =
+        !!loanAsset &&
+        !!collateralAsset &&
+        (
+          loanAsset.address.toLowerCase() === collateralAsset.address.toLowerCase() ||
+          loanSymbol === collateralSymbol ||
+          (['WSTETH', 'STETH', 'RETH', 'CBETH', 'WETH', 'ETH'].includes(loanSymbol) &&
+            ['WSTETH', 'STETH', 'RETH', 'CBETH', 'WETH', 'ETH'].includes(collateralSymbol)) ||
+          (['CBBTC', 'LBTC', 'WBTC', 'BTC'].includes(loanSymbol) &&
+            ['CBBTC', 'LBTC', 'WBTC', 'BTC'].includes(collateralSymbol)) ||
+          ((loanSymbol === 'USDC' || loanSymbol === 'USDC.E') &&
+            (collateralSymbol === 'USDC' || collateralSymbol === 'USDC.E')) ||
+          ((loanSymbol === 'USDT' || loanSymbol === 'USDT.E') &&
+            (collateralSymbol === 'USDT' || collateralSymbol === 'USDT.E'))
+        );
+
+      const priceShock = isSameAsset ? 0.02 : 0.05; // 2.0% for same/derivative assets, 5% for different assets
+      const priceShockPct = priceShock * 100;
+      const shockMultiplier = 1 - priceShock;
+
+      const collateralUsd = state?.collateralAssetsUsd ? Number(state.collateralAssetsUsd) : 0;
+      const borrowUsd = state?.borrowAssetsUsd ? Number(state.borrowAssetsUsd) : 0;
+      const supplyUsd = state?.supplyAssetsUsd ? Number(state.supplyAssetsUsd) : 0;
+
+      const headroomUsd =
+        borrowUsd > 0 && collateralUsd > 0 && lltvRatio !== null
+          ? collateralUsd * shockMultiplier * lltvRatio - borrowUsd
+          : null;
+      const headroomRatioPct =
+        headroomUsd !== null && borrowUsd > 0 ? (headroomUsd / borrowUsd) * 100 : null;
+
+      const utilizationPct =
+        state?.utilization !== null && state?.utilization !== undefined
+          ? state.utilization * 100
+          : supplyUsd > 0
+            ? (borrowUsd / supplyUsd) * 100
+            : null;
+
+      const availableLiquidityUsd = supplyUsd - borrowUsd;
+
+      const liquidatableBorrowUsd =
+        borrowUsd > 0 && collateralUsd > 0 && lltvRatio !== null
+          ? Math.max(0, borrowUsd - collateralUsd * shockMultiplier * lltvRatio)
+          : null;
+
+      const coverageRatio =
+        liquidatableBorrowUsd !== null && liquidatableBorrowUsd > 0 && availableLiquidityUsd > 0
+          ? availableLiquidityUsd / liquidatableBorrowUsd
+          : liquidatableBorrowUsd === 0
+            ? 1
+            : null;
+
+      const oracleAgeHours = marketData[index].oracleTimestampData?.ageSeconds
+        ? marketData[index].oracleTimestampData.ageSeconds / 3600
+        : null;
+      const oracleAgeDays = oracleAgeHours !== null ? oracleAgeHours / 24 : null;
+
+      const supplyApyPct =
+        state?.supplyApy !== null && state?.supplyApy !== undefined
+          ? state.supplyApy * 100
+          : null;
+      const borrowApyPct =
+        state?.borrowApy !== null && state?.borrowApy !== undefined
+          ? state.borrowApy * 100
+          : null;
 
       return {
         market,
@@ -139,6 +250,20 @@ export async function GET(
               ageSeconds: marketData[index].oracleTimestampData.ageSeconds,
             }
           : null,
+        derived: {
+          lltvPct,
+          priceShockPct,
+          headroomUsd,
+          headroomRatioPct,
+          utilizationPct,
+          availableLiquidityUsd,
+          liquidatableBorrowUsd,
+          coverageRatio,
+          oracleAgeHours,
+          oracleAgeDays,
+          supplyApyPct,
+          borrowApyPct,
+        },
       } as V1MarketRiskData;
     });
 
@@ -150,7 +275,10 @@ export async function GET(
       markets: marketsWithScores,
     };
 
-    return NextResponse.json(response);
+    const responseHeaders = new Headers(rateLimitResult.headers);
+    responseHeaders.set('Cache-Control', 'public, s-maxage=120, stale-while-revalidate=300');
+
+    return NextResponse.json(response, { headers: responseHeaders });
   } catch (error) {
     const { error: apiError, statusCode } = handleApiError(error);
     return NextResponse.json({ error: apiError.message, code: apiError.code }, { status: statusCode });

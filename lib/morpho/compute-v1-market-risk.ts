@@ -11,8 +11,8 @@ import type { Address } from 'viem';
  * Final marketRiskScore ∈ [0, 100]
  * 
  * Metrics:
- * 1. Liquidation Headroom (−5% or −2.5% shock) - 25% weight
- *    - 2.5% shock for same/derivative assets (e.g., USDC/USDC, wstETH/ETH)
+ * 1. Liquidation Headroom (−5% or −2.0% shock) - 25% weight
+ *    - 2.0% shock for same/derivative assets (e.g., USDC/USDC, wstETH/ETH)
  *    - 5% shock for different assets
  * 2. Utilization - 25% weight
  * 3. Liquidation Coverage Ratio - 25% weight
@@ -21,7 +21,7 @@ import type { Address } from 'viem';
 
 /**
  * Check if loan and collateral assets are the same or derivatives of each other
- * This allows using a lower price shock (2.5% vs 5%) for same-asset liquidations
+ * This allows using a lower price shock (2.0% vs 5%) for same-asset liquidations
  */
 function isSameOrDerivativeAsset(market: V1VaultMarketData): boolean {
   const loanAsset = market.loanAsset;
@@ -168,7 +168,7 @@ function computeOracleScore(
  * - loanAsset and collateralAsset (to determine if same/derivative)
  * 
  * Compute:
- * - Uses -2.5% shock for same/derivative assets (e.g., USDC/USDC, wstETH/ETH)
+ * - Uses -2.0% shock for same/derivative assets (e.g., USDC/USDC, wstETH/ETH)
  * - Uses -5% shock for different assets
  * - headroom = collateralUsd * shockMultiplier * lltvRatio − borrowUsd
  * - headroomRatio = headroom / borrowUsd
@@ -205,10 +205,10 @@ function computeLiquidationHeadroomScore(market: V1VaultMarketData): number {
     return 0; // No collateral = highest risk
   }
 
-  // Determine price shock: 2.5% for same/derivative assets, 5% for different assets
+  // Determine price shock: 2.0% for same/derivative assets, 5% for different assets
   const isSameAsset = isSameOrDerivativeAsset(market);
-  const priceShock = isSameAsset ? 0.025 : 0.05; // 2.5% or 5%
-  const shockMultiplier = 1 - priceShock; // 0.975 or 0.95
+  const priceShock = isSameAsset ? 0.02 : 0.05; // 2.0% or 5%
+  const shockMultiplier = 1 - priceShock; // 0.98 or 0.95
 
   // Compute headroom with price shock
   // headroom = collateralUsd * shockMultiplier * lltvRatio − borrowUsd
@@ -220,10 +220,11 @@ function computeLiquidationHeadroomScore(market: V1VaultMarketData): number {
     return 0;
   }
 
-  // Score based on headroom ratio
+  // Score based on headroom ratio (relaxed curve)
   // Higher headroom = better score
   // 0% headroom = 0 score
-  // 10% headroom = 60 score
+  // 5% headroom = 50 score
+  // 10% headroom = 70 score
   // 20% headroom = 80 score
   // 30%+ headroom = 100 score
   if (headroomRatio >= 0.30) {
@@ -233,13 +234,17 @@ function computeLiquidationHeadroomScore(market: V1VaultMarketData): number {
     const progress = (headroomRatio - 0.20) / 0.10;
     return 80 + (progress * 20);
   } else if (headroomRatio >= 0.10) {
-    // 10% → 20%: 60 → 80
+    // 10% → 20%: 70 → 80
     const progress = (headroomRatio - 0.10) / 0.10;
-    return 60 + (progress * 20);
+    return 70 + (progress * 10);
+  } else if (headroomRatio >= 0.05) {
+    // 5% → 10%: 50 → 70
+    const progress = (headroomRatio - 0.05) / 0.05;
+    return 50 + (progress * 20);
   } else {
-    // 0% → 10%: 0 → 60
-    const progress = headroomRatio / 0.10;
-    return progress * 60;
+    // 0% → 5%: 0 → 50
+    const progress = headroomRatio / 0.05;
+    return progress * 50;
   }
 }
 
@@ -327,7 +332,7 @@ async function computeUtilizationScore(
  * 
  * Compute:
  * - liquidatableBorrow = max(0, borrowUsd − collateralUsd*shockMultiplier*lltvRatio)
- *   - Uses 2.5% shock for same/derivative assets, 5% for different assets
+ *   - Uses 2.0% shock for same/derivative assets, 5% for different assets
  * - coverage = availableLiquidityUsd / liquidatableBorrow
  * 
  * Score (continuous):
@@ -366,10 +371,10 @@ function computeCoverageRatioScore(market: V1VaultMarketData): number {
     return 0; // No collateral = highest risk
   }
 
-  // Determine price shock: 2.5% for same/derivative assets, 5% for different assets
+  // Determine price shock: 2.0% for same/derivative assets, 5% for different assets
   const isSameAsset = isSameOrDerivativeAsset(market);
-  const priceShock = isSameAsset ? 0.025 : 0.05; // 2.5% or 5%
-  const shockMultiplier = 1 - priceShock; // 0.975 or 0.95
+  const priceShock = isSameAsset ? 0.02 : 0.05; // 2.0% or 5%
+  const shockMultiplier = 1 - priceShock; // 0.98 or 0.95
 
   // Compute liquidatable borrow with price shock
   // liquidatableBorrow = max(0, borrowUsd − collateralUsd*shockMultiplier*lltvRatio)

@@ -176,6 +176,7 @@ export function MarketRiskV1({ vaultAddress, preloadedData }: MarketRiskV1Props)
     market: item.market,
     scores: item.scores,
     oracleTimestampData: item.oracleTimestampData,
+    derived: item.derived,
   }));
 
   return (
@@ -184,7 +185,7 @@ export function MarketRiskV1({ vaultAddress, preloadedData }: MarketRiskV1Props)
         <CardTitle>Market Risk</CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        {sortedMarkets.map(({ market, scores, oracleTimestampData }) => {
+        {sortedMarkets.map(({ market, scores, oracleTimestampData, derived }) => {
           const marketName = formatMarketIdentifier(
             market.loanAsset?.symbol,
             market.collateralAsset?.symbol
@@ -209,64 +210,82 @@ export function MarketRiskV1({ vaultAddress, preloadedData }: MarketRiskV1Props)
             ? (vaultSupplyUsd / marketTotalSupplyUsd) * 100
             : 0;
 
-          // Calculate underlying metrics for display
+          // Use derived metrics from API (pre-computed server-side) when available, fallback to client-side calculation
           const state = market.state;
-          const lltvRaw = market.lltv;
-          const lltvRatio = lltvRaw ? Number(lltvRaw) / 1e18 : 0;
           
-          // Check if loan and collateral are same/derivative assets (use 2.5% shock instead of 5%)
-          const loanAsset = market.loanAsset;
-          const collateralAsset = market.collateralAsset;
-          const loanSymbol = loanAsset?.symbol?.toUpperCase() || '';
-          const collateralSymbol = collateralAsset?.symbol?.toUpperCase() || '';
+          // LTV percentage
+          const lltvRatio = market.lltv ? Number(market.lltv) / 1e18 : (derived?.lltvPct != null ? derived.lltvPct / 100 : 0);
           
-          const isSameAsset = loanAsset && collateralAsset && (
-            loanAsset.address.toLowerCase() === collateralAsset.address.toLowerCase() ||
-            loanSymbol === collateralSymbol ||
-            (['WSTETH', 'STETH', 'RETH', 'CBETH', 'WETH', 'ETH'].includes(loanSymbol) &&
-             ['WSTETH', 'STETH', 'RETH', 'CBETH', 'WETH', 'ETH'].includes(collateralSymbol)) ||
-            (['CBBTC', 'LBTC', 'WBTC', 'BTC'].includes(loanSymbol) &&
-             ['CBBTC', 'LBTC', 'WBTC', 'BTC'].includes(collateralSymbol)) ||
-            ((loanSymbol === 'USDC' || loanSymbol === 'USDC.E') &&
-             (collateralSymbol === 'USDC' || collateralSymbol === 'USDC.E')) ||
-            ((loanSymbol === 'USDT' || loanSymbol === 'USDT.E') &&
-             (collateralSymbol === 'USDT' || collateralSymbol === 'USDT.E'))
-          );
-          const priceShock = isSameAsset ? 0.025 : 0.05; // 2.5% or 5%
-          const shockMultiplier = 1 - priceShock; // 0.975 or 0.95
+          // Price shock (use derived when available, otherwise calculate)
+          const priceShock = derived?.priceShockPct != null
+            ? derived.priceShockPct / 100
+            : (() => {
+                const loanAsset = market.loanAsset;
+                const collateralAsset = market.collateralAsset;
+                const loanSymbol = loanAsset?.symbol?.toUpperCase() || '';
+                const collateralSymbol = collateralAsset?.symbol?.toUpperCase() || '';
+                const isSameAsset = loanAsset && collateralAsset && (
+                  loanAsset.address.toLowerCase() === collateralAsset.address.toLowerCase() ||
+                  loanSymbol === collateralSymbol ||
+                  (['WSTETH', 'STETH', 'RETH', 'CBETH', 'WETH', 'ETH'].includes(loanSymbol) &&
+                   ['WSTETH', 'STETH', 'RETH', 'CBETH', 'WETH', 'ETH'].includes(collateralSymbol)) ||
+                  (['CBBTC', 'LBTC', 'WBTC', 'BTC'].includes(loanSymbol) &&
+                   ['CBBTC', 'LBTC', 'WBTC', 'BTC'].includes(collateralSymbol)) ||
+                  ((loanSymbol === 'USDC' || loanSymbol === 'USDC.E') &&
+                   (collateralSymbol === 'USDC' || collateralSymbol === 'USDC.E')) ||
+                  ((loanSymbol === 'USDT' || loanSymbol === 'USDT.E') &&
+                   (collateralSymbol === 'USDT' || collateralSymbol === 'USDT.E'))
+                );
+                return isSameAsset ? 0.02 : 0.05; // 2.0% for same/derivative assets, 5% for different assets
+              })();
           
-          // Liquidation Headroom calculation
-          const collateralUsd = state?.collateralAssetsUsd ? Number(state.collateralAssetsUsd) : 0;
-          const borrowUsd = state?.borrowAssetsUsd ? Number(state.borrowAssetsUsd) : 0;
-          const supplyUsd = state?.supplyAssetsUsd ? Number(state.supplyAssetsUsd) : 0;
-          const headroom = borrowUsd > 0 && collateralUsd > 0 
-            ? collateralUsd * shockMultiplier * lltvRatio - borrowUsd 
-            : null;
-          const headroomRatio = headroom !== null && borrowUsd > 0 
-            ? (headroom / borrowUsd) * 100 
-            : null;
+          // Use derived metrics when available, otherwise calculate
+          const headroom = derived?.headroomUsd ?? (() => {
+            const collateralUsd = state?.collateralAssetsUsd ? Number(state.collateralAssetsUsd) : 0;
+            const borrowUsd = state?.borrowAssetsUsd ? Number(state.borrowAssetsUsd) : 0;
+            const shockMultiplier = 1 - priceShock;
+            return borrowUsd > 0 && collateralUsd > 0 
+              ? collateralUsd * shockMultiplier * lltvRatio - borrowUsd 
+              : null;
+          })();
+          
+          const headroomRatio = derived?.headroomRatioPct ?? (headroom !== null && state?.borrowAssetsUsd ? 
+            (headroom / Number(state.borrowAssetsUsd)) * 100 
+            : null);
 
-          // Utilization calculation
-          const utilization = state?.utilization !== null && state?.utilization !== undefined
+          const utilization = derived?.utilizationPct ?? (state?.utilization !== null && state?.utilization !== undefined
             ? state.utilization * 100
-            : (supplyUsd > 0 ? (borrowUsd / supplyUsd) * 100 : null);
+            : (() => {
+                const supplyUsd = state?.supplyAssetsUsd ? Number(state.supplyAssetsUsd) : 0;
+                const borrowUsd = state?.borrowAssetsUsd ? Number(state.borrowAssetsUsd) : 0;
+                return supplyUsd > 0 ? (borrowUsd / supplyUsd) * 100 : null;
+              })());
 
-          // Coverage Ratio calculation
-          const availableLiquidityUsd = supplyUsd - borrowUsd;
-          const liquidatableBorrow = borrowUsd > 0 && collateralUsd > 0
-            ? Math.max(0, borrowUsd - collateralUsd * shockMultiplier * lltvRatio)
-            : null;
-          const coverage = liquidatableBorrow !== null && liquidatableBorrow > 0 && availableLiquidityUsd > 0
+          const availableLiquidityUsd = derived?.availableLiquidityUsd ?? (() => {
+            const supplyUsd = state?.supplyAssetsUsd ? Number(state.supplyAssetsUsd) : 0;
+            const borrowUsd = state?.borrowAssetsUsd ? Number(state.borrowAssetsUsd) : 0;
+            return supplyUsd - borrowUsd;
+          })();
+          
+          const liquidatableBorrow = derived?.liquidatableBorrowUsd ?? (() => {
+            const borrowUsd = state?.borrowAssetsUsd ? Number(state.borrowAssetsUsd) : 0;
+            const collateralUsd = state?.collateralAssetsUsd ? Number(state.collateralAssetsUsd) : 0;
+            const shockMultiplier = 1 - priceShock;
+            return borrowUsd > 0 && collateralUsd > 0
+              ? Math.max(0, borrowUsd - collateralUsd * shockMultiplier * lltvRatio)
+              : null;
+          })();
+          
+          const coverage = derived?.coverageRatio ?? (liquidatableBorrow !== null && liquidatableBorrow > 0 && availableLiquidityUsd > 0
             ? availableLiquidityUsd / liquidatableBorrow
-            : null;
+            : null);
 
-          // Oracle freshness calculation
-          const oracleAgeHours = oracleTimestampData?.ageSeconds 
+          const oracleAgeHours = derived?.oracleAgeHours ?? (oracleTimestampData?.ageSeconds 
             ? oracleTimestampData.ageSeconds / 3600 
-            : null;
-          const oracleAgeDays = oracleAgeHours !== null 
+            : null);
+          const oracleAgeDays = derived?.oracleAgeDays ?? (oracleAgeHours !== null 
             ? oracleAgeHours / 24 
-            : null;
+            : null);
 
           return (
             <div
@@ -354,7 +373,7 @@ export function MarketRiskV1({ vaultAddress, preloadedData }: MarketRiskV1Props)
                             aria-label="Information"
                           />
                           <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-50 w-64 p-2 text-xs text-slate-900 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 rounded-md shadow-lg border border-slate-200 dark:border-slate-700 pointer-events-none">
-                            Measures the buffer before liquidation under a price shock. Uses -2.5% shock for same/derivative assets (e.g., USDC/USDC, wstETH/ETH) and -5% for different assets. Higher headroom (positive value) indicates more safety margin. Negative headroom means the position would be underwater.
+                            Measures the buffer before liquidation under a price shock. Uses -2.0% shock for same/derivative assets (e.g., USDC/USDC, wstETH/ETH) and -5% for different assets. Higher headroom (positive value) indicates more safety margin. Negative headroom means the position would be underwater.
                             <div className="absolute left-4 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-200 dark:border-t-slate-700"></div>
                           </div>
                         </div>
@@ -428,7 +447,7 @@ export function MarketRiskV1({ vaultAddress, preloadedData }: MarketRiskV1Props)
                             aria-label="Information"
                           />
                           <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-50 w-64 p-2 text-xs text-slate-900 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 rounded-md shadow-lg border border-slate-200 dark:border-slate-700 pointer-events-none">
-                            The ratio of available liquidity to liquidatable borrows under a price shock. Uses -2.5% shock for same/derivative assets and -5% for different assets. A ratio ≥1.0 means the market can fully cover all liquidations. Lower ratios indicate insufficient liquidity.
+                            The ratio of available liquidity to liquidatable borrows under a price shock. Uses -2.0% shock for same/derivative assets and -5% for different assets. A ratio ≥1.0 means the market can fully cover all liquidations. Lower ratios indicate insufficient liquidity.
                             <div className="absolute left-4 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-200 dark:border-t-slate-700"></div>
                           </div>
                         </div>
@@ -556,9 +575,11 @@ export function MarketRiskV1({ vaultAddress, preloadedData }: MarketRiskV1Props)
                         Supply APR
                       </p>
                       <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                        {market.state?.supplyApy !== null && market.state?.supplyApy !== undefined
-                          ? formatPercentage(market.state.supplyApy * 100, 2)
-                          : 'N/A'}
+                        {derived?.supplyApyPct != null
+                          ? formatPercentage(derived.supplyApyPct, 2)
+                          : market.state?.supplyApy !== null && market.state?.supplyApy !== undefined
+                            ? formatPercentage(market.state.supplyApy * 100, 2)
+                            : 'N/A'}
                       </p>
                     </div>
                     <div>
@@ -566,9 +587,11 @@ export function MarketRiskV1({ vaultAddress, preloadedData }: MarketRiskV1Props)
                         Borrow APR
                       </p>
                       <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                        {market.state?.borrowApy !== null && market.state?.borrowApy !== undefined
-                          ? formatPercentage(market.state.borrowApy * 100, 2)
-                          : 'N/A'}
+                        {derived?.borrowApyPct != null
+                          ? formatPercentage(derived.borrowApyPct, 2)
+                          : market.state?.borrowApy !== null && market.state?.borrowApy !== undefined
+                            ? formatPercentage(market.state.borrowApy * 100, 2)
+                            : 'N/A'}
                       </p>
                     </div>
                   </div>

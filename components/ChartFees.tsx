@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -17,16 +17,20 @@ interface ChartFeesProps {
 export function ChartFees({ dailyData, cumulativeData, isLoading = false, title = "Fees" }: ChartFeesProps) {
   const [viewMode, setViewMode] = useState<'daily' | 'cumulative'>('cumulative');
 
-  const cleanSeries = (series?: Array<{ date: string; value: number }>) =>
-    (series ?? [])
-      .map((p) => ({
-        date: p.date,
-        value: Number.isFinite(p.value) ? Math.max(0, p.value) : 0,
-      }))
-      .filter((p) => Boolean(p.date));
+  const cleanSeries = useMemo(() => {
+    return (series?: Array<{ date: string; value: number }>) =>
+      (series ?? [])
+        .map((p) => ({
+          date: p.date,
+          value: Number.isFinite(p.value) ? Math.max(0, p.value) : 0,
+        }))
+        .filter((p) => Boolean(p.date));
+  }, []);
 
   // Use the selected view mode data, fallback to cumulative if daily is not available
-  const data = viewMode === 'daily' && dailyData ? cleanSeries(dailyData) : cleanSeries(cumulativeData || dailyData || []);
+  const data = useMemo(() => {
+    return viewMode === 'daily' && dailyData ? cleanSeries(dailyData) : cleanSeries(cumulativeData || dailyData || []);
+  }, [viewMode, dailyData, cumulativeData, cleanSeries]);
 
   if (isLoading) {
     return (
@@ -56,11 +60,11 @@ export function ChartFees({ dailyData, cumulativeData, isLoading = false, title 
     );
   }
 
-  const formatTooltipValue = (value: number) => formatCompactUSD(value);
-  const formatXAxisLabel = (tickItem: string) => {
+  const formatTooltipValue = useMemo(() => (value: number) => formatCompactUSD(value), []);
+  const formatXAxisLabel = useMemo(() => (tickItem: string) => {
     const date = new Date(tickItem);
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  };
+  }, []);
 
   const showToggle = dailyData && cumulativeData;
 
