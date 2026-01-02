@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import type { MorphoMarketsResponse } from '@/lib/morpho/types';
 
-async function fetchMorphoMarkets(): Promise<MorphoMarketsResponse> {
+async function fetchMorphoMarkets({ signal }: { signal?: AbortSignal }): Promise<MorphoMarketsResponse> {
   const response = await fetch('/api/morpho-markets', {
     credentials: 'omit',
+    signal,
   });
 
   if (!response.ok) {
@@ -17,7 +18,7 @@ async function fetchMorphoMarkets(): Promise<MorphoMarketsResponse> {
 export function useMorphoMarkets() {
   return useQuery({
     queryKey: ['morpho-markets'],
-    queryFn: fetchMorphoMarkets,
+    queryFn: ({ signal }) => fetchMorphoMarkets({ signal }),
     staleTime: 5 * 60 * 1000,
   });
 }

@@ -6,7 +6,7 @@ import {
   DAYS_30_MS,
   getDaysAgoTimestamp,
 } from '@/lib/constants';
-import { handleApiError } from '@/lib/utils/error-handler';
+import { handleApiError, AppError } from '@/lib/utils/error-handler';
 import { createRateLimitMiddleware, RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS } from '@/lib/utils/rate-limit';
 import { morphoGraphQLClient } from '@/lib/morpho/graphql-client';
 import { gql } from 'graphql-request';
@@ -54,6 +54,9 @@ export async function GET(request: Request) {
 
   try {
     const addresses = vaultAddresses.map(v => getAddress(v.address));
+    if (!addresses.length) {
+      throw new AppError('No vaults configured', 500, 'NO_VAULTS_CONFIGURED');
+    }
 
     const query = gql`
       query FetchProtocolStats($addresses: [String!]) {
@@ -397,8 +400,8 @@ export async function GET(request: Request) {
           };
         }
         // Remove performanceFee field for response (only needed internally for V2 identification)
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { performanceFee: _performanceFee, ...rest } = v;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
+        const { performanceFee: __performanceFee, ...rest } = v;
         return rest;
       });
     

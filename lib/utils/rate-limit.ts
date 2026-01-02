@@ -31,15 +31,12 @@ export function rateLimit(
   const now = Date.now();
   const key = identifier;
 
-  // Clean up expired entries periodically
-  if (Math.random() < 0.01) {
-    // 1% chance to clean up (to avoid doing it on every request)
-    Object.keys(store).forEach((k) => {
-      if (store[k].resetTime < now) {
-        delete store[k];
-      }
-    });
-  }
+  // Clean up expired entries deterministically to avoid unbounded growth
+  Object.keys(store).forEach((k) => {
+    if (store[k].resetTime < now) {
+      delete store[k];
+    }
+  });
 
   const entry = store[key];
 
@@ -89,9 +86,10 @@ export function createRateLimitMiddleware(
 ) {
   return (request: Request): { allowed: boolean; headers?: Headers } => {
     // Try to get IP from various headers (for production, use a proper IP extraction)
-    const forwarded = request.headers.get('x-forwarded-for');
-    const realIp = request.headers.get('x-real-ip');
-    const identifier = forwarded?.split(',')[0] || realIp || 'unknown';
+    const forwarded = request.headers.get('x-forwarded-for') ?? '';
+    const realIp = request.headers.get('x-real-ip') ?? '';
+    const forwardedIp = forwarded.split(',').map((ip) => ip.trim()).filter(Boolean)[0];
+    const identifier = forwardedIp || realIp || 'anon';
 
     const allowed = rateLimit(identifier, maxRequests, windowMs);
 
@@ -102,6 +100,7 @@ export function createRateLimitMiddleware(
         headers.set('X-RateLimit-Limit', maxRequests.toString());
         headers.set('X-RateLimit-Remaining', '0');
         headers.set('X-RateLimit-Reset', Math.ceil(info.resetTime / 1000).toString());
+        headers.set('Retry-After', Math.max(0, Math.ceil((info.resetTime - Date.now()) / 1000)).toString());
       }
       return { allowed: false, headers };
     }

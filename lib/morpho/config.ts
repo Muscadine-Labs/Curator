@@ -14,11 +14,7 @@ const DEFAULT_WEIGHTS: CuratorWeights = {
   liquidationCapacity: 0.15,
 };
 
-/**
- * Clamps a value to [0, 1] range
- * Note: This function is used internally in compute.ts, kept here for potential reuse
- */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+// eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
 function clamp01(x: number): number {
   if (!Number.isFinite(x)) return 0;
   if (x < 0) return 0;

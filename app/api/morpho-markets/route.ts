@@ -7,6 +7,18 @@ import { createRateLimitMiddleware, RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS } 
 
 export const revalidate = 300;
 
+function parsePositiveNumber(value: string | null, field: string, max?: number): number | undefined {
+  if (value === null) return undefined;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new AppError(`Invalid ${field} parameter`, 400, `INVALID_${field.toUpperCase()}`);
+  }
+  if (max !== undefined) {
+    return Math.min(parsed, max);
+  }
+  return parsed;
+}
+
 export async function GET(request: NextRequest) {
   // Rate limiting
   const rateLimitMiddleware = createRateLimitMiddleware(
@@ -27,17 +39,8 @@ export async function GET(request: NextRequest) {
 
   try {
     const { searchParams } = new URL(request.url);
-    const limitParam = searchParams.get('limit');
+    const limit = parsePositiveNumber(searchParams.get('limit'), 'limit', GRAPHQL_FIRST_LIMIT);
     const marketId = searchParams.get('marketId') ?? searchParams.get('id') ?? undefined;
-
-    let limit: number | undefined;
-    if (limitParam !== null) {
-      const parsed = Number(limitParam);
-      if (!Number.isFinite(parsed) || parsed <= 0) {
-        throw new AppError('Invalid limit parameter', 400, 'INVALID_LIMIT');
-      }
-      limit = Math.min(parsed, GRAPHQL_FIRST_LIMIT);
-    }
 
     const overrides = parseConfigOverrides(searchParams);
 

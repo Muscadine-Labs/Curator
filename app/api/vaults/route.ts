@@ -8,6 +8,29 @@ import { gql } from 'graphql-request';
 import { getAddress } from 'viem';
 import { logger } from '@/lib/utils/logger';
 
+export const revalidate = 60;
+
+const V2_QUERY_CONCURRENCY = 5;
+
+async function mapWithLimit<T, U>(
+  items: T[],
+  limit: number,
+  mapper: (_item: T, _index: number) => Promise<U>
+): Promise<U[]> {
+  const results: U[] = new Array(items.length);
+  let idx = 0;
+
+  const worker = async () => {
+    while (idx < items.length) {
+      const current = idx++;
+      results[current] = await mapper(items[current], current);
+    }
+  };
+
+  const workers = Array.from({ length: Math.min(limit, items.length) }, () => worker());
+  await Promise.all(workers);
+  return results;
+}
 
 export async function GET(request: Request) {
   // Rate limiting
@@ -59,7 +82,7 @@ export async function GET(request: Request) {
     // For V2 vaults, we need to query individually since there's no vaultsV2 list query
     // We'll try all addresses - non-V2 vaults will return null and be filtered out
     // V2 vaults have positions nested directly on the vault, not in a separate query
-    const v2VaultPromises = addresses.map(async (address) => {
+    const v2Results = await mapWithLimit(addresses, V2_QUERY_CONCURRENCY, async (address) => {
       try {
         const v2Query = gql`
           query FetchV2Vault($address: String!, $chainId: Int!) {
@@ -106,9 +129,8 @@ export async function GET(request: Request) {
     });
 
     // Fetch V1 vaults and V2 vaults in parallel
-    const [v1Data, v2Results] = await Promise.all([
+    const [v1Data] = await Promise.all([
       morphoGraphQLClient.request<{ vaults?: { items?: Array<{ address: string; name: string; whitelisted?: boolean; asset?: { address?: string; symbol?: string; decimals?: number }; state?: { totalAssetsUsd?: number; weeklyNetApy?: number; monthlyNetApy?: number; fee?: number } } | null> | null } | null }>(v1Query, { addresses }).catch(() => ({ vaults: { items: [] } })),
-      Promise.all(v2VaultPromises),
     ]);
 
     const v2Vaults = v2Results.filter((v): v is NonNullable<typeof v> => v !== null);

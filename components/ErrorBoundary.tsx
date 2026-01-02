@@ -13,7 +13,7 @@ interface ErrorBoundaryState {
 interface ErrorBoundaryProps {
   children: React.ReactNode;
   fallback?: React.ReactNode;
-  onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
+  onError?: (_error: Error, _errorInfo: React.ErrorInfo) => void;
   showDetails?: boolean;
 }
 
@@ -27,20 +27,20 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+  componentDidCatch(_error: Error, _errorInfo: React.ErrorInfo) {
     // Log error with context
-    logger.error('ErrorBoundary caught an error', error, {
-      componentStack: errorInfo.componentStack,
+    logger.error('ErrorBoundary caught an error', _error, {
+      componentStack: _errorInfo.componentStack,
       errorBoundary: true,
     });
 
     // Call custom error handler if provided
     if (this.props.onError) {
-      this.props.onError(error, errorInfo);
+      this.props.onError(_error, _errorInfo);
     }
 
     // Store error info for display
-    this.setState({ errorInfo });
+    this.setState({ errorInfo: _errorInfo });
   }
 
   handleReset = () => {

@@ -1,6 +1,6 @@
 /**
  * DefiLlama API Service
- * 
+ *
  * Fetches fees, revenue, and TVL data from DefiLlama for Muscadine vaults.
  */
 
@@ -9,6 +9,44 @@ import { logger } from '@/lib/utils/logger';
 
 const DEFILLAMA_API_BASE = 'https://api.llama.fi';
 const PROTOCOL_SLUG = 'muscadine';
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+type CacheEntry<T> = { value: T; expiresAt: number };
+const cache: Record<string, CacheEntry<unknown>> = {};
+
+function getCache<T>(key: string): T | null {
+  const entry = cache[key];
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    delete cache[key];
+    return null;
+  }
+  return entry.value as T;
+}
+
+function setCache<T>(key: string, value: T) {
+  cache[key] = { value, expiresAt: Date.now() + CACHE_TTL_MS };
+}
+
+function isNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+function validateFeesResponse(data: unknown): data is DefiLlamaFeesResponse {
+  if (!data || typeof data !== 'object') return false;
+  const cast = data as Record<string, unknown>;
+  const chart = cast.totalDataChart;
+  return Array.isArray(chart) && chart.every((row) => Array.isArray(row) && isNumber(row[0]) && isNumber(row[1]));
+}
+
+function validateProtocolResponse(data: unknown): data is DefiLlamaProtocolResponse {
+  if (!data || typeof data !== 'object') return false;
+  const cast = data as Record<string, unknown>;
+  const tvl = cast.tvl;
+  return Array.isArray(tvl)
+    ? tvl.every((row) => row && typeof row === 'object' && isNumber((row as Record<string, unknown>).date) && isNumber((row as Record<string, unknown>).totalLiquidityUSD))
+    : true;
+}
 
 export interface DefiLlamaFeesResponse {
   id: string;
@@ -38,6 +76,9 @@ export interface ChartData {
  * Fetch fees summary from DefiLlama
  */
 export async function fetchDefiLlamaFees(): Promise<DefiLlamaFeesResponse | null> {
+  const cached = getCache<DefiLlamaFeesResponse>('fees');
+  if (cached) return cached;
+
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), EXTERNAL_API_TIMEOUT_MS);
@@ -60,7 +101,14 @@ export async function fetchDefiLlamaFees(): Promise<DefiLlamaFeesResponse | null
       return null;
     }
 
-    return await response.json() as DefiLlamaFeesResponse;
+    const json = await response.json() as unknown;
+    if (!validateFeesResponse(json)) {
+      logger.warn('DefiLlama fees payload failed validation');
+      return null;
+    }
+
+    setCache('fees', json as DefiLlamaFeesResponse);
+    return json as DefiLlamaFeesResponse;
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
       logger.warn('DefiLlama fees API request timed out');
@@ -77,6 +125,9 @@ export async function fetchDefiLlamaFees(): Promise<DefiLlamaFeesResponse | null
  * Fetch protocol TVL data from DefiLlama
  */
 export async function fetchDefiLlamaProtocol(): Promise<DefiLlamaProtocolResponse | null> {
+  const cached = getCache<DefiLlamaProtocolResponse>('protocol');
+  if (cached) return cached;
+
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), EXTERNAL_API_TIMEOUT_MS);
@@ -99,7 +150,14 @@ export async function fetchDefiLlamaProtocol(): Promise<DefiLlamaProtocolRespons
       return null;
     }
 
-    return await response.json() as DefiLlamaProtocolResponse;
+    const json = await response.json() as unknown;
+    if (!validateProtocolResponse(json)) {
+      logger.warn('DefiLlama protocol payload failed validation');
+      return null;
+    }
+
+    setCache('protocol', json as DefiLlamaProtocolResponse);
+    return json as DefiLlamaProtocolResponse;
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
       logger.warn('DefiLlama protocol API request timed out');

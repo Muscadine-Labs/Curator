@@ -33,17 +33,25 @@ const VAULT_COLORS = [
 export function ChartTvl({ totalData, vaultData, isLoading = false, title = "TVL Over Time" }: ChartTvlProps) {
   const [viewMode, setViewMode] = useState<'total' | 'byVault'>('total');
   
+  const cleanSeries = (series?: Array<{ date: string; value: number }>) =>
+    (series ?? [])
+      .map((p) => ({
+        date: p.date,
+        value: Number.isFinite(p.value) ? Math.max(0, p.value) : 0,
+      }))
+      .filter((p) => Boolean(p.date));
+
   // Process vault data into chart format when "By Vault" is selected
   const chartData = useMemo(() => {
     if (viewMode === 'total' || !vaultData || vaultData.length === 0) {
-      return totalData || [];
+      return cleanSeries(totalData);
     }
 
     // Combine all vault data by date
     const dateMap = new Map<string, Record<string, number | string>>();
     
     vaultData.forEach((vault) => {
-      vault.data.forEach((point) => {
+      cleanSeries(vault.data).forEach((point) => {
         if (!dateMap.has(point.date)) {
           dateMap.set(point.date, { date: point.date });
         }

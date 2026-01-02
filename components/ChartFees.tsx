@@ -16,9 +16,17 @@ interface ChartFeesProps {
 
 export function ChartFees({ dailyData, cumulativeData, isLoading = false, title = "Fees" }: ChartFeesProps) {
   const [viewMode, setViewMode] = useState<'daily' | 'cumulative'>('cumulative');
-  
+
+  const cleanSeries = (series?: Array<{ date: string; value: number }>) =>
+    (series ?? [])
+      .map((p) => ({
+        date: p.date,
+        value: Number.isFinite(p.value) ? Math.max(0, p.value) : 0,
+      }))
+      .filter((p) => Boolean(p.date));
+
   // Use the selected view mode data, fallback to cumulative if daily is not available
-  const data = viewMode === 'daily' && dailyData ? dailyData : (cumulativeData || dailyData || []);
+  const data = viewMode === 'daily' && dailyData ? cleanSeries(dailyData) : cleanSeries(cumulativeData || dailyData || []);
 
   if (isLoading) {
     return (

@@ -139,9 +139,10 @@ export interface VaultDetail extends VaultWithData {
 export const useProtocolStats = () => {
   return useQuery<ProtocolStats>({
     queryKey: ['protocol-stats'],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const response = await fetch('/api/protocol-stats', {
         credentials: 'omit',
+        signal,
       });
       if (!response.ok) throw new Error('Failed to fetch protocol stats');
       return response.json();
@@ -160,7 +161,7 @@ export const useVaultList = (filters?: {
 }) => {
   return useQuery<VaultWithData[]>({
     queryKey: ['vaults', filters],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const searchParams = new URLSearchParams();
       if (filters?.asset) searchParams.set('asset', filters.asset);
       if (filters?.status) searchParams.set('status', filters.status);
@@ -169,6 +170,7 @@ export const useVaultList = (filters?: {
       
       const response = await fetch(`/api/vaults?${searchParams}`, {
         credentials: 'omit',
+        signal,
       });
       if (!response.ok) throw new Error('Failed to fetch vaults');
       return response.json();
@@ -182,9 +184,10 @@ export const useVaultList = (filters?: {
 export const useVault = (id: string) => {
   return useQuery<VaultDetail>({
     queryKey: ['vault', id],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const response = await fetch(`/api/vaults/${id}`, {
         credentials: 'omit',
+        signal,
       });
       if (!response.ok) throw new Error('Failed to fetch vault');
       return response.json();

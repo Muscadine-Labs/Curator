@@ -1,26 +1,50 @@
-// Temporary minimal config until eslint-config-next circular reference is fixed
-// This is a known issue with eslint-config-next 16.1.1 and ESLint 9
 import js from "@eslint/js";
+import nextPlugin from "@next/eslint-plugin-next";
+import tsParser from "@typescript-eslint/parser";
+import tsPlugin from "@typescript-eslint/eslint-plugin";
+import globals from "globals";
+
+const nextRecommended = nextPlugin.configs.recommended;
+const tsRecommended = tsPlugin.configs.recommended;
 
 export default [
   js.configs.recommended,
   {
-    files: ["**/*.{js,mjs,cjs}"],
+    files: ["**/*.{js,jsx,ts,tsx}"],
+    plugins: {
+      "@next/next": nextPlugin,
+      "@typescript-eslint": tsPlugin,
+    },
     languageOptions: {
+      parser: tsParser,
+      parserOptions: {
+        ecmaVersion: "latest",
+        sourceType: "module",
+        ecmaFeatures: { jsx: true },
+      },
       globals: {
-        require: "readonly",
-        module: "readonly",
-        exports: "readonly",
-        __dirname: "readonly",
-        __filename: "readonly",
-        process: "readonly",
-        console: "readonly",
-        Buffer: "readonly",
-        global: "readonly",
+        ...globals.browser,
+        ...globals.node,
+        React: "readonly",
+        fetch: "readonly",
+        RequestInit: "readonly",
       },
     },
     rules: {
+      ...(nextRecommended?.rules ?? {}),
+      ...(tsRecommended?.rules ?? {}),
       "no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
+      "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
+      "@typescript-eslint/no-require-imports": "off",
+      "no-control-regex": "off",
+    },
+  },
+  {
+    files: ["**/__tests__/**/*.{ts,tsx,js,jsx}", "**/*.test.{ts,tsx,js,jsx}"],
+    languageOptions: {
+      globals: {
+        ...globals.jest,
+      },
     },
   },
   {

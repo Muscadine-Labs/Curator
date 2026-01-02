@@ -5,13 +5,49 @@
 import { API_REQUEST_TIMEOUT_MS, EXTERNAL_API_TIMEOUT_MS } from '@/lib/constants';
 
 /**
- * Create an AbortController with timeout
+ * Merge multiple AbortSignals and ensure timeout is cleared.
  */
-function createTimeoutController(timeoutMs: number): AbortController {
+function createMergedSignal(
+  timeoutMs: number,
+  externalSignal?: AbortSignal | null
+): { signal: AbortSignal; cleanup: () => void } {
+  // Prefer native timeout if available (Node 18+/modern runtimes)
+  if (typeof AbortSignal !== "undefined" && "timeout" in AbortSignal) {
+    const timeoutSignal = (AbortSignal as typeof AbortSignal & { timeout: (_ms: number) => AbortSignal }).timeout(timeoutMs);
+    const signals = externalSignal ? [timeoutSignal, externalSignal] : [timeoutSignal];
+    const controller = new AbortController();
+    const onAbort = () => controller.abort();
+    signals.forEach((sig) => {
+      if (sig.aborted) {
+        controller.abort();
+      } else {
+        sig.addEventListener("abort", onAbort, { once: true });
+      }
+    });
+    const cleanup = () => signals.forEach((sig) => sig.removeEventListener("abort", onAbort));
+    return { signal: controller.signal, cleanup };
+  }
+
+  // Fallback: manual timer
   const controller = new AbortController();
-  setTimeout(() => controller.abort(), timeoutMs);
-  
-  return controller;
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  let cleanup = () => clearTimeout(timeoutId);
+
+  if (externalSignal) {
+    if (externalSignal.aborted) {
+      controller.abort();
+    } else {
+      const onAbort = () => controller.abort();
+      externalSignal.addEventListener("abort", onAbort, { once: true });
+      const prevCleanup = cleanup;
+      cleanup = () => {
+        prevCleanup();
+        externalSignal.removeEventListener("abort", onAbort);
+      };
+    }
+  }
+
+  return { signal: controller.signal, cleanup };
 }
 
 /**
@@ -22,19 +58,21 @@ export async function fetchWithTimeout(
   options: RequestInit = {},
   timeoutMs: number = API_REQUEST_TIMEOUT_MS
 ): Promise<Response> {
-  const controller = createTimeoutController(timeoutMs);
-  
+  const { signal, cleanup } = createMergedSignal(timeoutMs, options.signal ?? undefined);
+
   try {
     const response = await fetch(url, {
       ...options,
-      signal: controller.signal,
+      signal,
     });
     return response;
   } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
+    if (error instanceof Error && error.name === "AbortError") {
       throw new Error(`Request timeout after ${timeoutMs}ms`);
     }
     throw error;
+  } finally {
+    cleanup();
   }
 }
 
