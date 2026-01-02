@@ -3,7 +3,7 @@
  * Uses graphql-request with SDK-generated types for type safety
  */
 import { request, type RequestDocument } from 'graphql-request';
-import { MORPHO_GRAPHQL_ENDPOINT, API_REQUEST_TIMEOUT_MS } from '@/lib/constants';
+import { API_REQUEST_TIMEOUT_MS } from '@/lib/constants';
 import { logger } from '@/lib/utils/logger';
 
 export type GraphQLResponse<T> = {
@@ -29,13 +29,23 @@ type GraphQLResponseError = {
 };
 
 /**
+ * Get Morpho GraphQL endpoint from environment or default
+ * Evaluated at runtime to ensure env vars are available
+ */
+function getMorphoEndpoint(): string {
+  return process.env.MORPHO_GRAPHQL_ENDPOINT || 
+         process.env.MORPHO_API_URL || 
+         'https://api.morpho.org/graphql';
+}
+
+/**
  * Type-safe GraphQL client wrapper
  */
 export class MorphoGraphQLClient {
   private endpoint: string;
 
-  constructor(endpoint: string = MORPHO_GRAPHQL_ENDPOINT) {
-    this.endpoint = endpoint;
+  constructor(endpoint?: string) {
+    this.endpoint = endpoint || getMorphoEndpoint();
   }
 
   async request<T = unknown>(
@@ -58,7 +68,7 @@ export class MorphoGraphQLClient {
       if (process.env.NODE_ENV === 'production') {
         logger.debug('GraphQL request endpoint', {
           endpoint: this.endpoint,
-          endpointFromEnv: process.env.MORPHO_GRAPHQL_ENDPOINT || process.env.MORPHO_API_URL || 'default',
+          endpointFromEnv: getMorphoEndpoint(),
         });
       }
       

@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
-import { MORPHO_GRAPHQL_ENDPOINT } from '@/lib/constants';
 import { logger } from '@/lib/utils/logger';
+
+// Get Morpho endpoint at runtime
+function getMorphoEndpoint(): string {
+  return process.env.MORPHO_GRAPHQL_ENDPOINT || 
+         process.env.MORPHO_API_URL || 
+         'https://api.morpho.org/graphql';
+}
 
 // Vercel runtime configuration
 export const runtime = 'nodejs';
@@ -19,7 +25,7 @@ export async function GET() {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-    const response = await fetch(MORPHO_GRAPHQL_ENDPOINT, {
+    const response = await fetch(getMorphoEndpoint(), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

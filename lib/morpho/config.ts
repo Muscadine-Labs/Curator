@@ -1,5 +1,10 @@
 import type { CuratorConfig, CuratorWeights } from './types';
-import { MORPHO_GRAPHQL_ENDPOINT } from '@/lib/constants';
+// Get Morpho endpoint at runtime
+function getMorphoEndpoint(): string {
+  return process.env.MORPHO_GRAPHQL_ENDPOINT || 
+         process.env.MORPHO_API_URL || 
+         'https://api.morpho.org/graphql';
+}
 import { logger } from '@/lib/utils/logger';
 
 export type CuratorConfigOverrides = Partial<Omit<CuratorConfig, 'weights'>> & {
@@ -38,7 +43,7 @@ function clamp01(x: number): number {
  * - fallbackBenchmarkRate: 0.03-0.08 (3-8% APY)
  */
 export const DEFAULT_CURATOR_CONFIG: CuratorConfig = {
-  morphoApiUrl: MORPHO_GRAPHQL_ENDPOINT,
+  morphoApiUrl: getMorphoEndpoint(),
   utilizationCeiling: 0.9, // 90% utilization ceiling
   utilizationBufferHours: 48,
   maxUtilizationBeyond: 1.1, // 110% max utilization for scoring
