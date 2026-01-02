@@ -148,6 +148,20 @@ export class MorphoGraphQLClient {
   }
 }
 
-// Singleton instance
-export const morphoGraphQLClient = new MorphoGraphQLClient();
+// Lazy singleton instance - created on first access to ensure env vars are available
+let _morphoGraphQLClient: MorphoGraphQLClient | null = null;
+
+export function getMorphoGraphQLClient(): MorphoGraphQLClient {
+  if (!_morphoGraphQLClient) {
+    _morphoGraphQLClient = new MorphoGraphQLClient();
+  }
+  return _morphoGraphQLClient;
+}
+
+// Export singleton for backward compatibility (lazy initialization)
+export const morphoGraphQLClient = new Proxy({} as MorphoGraphQLClient, {
+  get(_target, prop) {
+    return getMorphoGraphQLClient()[prop as keyof MorphoGraphQLClient];
+  },
+});
 
