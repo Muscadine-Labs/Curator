@@ -65,15 +65,6 @@ export class MorphoGraphQLClient {
       headers.set('Content-Type', 'application/json');
       headers.set('Accept', 'application/json');
       
-      // Log the endpoint being used for debugging
-      logger.debug('GraphQL request starting', {
-        endpoint: this.endpoint,
-        endpointFromEnv: getMorphoEndpoint(),
-        hasVariables: !!variables,
-        nodeEnv: process.env.NODE_ENV,
-        vercel: !!process.env.VERCEL,
-      });
-
       const response = await fetchWithTimeout(
         this.endpoint,
         {
@@ -114,22 +105,11 @@ export class MorphoGraphQLClient {
       const data = json.data as T;
       const duration = Date.now() - startTime;
       
-      // Log success for monitoring
-      logger.debug('GraphQL request succeeded', {
-        endpoint: this.endpoint,
-        duration: `${duration}ms`,
-      });
-
       return data;
     } catch (error: unknown) {
       const duration = Date.now() - startTime;
       // Enhanced error handling with logging
       const graphqlError = error as GraphQLResponseError;
-      
-      // Log the error for debugging with full context
-      const isTimeout = error instanceof Error && (error.name === 'AbortError' || error.message.includes('timeout'));
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      const errorStack = error instanceof Error ? error.stack : undefined;
       
       logger.error('GraphQL request failed', error instanceof Error ? error : new Error(String(error)), {
         endpoint: this.endpoint,
@@ -137,13 +117,6 @@ export class MorphoGraphQLClient {
         duration: `${duration}ms`,
         status: graphqlError.response?.status,
         statusText: graphqlError.response?.statusText,
-        hasErrors: !!graphqlError.response?.errors,
-        isTimeout,
-        timeoutMs: API_REQUEST_TIMEOUT_MS,
-        errorMessage,
-        errorStack,
-        nodeEnv: process.env.NODE_ENV,
-        vercel: !!process.env.VERCEL,
       });
 
       if (graphqlError.response?.errors) {
