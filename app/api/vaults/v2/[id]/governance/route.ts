@@ -7,6 +7,10 @@ import { handleApiError, AppError } from '@/lib/utils/error-handler';
 import { createRateLimitMiddleware, RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS } from '@/lib/utils/rate-limit';
 import { BASE_CHAIN_ID } from '@/lib/constants';
 
+// Vercel runtime configuration
+export const runtime = 'nodejs';
+export const maxDuration = 30; // 30 seconds should be sufficient for governance data
+
 type GraphAdapter = {
   __typename?: 'MetaMorphoAdapter' | 'MorphoMarketV1Adapter' | string | null;
   address?: string | null;

@@ -5,6 +5,9 @@ import { GRAPHQL_FIRST_LIMIT } from '@/lib/constants';
 import { handleApiError, AppError } from '@/lib/utils/error-handler';
 import { createRateLimitMiddleware, RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS } from '@/lib/utils/rate-limit';
 
+// Vercel runtime configuration
+export const runtime = 'nodejs';
+export const maxDuration = 30; // 30 seconds should be sufficient for market ratings
 export const revalidate = 300;
 
 function parsePositiveNumber(value: string | null, field: string, max?: number): number | undefined {

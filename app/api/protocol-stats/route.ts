@@ -23,6 +23,10 @@ import {
   getCumulativeInflowsChart 
 } from '@/lib/defillama/service';
 
+// Vercel runtime configuration
+export const runtime = 'nodejs';
+export const maxDuration = 60; // 60 seconds for Vercel Pro, adjust if needed
+
 // Type-safe response matching our query structure
 type ProtocolStatsQueryResponse = {
   vaults: {
@@ -452,8 +456,15 @@ export async function GET(request: Request) {
   }
 
   try {
+    logger.info('Fetching protocol stats', {
+      vaultCount: vaultAddresses.length,
+      environment: process.env.NODE_ENV,
+      vercel: !!process.env.VERCEL,
+    });
+
     const addresses = vaultAddresses.map(v => getAddress(v.address));
     if (!addresses.length) {
+      logger.error('No vaults configured', new Error('NO_VAULTS_CONFIGURED'));
       throw new AppError('No vaults configured', 500, 'NO_VAULTS_CONFIGURED');
     }
 
@@ -485,10 +496,17 @@ export async function GET(request: Request) {
       }
     `;
 
+    logger.info('Fetching vault data from GraphQL', { addressCount: addresses.length });
+    
     const data = await morphoGraphQLClient.request<ProtocolStatsQueryResponse>(
       query,
       { addresses }
     );
+
+    logger.info('GraphQL data received', {
+      vaultCount: data.vaults?.items?.length ?? 0,
+      positionCount: data.vaultPositions?.items?.length ?? 0,
+    });
 
     const morphoVaults = data.vaults?.items?.filter((v): v is Vault => v !== null) ?? [];
     const positions = data.vaultPositions?.items?.filter((p): p is VaultPosition => p !== null) ?? [];
@@ -699,8 +717,18 @@ export async function GET(request: Request) {
     const responseHeaders = new Headers(rateLimitResult.headers);
     responseHeaders.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
 
+    logger.info('Protocol stats fetched successfully', {
+      totalDeposited,
+      activeVaults,
+      users: uniqueUsers.size,
+      tvlTrendPoints: tvlTrend.length,
+    });
+
     return NextResponse.json(stats, { headers: responseHeaders });
   } catch (err) {
+    logger.error('Failed to fetch protocol stats', err instanceof Error ? err : new Error(String(err)), {
+      errorType: err instanceof Error ? err.constructor.name : typeof err,
+    });
     const { error, statusCode } = handleApiError(err, 'Failed to fetch protocol stats');
     return NextResponse.json(error, { status: statusCode });
   }

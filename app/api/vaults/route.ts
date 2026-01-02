@@ -8,6 +8,9 @@ import { gql } from 'graphql-request';
 import { getAddress } from 'viem';
 import { logger } from '@/lib/utils/logger';
 
+// Vercel runtime configuration
+export const runtime = 'nodejs';
+export const maxDuration = 60; // 60 seconds for Vercel Pro, adjust if needed
 export const revalidate = 60;
 
 const V2_QUERY_CONCURRENCY = 5;

@@ -17,6 +17,10 @@ import { getIRMTargetUtilizationWithFallback } from '@/lib/morpho/irm-utils';
 import { getOracleTimestampData, type OracleTimestampData } from '@/lib/morpho/oracle-utils';
 import type { Address } from 'viem';
 
+// Vercel runtime configuration
+export const runtime = 'nodejs';
+export const maxDuration = 60; // 60 seconds for complex V2 risk calculations
+
 type AdapterType = 'MetaMorphoAdapter' | 'MorphoMarketV1Adapter' | 'Unknown';
 
 type GraphAdapter = {

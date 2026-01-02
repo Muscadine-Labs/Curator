@@ -16,6 +16,8 @@ interface LogEntry {
 class Logger {
   private isDevelopment = process.env.NODE_ENV === 'development';
   private isProduction = process.env.NODE_ENV === 'production';
+  // Vercel preview deployments use NODE_ENV=production but are not production
+  private isVercel = !!process.env.VERCEL;
 
   private formatMessage(entry: LogEntry): string {
     const parts = [
@@ -49,8 +51,11 @@ class Logger {
 
     const formatted = this.formatMessage(entry);
 
-    // In development, log to console
-    if (this.isDevelopment) {
+    // Always log errors and warnings in production/preview for debugging
+    // Log all levels in development
+    const shouldLog = this.isDevelopment || level === 'error' || level === 'warn';
+
+    if (shouldLog) {
       switch (level) {
         case 'debug':
           console.debug(formatted);

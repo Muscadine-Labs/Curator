@@ -70,11 +70,15 @@ export function createErrorResponse(
 export function handleApiError(error: unknown, defaultMessage?: string) {
   const { error: apiError, statusCode } = createErrorResponse(error, defaultMessage);
   
-  // Log error
-  logger.error('API Error', new Error(apiError.message), {
+  // Log error with full context
+  const errorToLog = error instanceof Error ? error : new Error(apiError.message);
+  logger.error('API Error', errorToLog, {
     code: apiError.code,
     statusCode: apiError.statusCode,
     details: apiError.details,
+    message: apiError.message,
+    // Include stack trace if available
+    stack: error instanceof Error ? error.stack : undefined,
   });
 
   return {

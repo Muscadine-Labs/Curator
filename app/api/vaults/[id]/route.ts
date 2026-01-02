@@ -10,6 +10,10 @@ import { logger } from '@/lib/utils/logger';
 // Types imported from SDK but not directly used in this file
 // import type { Vault, VaultPosition, Maybe } from '@morpho-org/blue-api-sdk';
 
+// Vercel runtime configuration
+export const runtime = 'nodejs';
+export const maxDuration = 60; // 60 seconds for complex vault queries
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

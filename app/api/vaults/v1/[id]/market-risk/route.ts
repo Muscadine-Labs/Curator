@@ -10,6 +10,10 @@ import { getIRMTargetUtilizationWithFallback } from '@/lib/morpho/irm-utils';
 import type { V1VaultMarketData } from '@/lib/morpho/query-v1-vault-markets';
 import type { Address } from 'viem';
 
+// Vercel runtime configuration
+export const runtime = 'nodejs';
+export const maxDuration = 60; // 60 seconds for complex market risk calculations
+
 export interface V1MarketRiskData {
   market: V1VaultMarketData;
   scores: {
