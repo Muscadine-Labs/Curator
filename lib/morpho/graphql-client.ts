@@ -54,23 +54,19 @@ export class MorphoGraphQLClient {
   ): Promise<T> {
     const startTime = Date.now();
     try {
-      logger.debug('GraphQL request starting', {
-        endpoint: this.endpoint,
-        hasVariables: !!variables,
-      });
-
       // Wrap request in a timeout promise for better Vercel compatibility
       const headers = new Headers();
       headers.set('Content-Type', 'application/json');
       headers.set('Accept', 'application/json');
       
-      // Log the endpoint being used for debugging
-      if (process.env.NODE_ENV === 'production') {
-        logger.debug('GraphQL request endpoint', {
-          endpoint: this.endpoint,
-          endpointFromEnv: getMorphoEndpoint(),
-        });
-      }
+      // Log the endpoint being used for debugging (info level so it shows in production)
+      logger.info('GraphQL request starting', {
+        endpoint: this.endpoint,
+        endpointFromEnv: getMorphoEndpoint(),
+        hasVariables: !!variables,
+        nodeEnv: process.env.NODE_ENV,
+        vercel: !!process.env.VERCEL,
+      });
       
       const requestPromise = request<T>(this.endpoint, document, variables, headers);
 
@@ -83,7 +79,8 @@ export class MorphoGraphQLClient {
       const data = await Promise.race([requestPromise, timeoutPromise]);
       const duration = Date.now() - startTime;
       
-      logger.debug('GraphQL request succeeded', {
+      // Log success for monitoring (info level so it shows in production)
+      logger.info('GraphQL request succeeded', {
         endpoint: this.endpoint,
         duration: `${duration}ms`,
       });
@@ -94,16 +91,24 @@ export class MorphoGraphQLClient {
       // Enhanced error handling with logging
       const graphqlError = error as GraphQLResponseError;
       
-      // Log the error for debugging
+      // Log the error for debugging with full context
       const isTimeout = error instanceof Error && (error.name === 'AbortError' || error.message.includes('timeout'));
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      
       logger.error('GraphQL request failed', error instanceof Error ? error : new Error(String(error)), {
         endpoint: this.endpoint,
+        endpointFromEnv: getMorphoEndpoint(),
         duration: `${duration}ms`,
         status: graphqlError.response?.status,
         statusText: graphqlError.response?.statusText,
         hasErrors: !!graphqlError.response?.errors,
         isTimeout,
         timeoutMs: API_REQUEST_TIMEOUT_MS,
+        errorMessage,
+        errorStack,
+        nodeEnv: process.env.NODE_ENV,
+        vercel: !!process.env.VERCEL,
       });
 
       if (graphqlError.response?.errors) {
@@ -151,17 +156,21 @@ export class MorphoGraphQLClient {
 // Lazy singleton instance - created on first access to ensure env vars are available
 let _morphoGraphQLClient: MorphoGraphQLClient | null = null;
 
-export function getMorphoGraphQLClient(): MorphoGraphQLClient {
+function getMorphoGraphQLClient(): MorphoGraphQLClient {
   if (!_morphoGraphQLClient) {
     _morphoGraphQLClient = new MorphoGraphQLClient();
   }
   return _morphoGraphQLClient;
 }
 
-// Export singleton for backward compatibility (lazy initialization)
-export const morphoGraphQLClient = new Proxy({} as MorphoGraphQLClient, {
-  get(_target, prop) {
-    return getMorphoGraphQLClient()[prop as keyof MorphoGraphQLClient];
+// Export singleton with proper lazy initialization
+// Access methods directly to avoid Proxy issues in serverless environments
+export const morphoGraphQLClient = {
+  request: <T = unknown>(
+    document: Parameters<MorphoGraphQLClient['request']>[0],
+    variables?: Parameters<MorphoGraphQLClient['request']>[1]
+  ): Promise<T> => {
+    return getMorphoGraphQLClient().request<T>(document, variables);
   },
-});
+} as MorphoGraphQLClient;
 
