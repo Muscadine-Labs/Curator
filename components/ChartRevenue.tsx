@@ -32,6 +32,13 @@ export function ChartRevenue({ dailyData, cumulativeData, isLoading = false, tit
     return viewMode === 'daily' && dailyData ? cleanSeries(dailyData) : cleanSeries(cumulativeData || dailyData || []);
   }, [viewMode, dailyData, cumulativeData, cleanSeries]);
 
+  // All hooks must be called before any early returns
+  const formatTooltipValue = useMemo(() => (value: number) => formatCompactUSD(value), []);
+  const formatXAxisLabel = useMemo(() => (tickItem: string) => {
+    const date = new Date(tickItem);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }, []);
+
   if (isLoading) {
     return (
       <Card>
@@ -59,12 +66,6 @@ export function ChartRevenue({ dailyData, cumulativeData, isLoading = false, tit
       </Card>
     );
   }
-
-  const formatTooltipValue = useMemo(() => (value: number) => formatCompactUSD(value), []);
-  const formatXAxisLabel = useMemo(() => (tickItem: string) => {
-    const date = new Date(tickItem);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  }, []);
 
   const showToggle = dailyData && cumulativeData;
 
