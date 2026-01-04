@@ -50,11 +50,11 @@ export default function V2VaultPage() {
           <CardHeader>
             <CardTitle>Error</CardTitle>
           </CardHeader>
-          <CardContent className="flex items-center justify-between">
+          <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-red-600 dark:text-red-400">
               {error instanceof Error ? error.message : 'Failed to load vault data'}
             </p>
-            <Button asChild>
+            <Button asChild className="w-full sm:w-auto">
               <Link href="/">Back to overview</Link>
             </Button>
           </CardContent>
@@ -70,9 +70,9 @@ export default function V2VaultPage() {
           <CardHeader>
             <CardTitle>Missing vault</CardTitle>
           </CardHeader>
-          <CardContent className="flex items-center justify-between">
+          <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-slate-600">Check the address or pick a vault from the sidebar.</p>
-            <Button asChild>
+            <Button asChild className="w-full sm:w-auto">
               <Link href="/">Back to overview</Link>
             </Button>
           </CardContent>
@@ -97,13 +97,14 @@ export default function V2VaultPage() {
     <AppShell
       title="Vault Details"
       actions={
-        <div className="flex items-center gap-2">
-          <Badge variant="default" className="flex items-center gap-1 bg-blue-600">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="default" className="flex items-center gap-1 bg-blue-600 text-xs sm:text-sm">
             <Shield className="h-3 w-3" /> {vaultBadge}
           </Badge>
-          <Button variant="outline" size="sm" asChild>
+          <Button variant="outline" size="sm" asChild className="text-xs sm:text-sm">
             <a href={vault.address ? `https://basescan.org/address/${vault.address}` : '#'} target="_blank" rel="noreferrer">
-              View on Basescan
+              <span className="hidden sm:inline">View on Basescan</span>
+              <span className="sm:hidden">Basescan</span>
             </a>
           </Button>
         </div>
@@ -112,15 +113,20 @@ export default function V2VaultPage() {
       <div className="space-y-6">
         {/* V2 Tabs: Overview, Risk Management */}
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="w-full justify-start overflow-x-auto">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="risk">Risk Management</TabsTrigger>
-            <TabsTrigger value="roles">Roles</TabsTrigger>
-            <TabsTrigger value="adapters">Adapters</TabsTrigger>
-            <TabsTrigger value="allocations">Allocations</TabsTrigger>
-            <TabsTrigger value="caps">Caps</TabsTrigger>
-            <TabsTrigger value="timelocks">Timelocks</TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+            <TabsList className="inline-flex w-auto min-w-full sm:min-w-0 sm:w-full justify-start">
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="risk">
+                <span className="hidden sm:inline">Risk Management</span>
+                <span className="sm:hidden">Risk</span>
+              </TabsTrigger>
+              <TabsTrigger value="roles">Roles</TabsTrigger>
+              <TabsTrigger value="adapters">Adapters</TabsTrigger>
+              <TabsTrigger value="allocations">Allocations</TabsTrigger>
+              <TabsTrigger value="caps">Caps</TabsTrigger>
+              <TabsTrigger value="timelocks">Timelocks</TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-6">
@@ -133,7 +139,7 @@ export default function V2VaultPage() {
                       href={morphoUiUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-2xl font-semibold text-slate-900 hover:text-blue-600 transition-colors"
+                      className="text-xl sm:text-2xl font-semibold text-slate-900 hover:text-blue-600 transition-colors break-words"
                     >
                       {vaultName}
                     </a>
