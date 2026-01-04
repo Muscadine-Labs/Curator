@@ -133,6 +133,55 @@ export function ChartTvl({ totalData, vaultData, isLoading = false, title = "TVL
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
+  // Custom tooltip content that sorts vaults by TVL when in "By Vault" mode
+  const customTooltipContent = (props: any) => {
+    const { active, payload, label } = props;
+    
+    if (!active || !payload || payload.length === 0) {
+      return null;
+    }
+
+    // Filter out invalid entries and convert values to numbers
+    const validPayload = payload
+      .map((entry: any) => {
+        const value = typeof entry.value === 'number' ? entry.value : Number(entry.value);
+        if (value === null || value === undefined || isNaN(value)) {
+          return null;
+        }
+        return { ...entry, value };
+      })
+      .filter((entry: any) => entry !== null);
+
+    // Sort payload by value (TVL) in descending order when in "By Vault" mode
+    const sortedPayload = viewMode === 'byVault'
+      ? [...validPayload].sort((a, b) => b.value - a.value)
+      : validPayload;
+
+    if (sortedPayload.length === 0) {
+      return null;
+    }
+
+    return (
+      <div className="rounded-lg border bg-background p-2 sm:p-3 shadow-md max-w-[calc(100vw-2rem)] sm:max-w-none">
+        <p className="mb-2 text-xs sm:text-sm font-medium">
+          {new Date(label).toLocaleDateString()}
+        </p>
+        <div className="space-y-1 max-h-[60vh] overflow-y-auto">
+          {sortedPayload.map((entry: any) => (
+            <div key={entry.name || entry.dataKey} className="flex items-center gap-2">
+              <div
+                className="h-3 w-3 shrink-0 rounded-full"
+                style={{ backgroundColor: entry.color }}
+              />
+              <span className="text-xs sm:text-sm font-medium truncate">{entry.name || 'TVL'}:</span>
+              <span className="text-xs sm:text-sm shrink-0">{formatTooltipValue(entry.value)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -172,13 +221,7 @@ export function ChartTvl({ totalData, vaultData, isLoading = false, title = "TVL
               tick={{ fontSize: 12 }}
             />
             <Tooltip 
-              formatter={(value, name) => {
-                if (value === undefined || value === null) return ['N/A', name || 'TVL'];
-                const numValue = typeof value === 'number' ? value : Array.isArray(value) ? value[0] : Number(value);
-                if (isNaN(numValue)) return ['N/A', name || 'TVL'];
-                return [formatTooltipValue(numValue), name || 'TVL'];
-              }}
-              labelFormatter={(label) => new Date(label).toLocaleDateString()}
+              content={customTooltipContent}
             />
             {viewMode === 'total' ? (
               <Line 

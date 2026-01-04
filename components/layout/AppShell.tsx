@@ -6,7 +6,7 @@ import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 
 type AppShellProps = {
-  title: string;
+  title: ReactNode;
   description?: string;
   actions?: ReactNode;
   children: ReactNode;

@@ -1,6 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import { KpiCard } from '@/components/KpiCard';
 import { useProtocolStats } from '@/lib/hooks/useProtocolStats';
 import { AppShell } from '@/components/layout/AppShell';
@@ -31,7 +32,16 @@ export default function Home() {
 
   return (
     <AppShell
-      title="Overview"
+      title={
+        <Link
+          href="https://defillama.com/protocol/muscadine"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:underline"
+        >
+          Overview
+        </Link>
+      }
       description="Select a vault from the sidebar to view risk and configuration."
     >
       <div className="space-y-10">
