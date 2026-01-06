@@ -201,7 +201,7 @@ export function AllocationV1({ vaultAddress }: AllocationV1Props) {
         </div>
 
         {/* Allocation Table */}
-        <div className="space-y-2 overflow-x-auto">
+        <div className="space-y-2 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">
           <div className="grid grid-cols-12 gap-2 sm:gap-4 p-2 text-xs font-medium text-slate-600 dark:text-slate-400 border-b min-w-[800px]">
             <div className="col-span-3">Market</div>
             <div className="col-span-7 text-right">Current</div>
