@@ -2,12 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Shield, X, Bot } from 'lucide-react';
+import { Shield, X, Bot, FileText, Briefcase } from 'lucide-react';
 import { getVaultCategory, shouldUseV2Query } from '@/lib/config/vaults';
 import { useVaultList } from '@/lib/hooks/useProtocolStats';
 import { Button } from '@/components/ui/button';
 
-const navBase = [{ label: 'Overview', href: '/', icon: Shield }];
+const navBase = [
+  { label: 'Overview', href: '/', icon: Shield },
+];
 
 type SidebarProps = {
   onClose?: () => void;
@@ -173,7 +175,7 @@ export function Sidebar({ onClose }: SidebarProps) {
 
         <div className="space-y-2">
           <p className="px-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Curator Interface
+            Curator Tools
           </p>
           <div className="space-y-1">
             <Link
@@ -196,33 +198,33 @@ export function Sidebar({ onClose }: SidebarProps) {
               <Shield className="h-4 w-4" />
               <span className="truncate">Multisig Safe</span>
             </Link>
+            <Link
+              href="/curator/bots"
+              onClick={handleLinkClick}
+              className={`flex items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 ${
+                isActive('/curator/bots') ? 'bg-slate-900 text-white' : ''
+              }`}
+            >
+              <Bot className="h-4 w-4" />
+              <span className="truncate">Morpho Automated Bots</span>
+            </Link>
           </div>
         </div>
 
         <div className="space-y-2">
           <p className="px-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Bots
+            Business
           </p>
           <div className="space-y-1">
             <Link
-              href="/bots/morpho-liquidation"
+              href="/overview/monthly-statement"
               onClick={handleLinkClick}
               className={`flex items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 ${
-                isActive('/bots/morpho-liquidation') ? 'bg-slate-900 text-white' : ''
+                isActive('/overview/monthly-statement') ? 'bg-slate-900 text-white' : ''
               }`}
             >
-              <Bot className="h-4 w-4" />
-              <span className="truncate">Morpho Liquidation Bot</span>
-            </Link>
-            <Link
-              href="/bots/morpho-allocation"
-              onClick={handleLinkClick}
-              className={`flex items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 ${
-                isActive('/bots/morpho-allocation') ? 'bg-slate-900 text-white' : ''
-              }`}
-            >
-              <Bot className="h-4 w-4" />
-              <span className="truncate">Morpho Allocation Bot</span>
+              <FileText className="h-4 w-4" />
+              <span className="truncate">Monthly Statement</span>
             </Link>
           </div>
         </div>
