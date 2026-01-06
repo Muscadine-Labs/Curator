@@ -134,21 +134,6 @@ export const VAULT_ABI = [
     inputs: [],
     outputs: [{ name: '', type: 'address[]' }],
   },
-  // Fee splitter function (if available on vault contract)
-  {
-    name: 'feeSplitter',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [],
-    outputs: [{ name: '', type: 'address' }],
-  },
-  {
-    name: 'getFeeSplitter',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [],
-    outputs: [{ name: '', type: 'address' }],
-  },
   // MetaMorpho V1.1 write functions for role management
   {
     name: 'setCurator',
@@ -321,99 +306,6 @@ export const ERC20_ABI = [
     stateMutability: 'view',
     inputs: [{ name: 'account', type: 'address' }],
     outputs: [{ name: '', type: 'uint256' }],
-  },
-] as const;
-
-export const ERC20_FEE_SPLITTER_ABI = [
-  {
-    name: 'PAYEE1',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [],
-    outputs: [{ name: '', type: 'address' }],
-  },
-  {
-    name: 'PAYEE2',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [],
-    outputs: [{ name: '', type: 'address' }],
-  },
-  {
-    name: 'SHARES1',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [],
-    outputs: [{ name: '', type: 'uint256' }],
-  },
-  {
-    name: 'SHARES2',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [],
-    outputs: [{ name: '', type: 'uint256' }],
-  },
-  {
-    name: 'TOTAL_SHARES',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [],
-    outputs: [{ name: '', type: 'uint256' }],
-  },
-  {
-    name: 'pendingToken',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [
-      { name: 'token', type: 'address' },
-      { name: 'account', type: 'address' }
-    ],
-    outputs: [{ name: '', type: 'uint256' }],
-  },
-  {
-    name: 'totalReleased',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'token', type: 'address' }],
-    outputs: [{ name: '', type: 'uint256' }],
-  },
-  {
-    name: 'released',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [
-      { name: 'token', type: 'address' },
-      { name: 'account', type: 'address' }
-    ],
-    outputs: [{ name: '', type: 'uint256' }],
-  },
-  {
-    name: 'ERC20Claimed',
-    type: 'event',
-    inputs: [
-      { name: 'token', type: 'address', indexed: true },
-      { name: 'account', type: 'address', indexed: true },
-      { name: 'amount', type: 'uint256', indexed: false },
-    ],
-  },
-  {
-    name: 'claim',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [
-      { name: 'token', type: 'address' },
-      { name: 'payee', type: 'address' }
-    ],
-    outputs: [],
-  },
-  {
-    name: 'claimAll',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [
-      { name: 'token', type: 'address' }
-    ],
-    outputs: [],
   },
 ] as const;
 

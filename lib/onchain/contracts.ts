@@ -1,5 +1,5 @@
 import { Address } from 'viem';
-import { VAULT_ABI, ERC20_ABI, ERC20_FEE_SPLITTER_ABI, safeContractRead } from './client';
+import { VAULT_ABI, ERC20_ABI, safeContractRead } from './client';
 
 // Contract interfaces
 export interface VaultData {
@@ -13,14 +13,6 @@ export interface ERC20Data {
   symbol: string | null;
   decimals: number | null;
   balance: bigint | null;
-}
-
-export interface FeeSplitterData {
-  payee1: Address | null;
-  payee2: Address | null;
-  shares1: bigint | null;
-  shares2: bigint | null;
-  totalShares: bigint | null;
 }
 
 // Vault contract reader
@@ -92,18 +84,6 @@ export const readPendingGuardian = async (vaultAddress: Address): Promise<Addres
   return safeContractRead<Address>(vaultAddress, VAULT_ABI, 'pendingGuardian');
 };
 
-// Read fee splitter address from vault contract (if available)
-export const readVaultFeeSplitter = async (vaultAddress: Address): Promise<Address | null> => {
-  // Try different function names that might be used
-  const splitter1 = await safeContractRead<Address>(vaultAddress, VAULT_ABI, 'feeSplitter');
-  if (splitter1) return splitter1;
-  
-  const splitter2 = await safeContractRead<Address>(vaultAddress, VAULT_ABI, 'getFeeSplitter');
-  if (splitter2) return splitter2;
-  
-  return null;
-};
-
 // ERC20 contract reader
 export const readERC20Data = async (
   tokenAddress: Address,
@@ -124,77 +104,8 @@ export const readERC20Data = async (
   };
 };
 
-// Fee splitter contract reader
-export const readFeeSplitterData = async (splitterAddress: Address): Promise<FeeSplitterData> => {
-  const [payee1, payee2, shares1, shares2, totalShares] = await Promise.all([
-    safeContractRead<Address>(splitterAddress, ERC20_FEE_SPLITTER_ABI, 'PAYEE1'),
-    safeContractRead<Address>(splitterAddress, ERC20_FEE_SPLITTER_ABI, 'PAYEE2'),
-    safeContractRead<bigint>(splitterAddress, ERC20_FEE_SPLITTER_ABI, 'SHARES1'),
-    safeContractRead<bigint>(splitterAddress, ERC20_FEE_SPLITTER_ABI, 'SHARES2'),
-    safeContractRead<bigint>(splitterAddress, ERC20_FEE_SPLITTER_ABI, 'TOTAL_SHARES'),
-  ]);
-
-  return {
-    payee1,
-    payee2,
-    shares1,
-    shares2,
-    totalShares,
-  };
-};
-
-// Pending token reader
-export const readPendingToken = async (
-  splitterAddress: Address,
-  tokenAddress: Address,
-  accountAddress: Address
-): Promise<bigint | null> => {
-  return safeContractRead<bigint>(
-    splitterAddress,
-    ERC20_FEE_SPLITTER_ABI,
-    'pendingToken',
-    [tokenAddress, accountAddress]
-  );
-};
-
-// Total released reader
-export const readTotalReleased = async (
-  splitterAddress: Address,
-  tokenAddress: Address
-): Promise<bigint | null> => {
-  return safeContractRead<bigint>(
-    splitterAddress,
-    ERC20_FEE_SPLITTER_ABI,
-    'totalReleased',
-    [tokenAddress]
-  );
-};
-
-// Released reader (for specific account)
-export const readReleased = async (
-  splitterAddress: Address,
-  tokenAddress: Address,
-  accountAddress: Address
-): Promise<bigint | null> => {
-  return safeContractRead<bigint>(
-    splitterAddress,
-    ERC20_FEE_SPLITTER_ABI,
-    'released',
-    [tokenAddress, accountAddress]
-  );
-};
-
 // Helper to calculate percentage from basis points
 export const bpsToPercentage = (bps: number | null): number => {
   if (!bps) return 0;
   return bps / 100;
-};
-
-// Helper to calculate shares percentage
-export const calculateSharePercentage = (
-  shares: bigint | null,
-  totalShares: bigint | null
-): number => {
-  if (!shares || !totalShares || totalShares === BigInt(0)) return 0;
-  return Number(shares) / Number(totalShares) * 100;
 };

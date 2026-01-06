@@ -9,13 +9,14 @@ import { handleApiError } from '@/lib/utils/error-handler';
 import { createRateLimitMiddleware, RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS } from '@/lib/utils/rate-limit';
 import { morphoGraphQLClient } from '@/lib/morpho/graphql-client';
 import { gql } from 'graphql-request';
-import { getAddress } from 'viem';
+import { getAddress, formatUnits } from 'viem';
 import { logger } from '@/lib/utils/logger';
 import { 
   fetchDefiLlamaFees,
   fetchDefiLlamaProtocol,
   getDailyInflowsChart,
 } from '@/lib/defillama/service';
+import { getVaultRevenueFromChain } from '@/lib/onchain/fee-tracking';
 
 // Ensure Node.js runtime for API routes
 export const runtime = 'nodejs';
@@ -485,9 +486,73 @@ export async function GET(request: Request) {
       });
     }
 
-    // Group by month
+    // Get on-chain fee transfers as a supplement/verification
+    let onChainRevenueByMonth = new Map<string, { USDC: number; cbBTC: number; WETH: number }>();
+    try {
+      const startTimestamp = Math.floor(STATEMENT_START_DATE.getTime());
+      const endTimestamp = Date.now();
+      
+      const onChainRevenue = await getVaultRevenueFromChain(startTimestamp, endTimestamp);
+      
+      // Approximate token prices for USD conversion
+      // Note: These are approximate and may not reflect real-time prices
+      const TOKEN_PRICES: Record<string, number> = {
+        'USDC': 1,
+        'cbBTC': 65000,
+        'WETH': 3500,
+      };
+      
+      // Group on-chain transfers by month and asset
+      for (const [vaultAddress, revenue] of onChainRevenue.entries()) {
+        // Normalize vault address for lookup
+        const vaultAddr = getAddress(vaultAddress).toLowerCase();
+        const asset = VAULT_ASSET_MAP[vaultAddr];
+        
+        if (!asset) continue;
+        
+        for (const transfer of revenue.transfers) {
+          // Convert token amount to USD
+          const tokenAmount = Number(formatUnits(transfer.amount, transfer.assetDecimals));
+          const price = TOKEN_PRICES[asset] || 1;
+          const usdAmount = tokenAmount * price;
+          
+          // Get month from timestamp
+          const transferDate = new Date(transfer.timestamp);
+          const monthKey = `${transferDate.getFullYear()}-${String(transferDate.getMonth() + 1).padStart(2, '0')}`;
+          
+          // Only include months from October 2025 onwards
+          if (transferDate < STATEMENT_START_DATE) continue;
+          
+          if (!onChainRevenueByMonth.has(monthKey)) {
+            onChainRevenueByMonth.set(monthKey, { USDC: 0, cbBTC: 0, WETH: 0 });
+          }
+          
+          const monthData = onChainRevenueByMonth.get(monthKey)!;
+          monthData[asset] += usdAmount;
+        }
+      }
+      
+      logger.info('On-chain fee tracking completed', {
+        monthsWithData: onChainRevenueByMonth.size,
+        totalTransfers: Array.from(onChainRevenue.values()).reduce((sum, r) => sum + r.transfers.length, 0),
+      });
+    } catch (error) {
+      logger.warn('Failed to get on-chain revenue data', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      // Continue with GraphQL-based calculation if on-chain fails
+    }
+
+    // Group by month - merge GraphQL calculation with on-chain data
+    // Use on-chain data when available, otherwise use calculated data
     const monthlyStatements = new Map<string, { USDC: number; cbBTC: number; WETH: number }>();
 
+    // First, add on-chain data (more accurate when available)
+    onChainRevenueByMonth.forEach((assets, monthKey) => {
+      monthlyStatements.set(monthKey, { ...assets });
+    });
+
+    // Then, add calculated data for months without on-chain data
     dailyRevenueByAsset.forEach(day => {
       const date = new Date(day.date);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
@@ -497,6 +562,13 @@ export async function GET(request: Request) {
       }
       
       const monthData = monthlyStatements.get(monthKey)!;
+      // Only add calculated data if we don't have on-chain data for this month
+      // (on-chain data takes precedence)
+      if (onChainRevenueByMonth.has(monthKey)) {
+        // On-chain data already set, skip calculated data
+        return;
+      }
+      
       monthData.USDC += day.USDC;
       monthData.cbBTC += day.cbBTC;
       monthData.WETH += day.WETH;
