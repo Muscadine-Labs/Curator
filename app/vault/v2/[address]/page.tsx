@@ -113,18 +113,18 @@ export default function V2VaultPage() {
       <div className="space-y-6">
         {/* V2 Tabs: Overview, Risk Management */}
         <Tabs defaultValue="overview" className="space-y-4">
-          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-            <TabsList className="inline-flex w-auto min-w-full sm:min-w-0 sm:w-full justify-start">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="risk">
+          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide sm:overflow-visible">
+            <TabsList className="inline-flex w-auto min-w-full sm:min-w-0 sm:w-full justify-start gap-1">
+              <TabsTrigger value="overview" className="sm:flex-1 flex-shrink-0 min-w-fit">Overview</TabsTrigger>
+              <TabsTrigger value="risk" className="sm:flex-1 flex-shrink-0 min-w-fit">
                 <span className="hidden sm:inline">Risk Management</span>
                 <span className="sm:hidden">Risk</span>
               </TabsTrigger>
-              <TabsTrigger value="roles">Roles</TabsTrigger>
-              <TabsTrigger value="adapters">Adapters</TabsTrigger>
-              <TabsTrigger value="allocations">Allocations</TabsTrigger>
-              <TabsTrigger value="caps">Caps</TabsTrigger>
-              <TabsTrigger value="timelocks">Timelocks</TabsTrigger>
+              <TabsTrigger value="roles" className="sm:flex-1 flex-shrink-0 min-w-fit">Roles</TabsTrigger>
+              <TabsTrigger value="adapters" className="sm:flex-1 flex-shrink-0 min-w-fit">Adapters</TabsTrigger>
+              <TabsTrigger value="allocations" className="sm:flex-1 flex-shrink-0 min-w-fit">Allocations</TabsTrigger>
+              <TabsTrigger value="caps" className="sm:flex-1 flex-shrink-0 min-w-fit">Caps</TabsTrigger>
+              <TabsTrigger value="timelocks" className="sm:flex-1 flex-shrink-0 min-w-fit">Timelocks</TabsTrigger>
             </TabsList>
           </div>
 

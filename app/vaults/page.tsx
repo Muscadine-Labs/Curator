@@ -217,7 +217,7 @@ export default function VaultsPage() {
                       </CardHeader>
                       <CardContent className="p-0">
                         {vaultSummary.markets.length > 0 ? (
-                          <div className="overflow-x-auto">
+                          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">
                             <Table>
                               <TableHeader>
                                 <TableRow className="text-xs uppercase tracking-wide">

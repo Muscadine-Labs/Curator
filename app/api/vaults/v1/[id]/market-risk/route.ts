@@ -150,7 +150,10 @@ export async function GET(
       markets: marketsWithScores,
     };
 
-    return NextResponse.json(response);
+    const responseHeaders = new Headers();
+    responseHeaders.set('Cache-Control', 'public, s-maxage=120, stale-while-revalidate=300');
+
+    return NextResponse.json(response, { headers: responseHeaders });
   } catch (error) {
     const { error: apiError, statusCode } = handleApiError(error);
     return NextResponse.json({ error: apiError.message, code: apiError.code }, { status: statusCode });
