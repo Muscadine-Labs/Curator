@@ -30,6 +30,9 @@ export interface DefiLlamaRevenueResponse {
   totalDataChart: Array<[number, number]> | null; // [timestamp, dailyRevenue]
 }
 
+// Supply-side revenue has the same response shape
+export type DefiLlamaSupplySideRevenueResponse = DefiLlamaRevenueResponse;
+
 export interface DefiLlamaProtocolResponse {
   id: string;
   name: string;
@@ -48,9 +51,10 @@ export interface ChartData {
  * Fetch fees summary from DefiLlama
  */
 export async function fetchDefiLlamaFees(): Promise<DefiLlamaFeesResponse | null> {
+  let timeoutId: NodeJS.Timeout | null = null;
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), EXTERNAL_API_TIMEOUT_MS);
+    timeoutId = setTimeout(() => controller.abort(), EXTERNAL_API_TIMEOUT_MS);
 
     const response = await fetch(
       `${DEFILLAMA_API_BASE}/summary/fees/${PROTOCOL_SLUG}?dataType=dailyFees`,
@@ -60,7 +64,10 @@ export async function fetchDefiLlamaFees(): Promise<DefiLlamaFeesResponse | null
       }
     );
 
-    clearTimeout(timeoutId);
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      timeoutId = null;
+    }
 
     if (!response.ok) {
       logger.warn('DefiLlama fees API returned non-OK status', {
@@ -72,6 +79,9 @@ export async function fetchDefiLlamaFees(): Promise<DefiLlamaFeesResponse | null
 
     return await response.json() as DefiLlamaFeesResponse;
   } catch (error) {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
     if (error instanceof Error && error.name === 'AbortError') {
       logger.warn('DefiLlama fees API request timed out');
     } else {
@@ -87,9 +97,10 @@ export async function fetchDefiLlamaFees(): Promise<DefiLlamaFeesResponse | null
  * Fetch revenue summary from DefiLlama
  */
 export async function fetchDefiLlamaRevenue(): Promise<DefiLlamaRevenueResponse | null> {
+  let timeoutId: NodeJS.Timeout | null = null;
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), EXTERNAL_API_TIMEOUT_MS);
+    timeoutId = setTimeout(() => controller.abort(), EXTERNAL_API_TIMEOUT_MS);
 
     const response = await fetch(
       `${DEFILLAMA_API_BASE}/summary/fees/${PROTOCOL_SLUG}?dataType=dailyRevenue`,
@@ -99,7 +110,10 @@ export async function fetchDefiLlamaRevenue(): Promise<DefiLlamaRevenueResponse 
       }
     );
 
-    clearTimeout(timeoutId);
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      timeoutId = null;
+    }
 
     if (!response.ok) {
       logger.warn('DefiLlama revenue API returned non-OK status', {
@@ -111,6 +125,9 @@ export async function fetchDefiLlamaRevenue(): Promise<DefiLlamaRevenueResponse 
 
     return await response.json() as DefiLlamaRevenueResponse;
   } catch (error) {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
     if (error instanceof Error && error.name === 'AbortError') {
       logger.warn('DefiLlama revenue API request timed out');
     } else {
@@ -123,12 +140,59 @@ export async function fetchDefiLlamaRevenue(): Promise<DefiLlamaRevenueResponse 
 }
 
 /**
+ * Fetch supply-side revenue summary from DefiLlama
+ */
+export async function fetchDefiLlamaSupplySideRevenue(): Promise<DefiLlamaSupplySideRevenueResponse | null> {
+  let timeoutId: NodeJS.Timeout | null = null;
+  try {
+    const controller = new AbortController();
+    timeoutId = setTimeout(() => controller.abort(), EXTERNAL_API_TIMEOUT_MS);
+
+    const response = await fetch(
+      `${DEFILLAMA_API_BASE}/summary/fees/${PROTOCOL_SLUG}?dataType=dailySupplySideRevenue`,
+      { 
+        signal: controller.signal,
+        headers: { 'Accept': 'application/json' },
+      }
+    );
+
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      timeoutId = null;
+    }
+
+    if (!response.ok) {
+      logger.warn('DefiLlama supply-side revenue API returned non-OK status', {
+        status: response.status,
+        statusText: response.statusText,
+      });
+      return null;
+    }
+
+    return await response.json() as DefiLlamaSupplySideRevenueResponse;
+  } catch (error) {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+    if (error instanceof Error && error.name === 'AbortError') {
+      logger.warn('DefiLlama supply-side revenue API request timed out');
+    } else {
+      logger.warn('Failed to fetch DefiLlama supply-side revenue', {
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
+    }
+    return null;
+  }
+}
+
+/**
  * Fetch protocol TVL data from DefiLlama
  */
 export async function fetchDefiLlamaProtocol(): Promise<DefiLlamaProtocolResponse | null> {
+  let timeoutId: NodeJS.Timeout | null = null;
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), EXTERNAL_API_TIMEOUT_MS);
+    timeoutId = setTimeout(() => controller.abort(), EXTERNAL_API_TIMEOUT_MS);
 
     const response = await fetch(
       `${DEFILLAMA_API_BASE}/protocol/${PROTOCOL_SLUG}`,
@@ -138,7 +202,10 @@ export async function fetchDefiLlamaProtocol(): Promise<DefiLlamaProtocolRespons
       }
     );
 
-    clearTimeout(timeoutId);
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      timeoutId = null;
+    }
 
     if (!response.ok) {
       logger.warn('DefiLlama protocol API returned non-OK status', {
@@ -150,6 +217,9 @@ export async function fetchDefiLlamaProtocol(): Promise<DefiLlamaProtocolRespons
 
     return await response.json() as DefiLlamaProtocolResponse;
   } catch (error) {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
     if (error instanceof Error && error.name === 'AbortError') {
       logger.warn('DefiLlama protocol API request timed out');
     } else {
@@ -197,6 +267,20 @@ export function getCumulativeFeesChart(response: DefiLlamaFeesResponse): ChartDa
  * Get daily revenue chart data from DefiLlama revenue API
  */
 export function getDailyRevenueChart(response: DefiLlamaRevenueResponse): ChartData[] {
+  if (!response.totalDataChart || response.totalDataChart.length === 0) {
+    return [];
+  }
+
+  return response.totalDataChart.map(([timestamp, dailyValue]) => ({
+    date: new Date(timestamp * 1000).toISOString(),
+    value: dailyValue || 0,
+  }));
+}
+
+/**
+ * Get daily supply-side revenue chart data from DefiLlama
+ */
+export function getDailySupplySideRevenueChart(response: DefiLlamaSupplySideRevenueResponse): ChartData[] {
   if (!response.totalDataChart || response.totalDataChart.length === 0) {
     return [];
   }

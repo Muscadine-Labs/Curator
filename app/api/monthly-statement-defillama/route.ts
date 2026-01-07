@@ -40,12 +40,12 @@ function aggregateByMonth(
 }
 
 /**
- * Get all months from November 2025 to now
+ * Get all months from October 2025 to now
  */
 function getAllMonths(): Array<{ year: number; month: number; key: string }> {
   const months: Array<{ year: number; month: number; key: string }> = [];
   const now = new Date();
-  const start = new Date('2025-11-01'); // Start from November 2025
+  const start = new Date('2025-10-01'); // Start from October 2025
   
   let current = new Date(start.getFullYear(), start.getMonth(), 1);
   
@@ -100,7 +100,7 @@ export async function GET(request: Request) {
       );
     }
 
-    // Get daily fees (assets yields) and daily revenue (performance fees) from DefiLlama
+    // Get daily fees (assets yields) and daily revenue (protocol share)
     const dailyFees = getDailyFeesChart(feesData);
     const dailyRevenue = getDailyRevenueChart(revenueData);
 
@@ -113,17 +113,21 @@ export async function GET(request: Request) {
     const monthlyData: MonthlyDefiLlamaData[] = [];
 
     for (const month of allMonths) {
-      const assetsYields = monthlyFees.get(month.key) || 0; // Total interest generated
-      const performanceFees = monthlyRevenue.get(month.key) || 0; // Performance fees (protocol's share)
-      // Gross Protocol Revenue = Total Assets Yields (total revenue generated)
+      const assetsYields = monthlyFees.get(month.key) || 0; // Total yields generated
+      const reportedProtocolRevenue = monthlyRevenue.get(month.key) || 0; // Reported protocol revenue
+
+      // Use DefiLlama reported protocol revenue; if it's missing/zero, derive as Fees (all revenue goes to protocol)
+      const protocolRevenue = reportedProtocolRevenue > 0 ? reportedProtocolRevenue : assetsYields;
+
+      // Cost of revenue is Fees - ProtocolRevenue (what's left after protocol takes its share)
+      const costOfRevenue = Math.max(assetsYields - protocolRevenue, 0);
+
+      // Gross Protocol Revenue column in UI is the total yields generated (assetsYields)
       const grossProtocolRevenue = assetsYields;
-      // Cost of Revenue = Interest paid to users (assetsYields - performanceFees)
-      const costOfRevenue = assetsYields - performanceFees;
-      // Gross Profit = Performance fees (what protocol keeps after paying users)
-      const grossProfit = performanceFees;
+      const grossProfit = protocolRevenue;
 
       // Only include months with data
-      if (assetsYields > 0 || performanceFees > 0) {
+      if (assetsYields > 0 || protocolRevenue > 0) {
         monthlyData.push({
           month: month.key,
           grossProtocolRevenue,

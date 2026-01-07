@@ -155,19 +155,19 @@ export default function MonthlyStatementPage() {
     });
   }, [data?.statements, yearFilter]);
 
-  // Filter DefiLlama statements by year and start from November 2025
+  // Filter DefiLlama statements by year and start from October 2025
   const filteredDefiLlamaStatements = useMemo(() => {
     const allStatements = defiLlamaData?.statements || [];
     
-    // Filter to start from November 2025 (2025-11)
+    // Filter to start from October 2025 (2025-10)
     const filtered = allStatements.filter(statement => {
       const [year, month] = statement.month.split('-');
       const yearNum = parseInt(year);
       const monthNum = parseInt(month);
       
-      // Include if year is 2025 and month is November (11) or later, or year is 2026 or later
+      // Include if year is 2025 and month is October (10) or later, or year is 2026 or later
       if (yearNum > 2025) return true;
-      if (yearNum === 2025 && monthNum >= 11) return true;
+      if (yearNum === 2025 && monthNum >= 10) return true;
       return false;
     });
     
@@ -492,7 +492,7 @@ export default function MonthlyStatementPage() {
         </>
         ) : (
           <>
-            Monthly revenue breakdown by asset from November 1st, 2025 onwards through{' '}
+            Monthly revenue breakdown by asset from October 1st, 2025 onwards through{' '}
             <Link
               href="https://defillama.com/protocol/muscadine"
               target="_blank"

@@ -15,9 +15,12 @@ import type { Vault, VaultPosition, Maybe } from '@morpho-org/blue-api-sdk';
 import { logger } from '@/lib/utils/logger';
 import { 
   fetchDefiLlamaFees, 
+  fetchDefiLlamaRevenue,
   fetchDefiLlamaProtocol,
   getDailyFeesChart,
   getCumulativeFeesChart,
+  getDailyRevenueChart,
+  getCumulativeRevenueChart,
   getDailyInflowsChart,
   getCumulativeInflowsChart 
 } from '@/lib/defillama/service';
@@ -557,69 +560,44 @@ export async function GET(request: Request) {
     let inflowsTrendCumulative: Array<{ date: string; value: number }> = [];
     
     try {
-      // Fetch DefiLlama fees and protocol data in parallel
-      // Note: We calculate revenue from fees × performance fee rate for better precision
-      // (DeFiLlama revenue API only returns whole dollar values)
-      const [feesData, protocolData] = await Promise.all([
+      // Fetch DefiLlama fees, revenue, and protocol data in parallel
+      const [feesData, revenueData, protocolData] = await Promise.all([
         fetchDefiLlamaFees(),
+        fetchDefiLlamaRevenue(),
         fetchDefiLlamaProtocol(),
       ]);
-      
-      // Calculate average performance fee rate from all vaults (V1 + V2) for precise revenue calculation
-      let avgPerformanceFeeRate: number | null = null;
-      
-      // Collect V1 vault performance fees
-      const v1FeeRates = morphoVaults
-        .map(v => v.state?.fee)
-        .filter((f): f is number => f !== null && f !== undefined && f > 0);
-      
-      // Collect V2 vault performance fees from TVL results
-      const v2FeeRates = tvlByVaultResults
-        .filter((v): v is NonNullable<typeof v> => 
-          v !== null && v.performanceFee != null && v.performanceFee !== null)
-        .map(v => v.performanceFee as number)
-        .filter((f): f is number => f > 0 && !Number.isNaN(f));
-      
-      // Combine all fee rates
-      const allFeeRates = [...v1FeeRates, ...v2FeeRates];
-      
-      if (allFeeRates.length > 0) {
-        avgPerformanceFeeRate = allFeeRates.reduce((a, b) => a + b, 0) / allFeeRates.length;
-      }
       
       if (feesData) {
         // Get daily and cumulative fees (interest generated)
         feesTrendDaily = getDailyFeesChart(feesData);
         feesTrendCumulative = getCumulativeFeesChart(feesData);
         
-        // Calculate revenue from fees × performance fee rate for better precision
-        // (DeFiLlama revenue API only returns whole dollar values)
-        if (avgPerformanceFeeRate !== null) {
-          revenueTrendDaily = feesTrendDaily.map(point => ({
-            date: point.date,
-            value: point.value * avgPerformanceFeeRate!,
-          }));
-          
-          revenueTrendCumulative = feesTrendCumulative.map(point => ({
-            date: point.date,
-            value: point.value * avgPerformanceFeeRate!,
-          }));
-        }
-        
-        // Update totals from DefiLlama
+        // Update total interest generated from DefiLlama
         if (feesData.totalAllTime) {
           totalInterestGenerated = feesData.totalAllTime;
-          if (avgPerformanceFeeRate !== null) {
-            totalFeesGenerated = feesData.totalAllTime * avgPerformanceFeeRate;
-          }
         }
         
         logger.info('DefiLlama fees data loaded', {
           totalAllTime: feesData.totalAllTime,
           chartPointsDaily: feesTrendDaily.length,
           chartPointsCumulative: feesTrendCumulative.length,
-          avgPerformanceFeeRate,
-          calculatedRevenueTotal: avgPerformanceFeeRate !== null ? feesData.totalAllTime! * avgPerformanceFeeRate : null,
+        });
+      }
+      
+      if (revenueData) {
+        // Get daily and cumulative revenue directly from DefiLlama revenue API
+        revenueTrendDaily = getDailyRevenueChart(revenueData);
+        revenueTrendCumulative = getCumulativeRevenueChart(revenueData);
+        
+        // Update total revenue generated from DefiLlama
+        if (revenueData.totalAllTime) {
+          totalFeesGenerated = revenueData.totalAllTime;
+        }
+        
+        logger.info('DefiLlama revenue data loaded', {
+          totalAllTime: revenueData.totalAllTime,
+          chartPointsDaily: revenueTrendDaily.length,
+          chartPointsCumulative: revenueTrendCumulative.length,
         });
       }
       

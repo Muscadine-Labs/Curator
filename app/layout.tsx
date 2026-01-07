@@ -4,6 +4,13 @@ import { Analytics } from "@vercel/analytics/next";
 import "@rainbow-me/rainbowkit/styles.css";
 import "./globals.css";
 import { Providers } from "./providers";
+import { logEnvValidation } from "@/lib/utils/env-validation";
+
+// Validate environment variables at startup
+if (typeof window === 'undefined') {
+  // Only run on server-side
+  logEnvValidation();
+}
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
