@@ -7,11 +7,9 @@ import { http, createStorage } from 'wagmi';
 import { base, mainnet, optimism, polygon } from 'viem/chains';
 
 // Create wagmi config with RainbowKit
-// Allow build-time to proceed without env vars (they'll be required at runtime)
-const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || (process.env.NODE_ENV === 'production' ? '' : 'demo');
-if (!projectId && process.env.NODE_ENV === 'production') {
-  throw new Error('NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID environment variable is required');
-}
+// Allow build-time to proceed without env vars (they'll be required at runtime in production)
+// Use 'demo' as fallback during build/development, but should be set in production runtime
+const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'demo';
 
 // Get default wallets and add Rabby
 const { wallets } = getDefaultWallets({

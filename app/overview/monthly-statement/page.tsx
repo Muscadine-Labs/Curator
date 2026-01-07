@@ -7,10 +7,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardAction, CardFooter } from
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { formatCompactUSD } from '@/lib/format/number';
 import { QUERY_STALE_TIME_MEDIUM, QUERY_REFETCH_INTERVAL_MEDIUM } from '@/lib/constants';
 import { getAddress } from 'viem';
 import Link from 'next/link';
+import { Info } from 'lucide-react';
 
 interface MonthlyStatementData {
   month: string;
@@ -52,9 +54,24 @@ interface VaultStatementResponse {
   vaults: VaultMonthlyData[];
 }
 
+interface DefiLlamaMonthlyData {
+  month: string;
+  grossProtocolRevenue: number;
+  assetsYields: number;
+  costOfRevenue: number;
+  grossProfit: number;
+  earnings: number;
+}
+
+interface DefiLlamaStatementResponse {
+  statements: DefiLlamaMonthlyData[];
+}
+
 type YearFilter = '2025' | '2026' | 'all';
 type ViewMode = 'total' | 'byToken' | 'byVault';
 type CurrencyMode = 'usd' | 'token';
+type TabMode = 'treasury' | 'defillama';
+type DefiLlamaViewMode = 'month' | 'quarter' | 'year';
 
 // Vault address to name mapping
 const VAULT_NAMES: Record<string, string> = {
@@ -67,18 +84,23 @@ const VAULT_NAMES: Record<string, string> = {
 };
 
 export default function MonthlyStatementPage() {
+  const [activeTab, setActiveTab] = useState<TabMode>('treasury');
   const [yearFilter, setYearFilter] = useState<YearFilter>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('byToken');
   const [currencyMode, setCurrencyMode] = useState<CurrencyMode>('usd');
+  const [defiLlamaViewMode, setDefiLlamaViewMode] = useState<DefiLlamaViewMode>('month');
   const [isYearDropdownOpen, setIsYearDropdownOpen] = useState(false);
   const [isViewModeDropdownOpen, setIsViewModeDropdownOpen] = useState(false);
+  const [isDefiLlamaViewModeDropdownOpen, setIsDefiLlamaViewModeDropdownOpen] = useState(false);
+  const [tooltipVisible, setTooltipVisible] = useState<string | null>(null);
   const yearDropdownRef = useRef<HTMLDivElement>(null);
   const viewModeDropdownRef = useRef<HTMLDivElement>(null);
+  const defiLlamaViewModeDropdownRef = useRef<HTMLDivElement>(null);
 
   const { data, isLoading, error } = useQuery<MonthlyStatementResponse>({
     queryKey: ['monthly-statement'],
     queryFn: async () => {
-      const response = await fetch('/api/monthly-statement-v2', {
+      const response = await fetch('/api/monthly-statement-morphoql', {
         credentials: 'omit',
       });
       if (!response.ok) throw new Error('Failed to fetch monthly statement');
@@ -91,13 +113,27 @@ export default function MonthlyStatementPage() {
   const { data: vaultData, isLoading: isVaultDataLoading } = useQuery<VaultStatementResponse>({
     queryKey: ['monthly-statement-vaults'],
     queryFn: async () => {
-      const response = await fetch('/api/monthly-statement-v2?perVault=true', {
+      const response = await fetch('/api/monthly-statement-morphoql?perVault=true', {
         credentials: 'omit',
       });
       if (!response.ok) throw new Error('Failed to fetch vault statement');
       return response.json();
     },
-    enabled: viewMode === 'byVault',
+    enabled: viewMode === 'byVault' && activeTab === 'treasury',
+    staleTime: QUERY_STALE_TIME_MEDIUM,
+    refetchInterval: QUERY_REFETCH_INTERVAL_MEDIUM,
+  });
+
+  const { data: defiLlamaData, isLoading: isDefiLlamaLoading, error: defiLlamaError } = useQuery<DefiLlamaStatementResponse>({
+    queryKey: ['monthly-statement-defillama'],
+    queryFn: async () => {
+      const response = await fetch('/api/monthly-statement-defillama', {
+        credentials: 'omit',
+      });
+      if (!response.ok) throw new Error('Failed to fetch DefiLlama statement');
+      return response.json();
+    },
+    enabled: activeTab === 'defillama',
     staleTime: QUERY_STALE_TIME_MEDIUM,
     refetchInterval: QUERY_REFETCH_INTERVAL_MEDIUM,
   });
@@ -118,6 +154,31 @@ export default function MonthlyStatementPage() {
       return year === yearFilter;
     });
   }, [data?.statements, yearFilter]);
+
+  // Filter DefiLlama statements by year and start from November 2025
+  const filteredDefiLlamaStatements = useMemo(() => {
+    const allStatements = defiLlamaData?.statements || [];
+    
+    // Filter to start from November 2025 (2025-11)
+    const filtered = allStatements.filter(statement => {
+      const [year, month] = statement.month.split('-');
+      const yearNum = parseInt(year);
+      const monthNum = parseInt(month);
+      
+      // Include if year is 2025 and month is November (11) or later, or year is 2026 or later
+      if (yearNum > 2025) return true;
+      if (yearNum === 2025 && monthNum >= 11) return true;
+      return false;
+    });
+    
+    // Then apply year filter if not 'all'
+    if (yearFilter === 'all') return filtered;
+    
+    return filtered.filter(statement => {
+      const [year] = statement.month.split('-');
+      return year === yearFilter;
+    });
+  }, [defiLlamaData?.statements, yearFilter]);
 
   // Filter vault data by year
   const filteredVaultData = useMemo(() => {
@@ -154,7 +215,7 @@ export default function MonthlyStatementPage() {
     return formatCompactUSD(assetData.usd);
   };
 
-  // Close dropdowns when clicking outside
+  // Close dropdowns and tooltips when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (yearDropdownRef.current && !yearDropdownRef.current.contains(event.target as Node)) {
@@ -163,16 +224,24 @@ export default function MonthlyStatementPage() {
       if (viewModeDropdownRef.current && !viewModeDropdownRef.current.contains(event.target as Node)) {
         setIsViewModeDropdownOpen(false);
       }
+      if (defiLlamaViewModeDropdownRef.current && !defiLlamaViewModeDropdownRef.current.contains(event.target as Node)) {
+        setIsDefiLlamaViewModeDropdownOpen(false);
+      }
+      // Close tooltips when clicking outside
+      const target = event.target as HTMLElement;
+      if (!target.closest('[data-tooltip-container]')) {
+        setTooltipVisible(null);
+      }
     };
 
-    if (isYearDropdownOpen || isViewModeDropdownOpen) {
+    if (isYearDropdownOpen || isViewModeDropdownOpen || isDefiLlamaViewModeDropdownOpen || tooltipVisible) {
       document.addEventListener('mousedown', handleClickOutside);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isYearDropdownOpen, isViewModeDropdownOpen]);
+  }, [isYearDropdownOpen, isViewModeDropdownOpen, isDefiLlamaViewModeDropdownOpen, tooltipVisible]);
 
   const yearOptions: { value: YearFilter; label: string }[] = [
     { value: '2025', label: '2025' },
@@ -186,12 +255,22 @@ export default function MonthlyStatementPage() {
     { value: 'byVault', label: 'By Vault' },
   ];
 
+  const defiLlamaViewModeOptions: { value: DefiLlamaViewMode; label: string }[] = [
+    { value: 'month', label: 'Month' },
+    { value: 'quarter', label: 'Quarter' },
+    { value: 'year', label: 'Year' },
+  ];
+
   const getYearLabel = (value: YearFilter) => {
     return yearOptions.find(opt => opt.value === value)?.label || 'All';
   };
 
   const getViewModeLabel = (value: ViewMode) => {
     return viewModeOptions.find(opt => opt.value === value)?.label || 'By Token';
+  };
+
+  const getDefiLlamaViewModeLabel = (value: DefiLlamaViewMode) => {
+    return defiLlamaViewModeOptions.find(opt => opt.value === value)?.label || 'Month';
   };
 
   const statements = filteredStatements;
@@ -264,12 +343,138 @@ export default function MonthlyStatementPage() {
     return totals;
   }, [vaultAddresses, filteredVaultData]);
 
-  const isLoadingData = isLoading || (viewMode === 'byVault' && isVaultDataLoading);
+  const isLoadingData = activeTab === 'treasury' 
+    ? (isLoading || (viewMode === 'byVault' && isVaultDataLoading))
+    : isDefiLlamaLoading;
+
+  // Aggregate DefiLlama data by period (month, quarter, year)
+  const aggregatedDefiLlamaData = useMemo(() => {
+    if (defiLlamaViewMode === 'month') {
+      return filteredDefiLlamaStatements;
+    }
+
+    const aggregated = new Map<string, DefiLlamaMonthlyData>();
+
+    filteredDefiLlamaStatements.forEach(statement => {
+      const [year, month] = statement.month.split('-').map(Number);
+      let periodKey: string;
+
+      if (defiLlamaViewMode === 'quarter') {
+        const quarter = Math.ceil(month / 3);
+        periodKey = `${year}-Q${quarter}`;
+      } else {
+        // year
+        periodKey = year.toString();
+      }
+
+      const existing = aggregated.get(periodKey);
+      if (existing) {
+        aggregated.set(periodKey, {
+          month: periodKey,
+          grossProtocolRevenue: existing.grossProtocolRevenue + statement.grossProtocolRevenue,
+          assetsYields: existing.assetsYields + statement.assetsYields,
+          costOfRevenue: existing.costOfRevenue + statement.costOfRevenue,
+          grossProfit: existing.grossProfit + statement.grossProfit,
+          earnings: existing.earnings + statement.earnings,
+        });
+      } else {
+        aggregated.set(periodKey, { ...statement, month: periodKey });
+      }
+    });
+
+    return Array.from(aggregated.values()).sort((a, b) => {
+      if (defiLlamaViewMode === 'year') {
+        return a.month.localeCompare(b.month);
+      }
+      // For quarters, sort by year then quarter
+      const [yearA, quarterA] = a.month.split('-Q').map((v, i) => i === 0 ? parseInt(v) : parseInt(v));
+      const [yearB, quarterB] = b.month.split('-Q').map((v, i) => i === 0 ? parseInt(v) : parseInt(v));
+      if (yearA !== yearB) return yearA - yearB;
+      return quarterA - quarterB;
+    });
+  }, [filteredDefiLlamaStatements, defiLlamaViewMode]);
+
+  // Format period label
+  const formatPeriod = (periodKey: string) => {
+    if (defiLlamaViewMode === 'month') {
+      return formatMonth(periodKey);
+    } else if (defiLlamaViewMode === 'quarter') {
+      const [year, quarter] = periodKey.split('-Q');
+      return `Q${quarter} ${year}`;
+    } else {
+      return periodKey;
+    }
+  };
+
+  // Check if a period is complete
+  const isPeriodComplete = (periodKey: string): boolean => {
+    const now = new Date();
+    
+    if (defiLlamaViewMode === 'month') {
+      const [year, month] = periodKey.split('-').map(Number);
+      const lastDayOfMonth = new Date(year, month, 0);
+      lastDayOfMonth.setHours(23, 59, 59, 999);
+      return now > lastDayOfMonth;
+    } else if (defiLlamaViewMode === 'quarter') {
+      const [year, quarter] = periodKey.split('-Q').map((v, i) => i === 0 ? parseInt(v) : parseInt(v));
+      const quarterEndMonth = quarter * 3; // Q1 ends in March (month 3), Q2 in June (6), etc.
+      const lastDayOfQuarter = new Date(year, quarterEndMonth, 0);
+      lastDayOfQuarter.setHours(23, 59, 59, 999);
+      return now > lastDayOfQuarter;
+    } else {
+      // year
+      const year = parseInt(periodKey);
+      const lastDayOfYear = new Date(year, 11, 31, 23, 59, 59, 999);
+      return now > lastDayOfYear;
+    }
+  };
+
+  // Calculate totals for DefiLlama view
+  const defiLlamaTotals = useMemo(() => {
+    return aggregatedDefiLlamaData.reduce((acc, s) => ({
+      grossProtocolRevenue: acc.grossProtocolRevenue + s.grossProtocolRevenue,
+      assetsYields: acc.assetsYields + s.assetsYields,
+      costOfRevenue: acc.costOfRevenue + s.costOfRevenue,
+      grossProfit: acc.grossProfit + s.grossProfit,
+      earnings: acc.earnings + s.earnings,
+    }), {
+      grossProtocolRevenue: 0,
+      assetsYields: 0,
+      costOfRevenue: 0,
+      grossProfit: 0,
+      earnings: 0,
+    });
+  }, [aggregatedDefiLlamaData]);
+
+  // Tooltip component for column headers
+  const InfoTooltip = ({ id, content }: { id: string; content: string }) => {
+    const isVisible = tooltipVisible === id;
+    return (
+      <div className="relative inline-block" data-tooltip-container>
+        <button
+          type="button"
+          className="inline-flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 rounded"
+          onMouseEnter={() => setTooltipVisible(id)}
+          onMouseLeave={() => setTooltipVisible(null)}
+          onClick={() => setTooltipVisible(isVisible ? null : id)}
+          aria-label="More information"
+        >
+          <Info className="h-4 w-4 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors" />
+        </button>
+        {isVisible && (
+          <div className="absolute right-0 top-6 z-50 w-64 rounded-md border bg-white p-2 text-xs shadow-lg dark:bg-slate-800 dark:border-slate-700 whitespace-normal">
+            {content}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <AppShell
       title="Monthly Income Statement"
       description={
+        activeTab === 'treasury' ? (
         <>
           Monthly revenue breakdown by asset from November 1st, 2025 onwards to our{' '}
           <Link
@@ -280,109 +485,42 @@ export default function MonthlyStatementPage() {
           >
             Treasury wallet
           </Link>
+          .<br />
+          <span className="text-sm text-slate-600 dark:text-slate-400">
+            Revenue flows periodically when vaults have activity.
+          </span>
         </>
+        ) : (
+          <>
+            Monthly revenue breakdown by asset from November 1st, 2025 onwards through{' '}
+            <Link
+              href="https://defillama.com/protocol/muscadine"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-800 underline dark:text-blue-400 dark:hover:text-blue-300"
+            >
+              DefiLlama API
+            </Link>
+            .<br />
+            <span className="text-sm text-slate-600 dark:text-slate-400">
+              Protocol calculations are rounded to the nearest dollar.
+            </span>
+          </>
+        )
       }
     >
       <div className="space-y-6">
-        {isLoadingData ? (
           <Card>
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as TabMode)}>
             <CardHeader>
-              <CardTitle>Monthly Income Statement</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Skeleton className="h-64 w-full" />
-            </CardContent>
-          </Card>
-        ) : error ? (
-          <Card>
-            <CardHeader>
-              <CardTitle>Monthly Income Statement</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-center h-64 text-red-600">
-                Failed to load monthly statement data
-              </div>
-            </CardContent>
-          </Card>
-        ) : (viewMode === 'total' && statements.length === 0) || 
-            (viewMode === 'byToken' && statements.length === 0) ||
-            (viewMode === 'byVault' && vaultMonths.length === 0) ? (
-          <Card>
-            <CardHeader>
-              <CardTitle>Monthly Income Statement</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-center h-64 text-slate-500">
-                No data available for the specified period
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <>
-            <Card>
-              <CardHeader>
-                <CardTitle>Monthly Income Statement</CardTitle>
+              <div className="flex items-center justify-between mb-4">
+                <TabsList>
+                  <TabsTrigger value="treasury">By Treasury Wallet</TabsTrigger>
+                  <TabsTrigger value="defillama">DefiLlama</TabsTrigger>
+                </TabsList>
                 <CardAction>
                   <div className="flex items-center gap-2">
-                    {/* USD/Token Toggle - only show for byToken and byVault views */}
-                    {(viewMode === 'byToken' || viewMode === 'byVault') && (
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant={currencyMode === 'usd' ? 'default' : 'outline'}
-                          size="sm"
-                          onClick={() => setCurrencyMode('usd')}
-                        >
-                          USD
-                        </Button>
-                        <Button
-                          variant={currencyMode === 'token' ? 'default' : 'outline'}
-                          size="sm"
-                          onClick={() => setCurrencyMode('token')}
-                        >
-                          Token
-                        </Button>
-                      </div>
-                    )}
-                    {/* View Mode Dropdown */}
-                    <div className="relative" ref={viewModeDropdownRef}>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setIsViewModeDropdownOpen(!isViewModeDropdownOpen)}
-                        className="min-w-[120px] justify-between"
-                      >
-                        {getViewModeLabel(viewMode)}
-                        <svg
-                          className={`ml-2 h-4 w-4 transition-transform ${isViewModeDropdownOpen ? 'rotate-180' : ''}`}
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </Button>
-                      {isViewModeDropdownOpen && (
-                        <div className="absolute left-0 mt-1 w-full min-w-[120px] rounded-md border bg-white shadow-lg z-10 dark:bg-slate-800 dark:border-slate-700">
-                          {viewModeOptions.map((option) => (
-                            <button
-                              key={option.value}
-                              onClick={() => {
-                                setViewMode(option.value);
-                                setIsViewModeDropdownOpen(false);
-                              }}
-                              className={`w-full text-left px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 first:rounded-t-md last:rounded-b-md ${
-                                viewMode === option.value
-                                  ? 'bg-slate-100 dark:bg-slate-700 font-medium'
-                                  : ''
-                              }`}
-                            >
-                              {option.label}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    {/* Year Filter Dropdown */}
+                    {/* Year Filter Dropdown - shown for both tabs */}
                     <div className="relative" ref={yearDropdownRef}>
                       <Button
                         variant="outline"
@@ -421,10 +559,127 @@ export default function MonthlyStatementPage() {
                         </div>
                       )}
                     </div>
+                    {/* View Mode Dropdown - only for treasury tab */}
+                    {activeTab === 'treasury' && (
+                      <div className="relative" ref={viewModeDropdownRef}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setIsViewModeDropdownOpen(!isViewModeDropdownOpen)}
+                          className="min-w-[120px] justify-between"
+                        >
+                          {getViewModeLabel(viewMode)}
+                          <svg
+                            className={`ml-2 h-4 w-4 transition-transform ${isViewModeDropdownOpen ? 'rotate-180' : ''}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </Button>
+                        {isViewModeDropdownOpen && (
+                          <div className="absolute left-0 mt-1 w-full min-w-[120px] rounded-md border bg-white shadow-lg z-10 dark:bg-slate-800 dark:border-slate-700">
+                            {viewModeOptions.map((option) => (
+                              <button
+                                key={option.value}
+                                onClick={() => {
+                                  setViewMode(option.value);
+                                  setIsViewModeDropdownOpen(false);
+                                }}
+                                className={`w-full text-left px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 first:rounded-t-md last:rounded-b-md ${
+                                  viewMode === option.value
+                                    ? 'bg-slate-100 dark:bg-slate-700 font-medium'
+                                    : ''
+                                }`}
+                              >
+                                {option.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {/* USD/Token Toggle - only for treasury tab byToken/byVault views */}
+                    {activeTab === 'treasury' && (viewMode === 'byToken' || viewMode === 'byVault') && (
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant={currencyMode === 'usd' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setCurrencyMode('usd')}
+                        >
+                          USD
+                        </Button>
+                        <Button
+                          variant={currencyMode === 'token' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setCurrencyMode('token')}
+                        >
+                          Token
+                        </Button>
+                      </div>
+                    )}
+                    {/* DefiLlama View Mode Dropdown */}
+                    {activeTab === 'defillama' && (
+                      <div className="relative" ref={defiLlamaViewModeDropdownRef}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setIsDefiLlamaViewModeDropdownOpen(!isDefiLlamaViewModeDropdownOpen)}
+                          className="min-w-[120px] justify-between"
+                        >
+                          {getDefiLlamaViewModeLabel(defiLlamaViewMode)}
+                          <svg
+                            className={`ml-2 h-4 w-4 transition-transform ${isDefiLlamaViewModeDropdownOpen ? 'rotate-180' : ''}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </Button>
+                        {isDefiLlamaViewModeDropdownOpen && (
+                          <div className="absolute left-0 mt-1 w-full min-w-[120px] rounded-md border bg-white shadow-lg z-10 dark:bg-slate-800 dark:border-slate-700">
+                            {defiLlamaViewModeOptions.map((option) => (
+                              <button
+                                key={option.value}
+                                onClick={() => {
+                                  setDefiLlamaViewMode(option.value);
+                                  setIsDefiLlamaViewModeDropdownOpen(false);
+                                }}
+                                className={`w-full text-left px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 first:rounded-t-md last:rounded-b-md ${
+                                  defiLlamaViewMode === option.value
+                                    ? 'bg-slate-100 dark:bg-slate-700 font-medium'
+                                    : ''
+                                }`}
+                              >
+                                {option.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </CardAction>
+              </div>
               </CardHeader>
               <CardContent>
+              <TabsContent value="treasury" className="mt-0">
+              <div className="mt-4">
+                {isLoadingData ? (
+                  <Skeleton className="h-64 w-full" />
+                ) : error ? (
+                  <div className="flex items-center justify-center h-64 text-red-600">
+                    Failed to load monthly statement data
+                  </div>
+                ) : (viewMode === 'total' && statements.length === 0) || 
+                    (viewMode === 'byToken' && statements.length === 0) ||
+                    (viewMode === 'byVault' && vaultMonths.length === 0) ? (
+                  <div className="flex items-center justify-center h-64 text-slate-500">
+                    No data available for the specified period
+                  </div>
+                ) : (
                 <div className="overflow-x-auto">
                   {viewMode === 'total' && (
                     <Table>
@@ -596,10 +851,99 @@ export default function MonthlyStatementPage() {
                     </Table>
                   )}
                 </div>
+                )}
+              </div>
+            </TabsContent>
+            <TabsContent value="defillama" className="mt-0">
+              <div className="mt-4">
+                {isLoadingData ? (
+                  <Skeleton className="h-64 w-full" />
+                ) : defiLlamaError ? (
+                  <div className="flex items-center justify-center h-64 text-red-600">
+                    Failed to load DefiLlama statement data
+                  </div>
+                ) : aggregatedDefiLlamaData.length === 0 ? (
+                  <div className="flex items-center justify-center h-64 text-slate-500">
+                    No data available for the specified period
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-[200px]">
+                            {defiLlamaViewMode === 'month' ? 'Month' : defiLlamaViewMode === 'quarter' ? 'Quarter' : 'Year'}
+                          </TableHead>
+                          <TableHead className="text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              Gross Protocol Revenue
+                              <InfoTooltip 
+                                id="grossProtocolRevenue" 
+                                content="Total yields from deposited assets in all curated vaults." 
+                              />
+                            </div>
+                          </TableHead>
+                          <TableHead className="text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              Cost of Revenue
+                              <InfoTooltip 
+                                id="costOfRevenue" 
+                                content="Yields are distributed to vaults depositors/investors." 
+                              />
+                            </div>
+                          </TableHead>
+                          <TableHead className="text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              Total Revenue
+                              <InfoTooltip 
+                                id="totalRevenue" 
+                                content="Yields are collected by curators." 
+                              />
+                            </div>
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {aggregatedDefiLlamaData.map((statement) => (
+                          <TableRow key={statement.month}>
+                            <TableCell className="font-medium">
+                              {formatPeriod(statement.month)}
+                              {!isPeriodComplete(statement.month) && (
+                                <span className="ml-2 text-amber-500">*</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {formatCompactUSD(statement.grossProtocolRevenue)}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {formatCompactUSD(statement.costOfRevenue)}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {formatCompactUSD(statement.grossProfit)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        <TableRow className="bg-slate-50 dark:bg-slate-800 font-semibold">
+                          <TableCell className="font-semibold">Total</TableCell>
+                          <TableCell className="text-right font-semibold">
+                            {formatCompactUSD(defiLlamaTotals.grossProtocolRevenue)}
+                          </TableCell>
+                          <TableCell className="text-right font-semibold">
+                            {formatCompactUSD(defiLlamaTotals.costOfRevenue)}
+                          </TableCell>
+                          <TableCell className="text-right font-semibold">
+                            {formatCompactUSD(defiLlamaTotals.grossProfit)}
+                          </TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
               </CardContent>
+          </Tabs>
             </Card>
-          </>
-        )}
       </div>
     </AppShell>
   );

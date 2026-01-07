@@ -486,9 +486,13 @@ export async function GET(request: Request) {
           // Revenue is the increase in position from end of previous month to end of current month
           if (tokenChange > 0) {
             // Calculate USD value using the price per token on the last day of the month
-            // Price per token = USD value / token amount at end of month
+            // This only counts the USD value of newly earned tokens (not price changes on existing tokens)
+            // Formula: earnedTokens × (USD value of position at end / token amount at end)
+            // Minimum threshold: smallest unit for the asset (1 wei/satoshi)
+            // USDC: 6 decimals = 0.000001, cbBTC: 8 decimals = 0.00000001, WETH: 18 decimals = 10^-18
+            const minTokenThreshold = 1 / Math.pow(10, position.assetDecimals);
             let usdValue = 0;
-            if (endTokens > 0.000001) { // Avoid division by zero
+            if (endTokens > minTokenThreshold) { // Avoid division by zero
               const pricePerToken = endAssetsUsd / endTokens;
               usdValue = tokenChange * pricePerToken;
             }
