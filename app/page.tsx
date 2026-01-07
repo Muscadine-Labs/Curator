@@ -51,21 +51,21 @@ export default function Home() {
             value={stats?.totalDeposited || 0}
             subtitle="Across all vaults"
             isLoading={isLoading}
-            format="usd_full"
+            format="usd"
           />
           <KpiCard
             title="Total Fees Generated"
             value={stats?.totalInterestGenerated || 0}
             subtitle="Depositor earnings"
             isLoading={isLoading}
-            format="usd_full"
+            format="usd"
           />
           <KpiCard
             title="Total Revenue Generated"
             value={stats?.totalFeesGenerated || 0}
             subtitle="Curator fees"
             isLoading={isLoading}
-            format="usd_full"
+            format="usd"
           />
           <KpiCard
             title="Active Vaults"

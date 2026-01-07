@@ -40,12 +40,12 @@ function aggregateByMonth(
 }
 
 /**
- * Get all months from October 2025 to now
+ * Get all months from November 2025 to now
  */
 function getAllMonths(): Array<{ year: number; month: number; key: string }> {
   const months: Array<{ year: number; month: number; key: string }> = [];
   const now = new Date();
-  const start = new Date('2025-10-01'); // Start from October 2025
+  const start = new Date('2025-11-01'); // Start from November 2025
   
   let current = new Date(start.getFullYear(), start.getMonth(), 1);
   
@@ -104,9 +104,20 @@ export async function GET(request: Request) {
     const dailyFees = getDailyFeesChart(feesData);
     const dailyRevenue = getDailyRevenueChart(revenueData);
 
+    // Filter daily data to start from November 2025
+    const startDate = new Date('2025-11-01');
+    const filteredDailyFees = dailyFees.filter(point => {
+      const pointDate = new Date(point.date);
+      return pointDate >= startDate;
+    });
+    const filteredDailyRevenue = dailyRevenue.filter(point => {
+      const pointDate = new Date(point.date);
+      return pointDate >= startDate;
+    });
+
     // Aggregate by month
-    const monthlyFees = aggregateByMonth(dailyFees);
-    const monthlyRevenue = aggregateByMonth(dailyRevenue);
+    const monthlyFees = aggregateByMonth(filteredDailyFees);
+    const monthlyRevenue = aggregateByMonth(filteredDailyRevenue);
 
     // Get all months and create monthly statements
     const allMonths = getAllMonths();
