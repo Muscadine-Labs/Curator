@@ -32,8 +32,12 @@ export function rateLimit(
   const key = identifier;
 
   // Clean up expired entries periodically
-  if (Math.random() < 0.01) {
-    // 1% chance to clean up (to avoid doing it on every request)
+  // Use a more aggressive cleanup strategy: clean up every 100th request
+  // This ensures memory doesn't grow unbounded while keeping performance good
+  const cleanupThreshold = 100;
+  const entryCount = Object.keys(store).length;
+  if (entryCount > 0 && (entryCount % cleanupThreshold === 0 || Math.random() < 0.02)) {
+    // Clean up expired entries
     Object.keys(store).forEach((k) => {
       if (store[k].resetTime < now) {
         delete store[k];

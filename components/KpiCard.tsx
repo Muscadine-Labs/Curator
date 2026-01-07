@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { formatCompactUSD, formatCompactNumber, formatPercentage } from '@/lib/format/number';
+import { formatCompactUSD, formatCompactNumber, formatPercentage, formatUSD } from '@/lib/format/number';
 
 interface KpiCardProps {
   title: string;
@@ -11,7 +11,7 @@ interface KpiCardProps {
     isPositive: boolean;
   };
   isLoading?: boolean;
-  format?: 'usd' | 'number' | 'percentage' | 'raw';
+	format?: 'usd' | 'usd_full' | 'number' | 'percentage' | 'raw';
 }
 
 export function KpiCard({ 
@@ -28,6 +28,8 @@ export function KpiCard({
     switch (format) {
       case 'usd':
         return formatCompactUSD(typeof val === 'string' ? parseFloat(val) : val);
+			case 'usd_full':
+				return formatUSD(typeof val === 'string' ? parseFloat(val) : val);
       case 'number':
         return formatCompactNumber(typeof val === 'string' ? parseFloat(val) : val);
       case 'percentage':

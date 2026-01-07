@@ -72,6 +72,7 @@ type ViewMode = 'total' | 'byToken' | 'byVault';
 type CurrencyMode = 'usd' | 'token';
 type TabMode = 'treasury' | 'defillama';
 type DefiLlamaViewMode = 'month' | 'quarter' | 'year';
+type TreasuryPeriodMode = 'month' | 'quarter' | 'year';
 
 // Vault address to name mapping
 const VAULT_NAMES: Record<string, string> = {
@@ -88,13 +89,18 @@ export default function MonthlyStatementPage() {
   const [yearFilter, setYearFilter] = useState<YearFilter>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('byToken');
   const [currencyMode, setCurrencyMode] = useState<CurrencyMode>('usd');
+  const [treasuryPeriodMode, setTreasuryPeriodMode] = useState<TreasuryPeriodMode>('month');
   const [defiLlamaViewMode, setDefiLlamaViewMode] = useState<DefiLlamaViewMode>('month');
+  const [isCurrencyDropdownOpen, setIsCurrencyDropdownOpen] = useState(false);
   const [isYearDropdownOpen, setIsYearDropdownOpen] = useState(false);
   const [isViewModeDropdownOpen, setIsViewModeDropdownOpen] = useState(false);
+  const [isTreasuryPeriodDropdownOpen, setIsTreasuryPeriodDropdownOpen] = useState(false);
   const [isDefiLlamaViewModeDropdownOpen, setIsDefiLlamaViewModeDropdownOpen] = useState(false);
   const [tooltipVisible, setTooltipVisible] = useState<string | null>(null);
+  const currencyDropdownRef = useRef<HTMLDivElement>(null);
   const yearDropdownRef = useRef<HTMLDivElement>(null);
   const viewModeDropdownRef = useRef<HTMLDivElement>(null);
+  const treasuryPeriodDropdownRef = useRef<HTMLDivElement>(null);
   const defiLlamaViewModeDropdownRef = useRef<HTMLDivElement>(null);
 
   const { data, isLoading, error } = useQuery<MonthlyStatementResponse>({
@@ -138,7 +144,17 @@ export default function MonthlyStatementPage() {
     refetchInterval: QUERY_REFETCH_INTERVAL_MEDIUM,
   });
 
-  const formatMonth = (monthKey: string) => {
+  const formatMonth = (monthKey: string, periodMode?: TreasuryPeriodMode) => {
+    // Handle period keys (Q1, Q2, etc. or year-only)
+    if (monthKey.includes('Q')) {
+      const [year, quarter] = monthKey.split('-Q');
+      return `Q${quarter} ${year}`;
+    }
+    if (/^\d{4}$/.test(monthKey)) {
+      // Year-only format
+      return monthKey;
+    }
+    // Regular month format
     const [year, month] = monthKey.split('-');
     const date = new Date(parseInt(year), parseInt(month) - 1, 1);
     return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
@@ -218,11 +234,17 @@ export default function MonthlyStatementPage() {
   // Close dropdowns and tooltips when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      if (currencyDropdownRef.current && !currencyDropdownRef.current.contains(event.target as Node)) {
+        setIsCurrencyDropdownOpen(false);
+      }
       if (yearDropdownRef.current && !yearDropdownRef.current.contains(event.target as Node)) {
         setIsYearDropdownOpen(false);
       }
       if (viewModeDropdownRef.current && !viewModeDropdownRef.current.contains(event.target as Node)) {
         setIsViewModeDropdownOpen(false);
+      }
+      if (treasuryPeriodDropdownRef.current && !treasuryPeriodDropdownRef.current.contains(event.target as Node)) {
+        setIsTreasuryPeriodDropdownOpen(false);
       }
       if (defiLlamaViewModeDropdownRef.current && !defiLlamaViewModeDropdownRef.current.contains(event.target as Node)) {
         setIsDefiLlamaViewModeDropdownOpen(false);
@@ -234,14 +256,14 @@ export default function MonthlyStatementPage() {
       }
     };
 
-    if (isYearDropdownOpen || isViewModeDropdownOpen || isDefiLlamaViewModeDropdownOpen || tooltipVisible) {
+    if (isCurrencyDropdownOpen || isYearDropdownOpen || isViewModeDropdownOpen || isTreasuryPeriodDropdownOpen || isDefiLlamaViewModeDropdownOpen || tooltipVisible) {
       document.addEventListener('mousedown', handleClickOutside);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isYearDropdownOpen, isViewModeDropdownOpen, isDefiLlamaViewModeDropdownOpen, tooltipVisible]);
+  }, [isCurrencyDropdownOpen, isYearDropdownOpen, isViewModeDropdownOpen, isTreasuryPeriodDropdownOpen, isDefiLlamaViewModeDropdownOpen, tooltipVisible]);
 
   const yearOptions: { value: YearFilter; label: string }[] = [
     { value: '2025', label: '2025' },
@@ -255,11 +277,26 @@ export default function MonthlyStatementPage() {
     { value: 'byVault', label: 'By Vault' },
   ];
 
+  const currencyOptions: { value: CurrencyMode; label: string }[] = [
+    { value: 'usd', label: 'USD' },
+    { value: 'token', label: 'Token' },
+  ];
+
+  const treasuryPeriodModeOptions: { value: TreasuryPeriodMode; label: string }[] = [
+    { value: 'month', label: 'By Month' },
+    { value: 'quarter', label: 'By Quarter' },
+    { value: 'year', label: 'By Year' },
+  ];
+
   const defiLlamaViewModeOptions: { value: DefiLlamaViewMode; label: string }[] = [
     { value: 'month', label: 'Month' },
     { value: 'quarter', label: 'Quarter' },
     { value: 'year', label: 'Year' },
   ];
+
+  const getCurrencyLabel = (value: CurrencyMode) => {
+    return currencyOptions.find(opt => opt.value === value)?.label || 'USD';
+  };
 
   const getYearLabel = (value: YearFilter) => {
     return yearOptions.find(opt => opt.value === value)?.label || 'All';
@@ -269,23 +306,183 @@ export default function MonthlyStatementPage() {
     return viewModeOptions.find(opt => opt.value === value)?.label || 'By Token';
   };
 
+  const getTreasuryPeriodModeLabel = (value: TreasuryPeriodMode) => {
+    return treasuryPeriodModeOptions.find(opt => opt.value === value)?.label || 'By Month';
+  };
+
   const getDefiLlamaViewModeLabel = (value: DefiLlamaViewMode) => {
     return defiLlamaViewModeOptions.find(opt => opt.value === value)?.label || 'Month';
   };
 
-  const statements = filteredStatements;
+  // Check if a period is complete (works for both treasury and defillama)
+  const isPeriodComplete = (periodKey: string, periodMode?: TreasuryPeriodMode | DefiLlamaViewMode): boolean => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1; // JavaScript months are 0-indexed, convert to 1-indexed
+    
+    // Check if it's a month format (YYYY-MM)
+    if (/^\d{4}-\d{2}$/.test(periodKey)) {
+      const [year, month] = periodKey.split('-').map(Number);
+      // Compare year and month directly to avoid timezone issues
+      if (currentYear > year) return true;
+      if (currentYear < year) return false;
+      // Same year - check if current month is past the period month
+      return currentMonth > month;
+    } 
+    // Check if it's a quarter format (YYYY-Q1, YYYY-Q2, etc.)
+    else if (periodKey.includes('-Q')) {
+      const [year, quarter] = periodKey.split('-Q').map((v, i) => i === 0 ? parseInt(v) : parseInt(v));
+      const quarterEndMonth = quarter * 3; // Q1 ends in March (month 3), Q2 in June (6), etc.
+      // Compare year and quarter end month directly
+      if (currentYear > year) return true;
+      if (currentYear < year) return false;
+      // Same year - check if current month is past the quarter end month
+      return currentMonth > quarterEndMonth;
+    } 
+    // Check if it's a year format (YYYY)
+    else if (/^\d{4}$/.test(periodKey)) {
+      const year = parseInt(periodKey);
+      // Simply compare years
+      return currentYear > year;
+    }
+    
+    // Default: if we can't parse it, assume it's complete
+    return true;
+  };
+
+  // Aggregate treasury statements by period (month, quarter, year)
+  const aggregatedStatements = useMemo(() => {
+    if (treasuryPeriodMode === 'month') {
+      // For month mode, check if each month is complete
+      return filteredStatements.map(statement => ({
+        ...statement,
+        isComplete: isPeriodComplete(statement.month, treasuryPeriodMode),
+      }));
+    }
+
+    const aggregated = new Map<string, MonthlyStatementData>();
+
+    filteredStatements.forEach(statement => {
+      const [year, month] = statement.month.split('-').map(Number);
+      let periodKey: string;
+
+      if (treasuryPeriodMode === 'quarter') {
+        const quarter = Math.ceil(month / 3);
+        periodKey = `${year}-Q${quarter}`;
+      } else {
+        // year
+        periodKey = year.toString();
+      }
+
+      const existing = aggregated.get(periodKey);
+      const periodIsComplete = isPeriodComplete(periodKey, treasuryPeriodMode);
+      
+      if (existing) {
+        aggregated.set(periodKey, {
+          month: periodKey,
+          assets: {
+            USDC: {
+              tokens: existing.assets.USDC.tokens + statement.assets.USDC.tokens,
+              usd: existing.assets.USDC.usd + statement.assets.USDC.usd,
+            },
+            cbBTC: {
+              tokens: existing.assets.cbBTC.tokens + statement.assets.cbBTC.tokens,
+              usd: existing.assets.cbBTC.usd + statement.assets.cbBTC.usd,
+            },
+            WETH: {
+              tokens: existing.assets.WETH.tokens + statement.assets.WETH.tokens,
+              usd: existing.assets.WETH.usd + statement.assets.WETH.usd,
+            },
+          },
+          total: {
+            tokens: existing.total.tokens + statement.total.tokens,
+            usd: existing.total.usd + statement.total.usd,
+          },
+          isComplete: periodIsComplete,
+        });
+      } else {
+        aggregated.set(periodKey, { ...statement, month: periodKey, isComplete: periodIsComplete });
+      }
+    });
+
+    return Array.from(aggregated.values()).sort((a, b) => {
+      if (treasuryPeriodMode === 'year') {
+        return a.month.localeCompare(b.month);
+      }
+      // For quarters, sort by year then quarter
+      const [yearA, quarterA] = a.month.split('-Q').map((v, i) => i === 0 ? parseInt(v) : parseInt(v));
+      const [yearB, quarterB] = b.month.split('-Q').map((v, i) => i === 0 ? parseInt(v) : parseInt(v));
+      if (yearA !== yearB) return yearA - yearB;
+      return quarterA - quarterB;
+    });
+  }, [filteredStatements, treasuryPeriodMode]);
+
+  const statements = aggregatedStatements;
   const grandTotalUSD = statements.reduce((sum, s) => sum + s.assets.USDC.usd + s.assets.cbBTC.usd + s.assets.WETH.usd, 0);
 
-  // Get unique months from vault data
+  // Aggregate vault data by period if needed
+  const aggregatedVaultData = useMemo(() => {
+    if (treasuryPeriodMode === 'month') {
+      return filteredVaultData;
+    }
+
+    const aggregated = new Map<string, VaultMonthlyData[]>();
+
+    filteredVaultData.forEach(vault => {
+      const [year, month] = vault.month.split('-').map(Number);
+      let periodKey: string;
+
+      if (treasuryPeriodMode === 'quarter') {
+        const quarter = Math.ceil(month / 3);
+        periodKey = `${year}-Q${quarter}`;
+      } else {
+        // year
+        periodKey = year.toString();
+      }
+
+      if (!aggregated.has(periodKey)) {
+        aggregated.set(periodKey, []);
+      }
+
+      const existing = aggregated.get(periodKey)!.find(v => 
+        v.vaultAddress.toLowerCase() === vault.vaultAddress.toLowerCase()
+      );
+
+      if (existing) {
+        existing.tokens += vault.tokens;
+        existing.usd += vault.usd;
+      } else {
+        aggregated.get(periodKey)!.push({
+          ...vault,
+          month: periodKey,
+        });
+      }
+    });
+
+    return Array.from(aggregated.values()).flat();
+  }, [filteredVaultData, treasuryPeriodMode]);
+
+  // Get unique periods from aggregated vault data
   const vaultMonths = useMemo(() => {
-    const months = new Set(filteredVaultData.map(v => v.month));
-    return Array.from(months).sort();
-  }, [filteredVaultData]);
+    const periods = new Set(aggregatedVaultData.map(v => v.month));
+    return Array.from(periods).sort((a, b) => {
+      if (treasuryPeriodMode === 'year') {
+        return a.localeCompare(b);
+      }
+      if (treasuryPeriodMode === 'quarter') {
+        const [yearA, quarterA] = a.split('-Q').map((v, i) => i === 0 ? parseInt(v) : parseInt(v));
+        const [yearB, quarterB] = b.split('-Q').map((v, i) => i === 0 ? parseInt(v) : parseInt(v));
+        if (yearA !== yearB) return yearA - yearB;
+        return quarterA - quarterB;
+      }
+      return a.localeCompare(b);
+    });
+  }, [aggregatedVaultData, treasuryPeriodMode]);
 
   // Get unique vault addresses (normalized to lowercase)
   // Ordered: USDC V1, cbBTC V1, WETH V1, USDC V2, cbBTC V2, WETH V2
   const vaultAddresses = useMemo(() => {
-    const addresses = new Set(filteredVaultData.map(v => v.vaultAddress.toLowerCase()));
+    const addresses = new Set(aggregatedVaultData.map(v => v.vaultAddress.toLowerCase()));
     const addressArray = Array.from(addresses);
     
     // Define the desired order
@@ -314,26 +511,26 @@ export default function MonthlyStatementPage() {
       // If neither is in the order, sort alphabetically
       return a.localeCompare(b);
     });
-  }, [filteredVaultData]);
+  }, [aggregatedVaultData]);
 
-  // Group vault data by month
+  // Group vault data by period
   const vaultDataByMonth = useMemo(() => {
     const grouped: Record<string, VaultMonthlyData[]> = {};
-    filteredVaultData.forEach(vault => {
+    aggregatedVaultData.forEach(vault => {
       if (!grouped[vault.month]) {
         grouped[vault.month] = [];
       }
       grouped[vault.month].push(vault);
     });
     return grouped;
-  }, [filteredVaultData]);
+  }, [aggregatedVaultData]);
 
   // Calculate totals for vault view
   const vaultTotals = useMemo(() => {
     const totals: Record<string, { tokens: number; usd: number }> = {};
     vaultAddresses.forEach(addr => {
       totals[addr] = { tokens: 0, usd: 0 };
-      filteredVaultData.forEach(vault => {
+      aggregatedVaultData.forEach(vault => {
         if (vault.vaultAddress.toLowerCase() === addr) {
           totals[addr].tokens += vault.tokens;
           totals[addr].usd += vault.usd;
@@ -341,7 +538,7 @@ export default function MonthlyStatementPage() {
       });
     });
     return totals;
-  }, [vaultAddresses, filteredVaultData]);
+  }, [vaultAddresses, aggregatedVaultData]);
 
   const isLoadingData = activeTab === 'treasury' 
     ? (isLoading || (viewMode === 'byVault' && isVaultDataLoading))
@@ -403,29 +600,6 @@ export default function MonthlyStatementPage() {
       return `Q${quarter} ${year}`;
     } else {
       return periodKey;
-    }
-  };
-
-  // Check if a period is complete
-  const isPeriodComplete = (periodKey: string): boolean => {
-    const now = new Date();
-    
-    if (defiLlamaViewMode === 'month') {
-      const [year, month] = periodKey.split('-').map(Number);
-      const lastDayOfMonth = new Date(year, month, 0);
-      lastDayOfMonth.setHours(23, 59, 59, 999);
-      return now > lastDayOfMonth;
-    } else if (defiLlamaViewMode === 'quarter') {
-      const [year, quarter] = periodKey.split('-Q').map((v, i) => i === 0 ? parseInt(v) : parseInt(v));
-      const quarterEndMonth = quarter * 3; // Q1 ends in March (month 3), Q2 in June (6), etc.
-      const lastDayOfQuarter = new Date(year, quarterEndMonth, 0);
-      lastDayOfQuarter.setHours(23, 59, 59, 999);
-      return now > lastDayOfQuarter;
-    } else {
-      // year
-      const year = parseInt(periodKey);
-      const lastDayOfYear = new Date(year, 11, 31, 23, 59, 59, 999);
-      return now > lastDayOfYear;
     }
   };
 
@@ -520,45 +694,47 @@ export default function MonthlyStatementPage() {
                 </TabsList>
                 <CardAction>
                   <div className="flex items-center gap-2">
-                    {/* Year Filter Dropdown - shown for both tabs */}
-                    <div className="relative" ref={yearDropdownRef}>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setIsYearDropdownOpen(!isYearDropdownOpen)}
-                        className="min-w-[100px] justify-between"
-                      >
-                        {getYearLabel(yearFilter)}
-                        <svg
-                          className={`ml-2 h-4 w-4 transition-transform ${isYearDropdownOpen ? 'rotate-180' : ''}`}
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
+                    {/* Currency Dropdown - only for treasury tab, shown first */}
+                    {activeTab === 'treasury' && (viewMode === 'byToken' || viewMode === 'byVault') && (
+                      <div className="relative" ref={currencyDropdownRef}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setIsCurrencyDropdownOpen(!isCurrencyDropdownOpen)}
+                          className="min-w-[100px] justify-between"
                         >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </Button>
-                      {isYearDropdownOpen && (
-                        <div className="absolute right-0 mt-1 w-full min-w-[100px] rounded-md border bg-white shadow-lg z-10 dark:bg-slate-800 dark:border-slate-700">
-                          {yearOptions.map((option) => (
-                            <button
-                              key={option.value}
-                              onClick={() => {
-                                setYearFilter(option.value);
-                                setIsYearDropdownOpen(false);
-                              }}
-                              className={`w-full text-left px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 first:rounded-t-md last:rounded-b-md ${
-                                yearFilter === option.value
-                                  ? 'bg-slate-100 dark:bg-slate-700 font-medium'
-                                  : ''
-                              }`}
-                            >
-                              {option.label}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                          {getCurrencyLabel(currencyMode)}
+                          <svg
+                            className={`ml-2 h-4 w-4 transition-transform ${isCurrencyDropdownOpen ? 'rotate-180' : ''}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </Button>
+                        {isCurrencyDropdownOpen && (
+                          <div className="absolute right-0 mt-1 w-full min-w-[100px] rounded-md border bg-white shadow-lg z-10 dark:bg-slate-800 dark:border-slate-700">
+                            {currencyOptions.map((option) => (
+                              <button
+                                key={option.value}
+                                onClick={() => {
+                                  setCurrencyMode(option.value);
+                                  setIsCurrencyDropdownOpen(false);
+                                }}
+                                className={`w-full text-left px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 first:rounded-t-md last:rounded-b-md ${
+                                  currencyMode === option.value
+                                    ? 'bg-slate-100 dark:bg-slate-700 font-medium'
+                                    : ''
+                                }`}
+                              >
+                                {option.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                     {/* View Mode Dropdown - only for treasury tab */}
                     {activeTab === 'treasury' && (
                       <div className="relative" ref={viewModeDropdownRef}>
@@ -600,25 +776,86 @@ export default function MonthlyStatementPage() {
                         )}
                       </div>
                     )}
-                    {/* USD/Token Toggle - only for treasury tab byToken/byVault views */}
-                    {activeTab === 'treasury' && (viewMode === 'byToken' || viewMode === 'byVault') && (
-                      <div className="flex items-center gap-2">
+                    {/* Treasury Period Mode Dropdown - only for treasury tab */}
+                    {activeTab === 'treasury' && (
+                      <div className="relative" ref={treasuryPeriodDropdownRef}>
                         <Button
-                          variant={currencyMode === 'usd' ? 'default' : 'outline'}
+                          variant="outline"
                           size="sm"
-                          onClick={() => setCurrencyMode('usd')}
+                          onClick={() => setIsTreasuryPeriodDropdownOpen(!isTreasuryPeriodDropdownOpen)}
+                          className="min-w-[140px] justify-between"
                         >
-                          USD
+                          {getTreasuryPeriodModeLabel(treasuryPeriodMode)}
+                          <svg
+                            className={`ml-2 h-4 w-4 transition-transform ${isTreasuryPeriodDropdownOpen ? 'rotate-180' : ''}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
                         </Button>
-                        <Button
-                          variant={currencyMode === 'token' ? 'default' : 'outline'}
-                          size="sm"
-                          onClick={() => setCurrencyMode('token')}
-                        >
-                          Token
-                        </Button>
+                        {isTreasuryPeriodDropdownOpen && (
+                          <div className="absolute left-0 mt-1 w-full min-w-[140px] rounded-md border bg-white shadow-lg z-10 dark:bg-slate-800 dark:border-slate-700">
+                            {treasuryPeriodModeOptions.map((option) => (
+                              <button
+                                key={option.value}
+                                onClick={() => {
+                                  setTreasuryPeriodMode(option.value);
+                                  setIsTreasuryPeriodDropdownOpen(false);
+                                }}
+                                className={`w-full text-left px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 first:rounded-t-md last:rounded-b-md ${
+                                  treasuryPeriodMode === option.value
+                                    ? 'bg-slate-100 dark:bg-slate-700 font-medium'
+                                    : ''
+                                }`}
+                              >
+                                {option.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
+                    {/* Year Filter Dropdown - shown for both tabs, last */}
+                    <div className="relative" ref={yearDropdownRef}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsYearDropdownOpen(!isYearDropdownOpen)}
+                        className="min-w-[100px] justify-between"
+                      >
+                        {getYearLabel(yearFilter)}
+                        <svg
+                          className={`ml-2 h-4 w-4 transition-transform ${isYearDropdownOpen ? 'rotate-180' : ''}`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </Button>
+                      {isYearDropdownOpen && (
+                        <div className="absolute right-0 mt-1 w-full min-w-[100px] rounded-md border bg-white shadow-lg z-10 dark:bg-slate-800 dark:border-slate-700">
+                          {yearOptions.map((option) => (
+                            <button
+                              key={option.value}
+                              onClick={() => {
+                                setYearFilter(option.value);
+                                setIsYearDropdownOpen(false);
+                              }}
+                              className={`w-full text-left px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 first:rounded-t-md last:rounded-b-md ${
+                                yearFilter === option.value
+                                  ? 'bg-slate-100 dark:bg-slate-700 font-medium'
+                                  : ''
+                              }`}
+                            >
+                              {option.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                     {/* DefiLlama View Mode Dropdown */}
                     {activeTab === 'defillama' && (
                       <div className="relative" ref={defiLlamaViewModeDropdownRef}>
@@ -690,19 +927,19 @@ export default function MonthlyStatementPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {statements.map((statement) => (
-                          <TableRow key={statement.month}>
-                            <TableCell className="font-medium">
-                              {formatMonth(statement.month)}
-                              {!statement.isComplete && (
-                                <span className="ml-2 text-amber-500">*</span>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-right font-semibold">
-                              {formatCompactUSD(statement.total.usd)}
-                            </TableCell>
-                          </TableRow>
-                        ))}
+                      {statements.map((statement) => (
+                        <TableRow key={statement.month}>
+                          <TableCell className="font-medium">
+                            {formatMonth(statement.month, treasuryPeriodMode)}
+                            {!isPeriodComplete(statement.month, treasuryPeriodMode) && (
+                              <span className="ml-2 text-amber-500">*</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right font-semibold">
+                            {formatCompactUSD(statement.total.usd)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
                         <TableRow className="bg-slate-50 font-semibold">
                           <TableCell className="font-semibold">Total</TableCell>
                           <TableCell className="text-right font-semibold">
@@ -736,8 +973,8 @@ export default function MonthlyStatementPage() {
                       {statements.map((statement) => (
                         <TableRow key={statement.month}>
                           <TableCell className="font-medium">
-                            {formatMonth(statement.month)}
-                            {!statement.isComplete && (
+                            {formatMonth(statement.month, treasuryPeriodMode)}
+                            {!isPeriodComplete(statement.month, treasuryPeriodMode) && (
                               <span className="ml-2 text-amber-500">*</span>
                             )}
                           </TableCell>
@@ -804,9 +1041,12 @@ export default function MonthlyStatementPage() {
                           const monthTotalUSD = monthVaults.reduce((sum, v) => sum + v.usd, 0);
                           return (
                             <TableRow key={month}>
-                              <TableCell className="font-medium">
-                                {formatMonth(month)}
-                              </TableCell>
+                            <TableCell className="font-medium">
+                              {formatMonth(month, treasuryPeriodMode)}
+                              {!isPeriodComplete(month, treasuryPeriodMode) && (
+                                <span className="ml-2 text-amber-500">*</span>
+                              )}
+                            </TableCell>
                               {vaultAddresses.map((addr) => {
                                 const vaultData = monthVaults.find(v => v.vaultAddress.toLowerCase() === addr);
                                 return (
@@ -908,7 +1148,7 @@ export default function MonthlyStatementPage() {
                           <TableRow key={statement.month}>
                             <TableCell className="font-medium">
                               {formatPeriod(statement.month)}
-                              {!isPeriodComplete(statement.month) && (
+                              {!isPeriodComplete(statement.month, defiLlamaViewMode) && (
                                 <span className="ml-2 text-amber-500">*</span>
                               )}
                             </TableCell>

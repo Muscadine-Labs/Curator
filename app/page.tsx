@@ -54,7 +54,7 @@ export default function Home() {
             format="usd"
           />
           <KpiCard
-            title="Total Interest Generated"
+            title="Total Fees Generated"
             value={stats?.totalInterestGenerated || 0}
             subtitle="Depositor earnings"
             isLoading={isLoading}
