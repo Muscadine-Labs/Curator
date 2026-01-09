@@ -77,6 +77,7 @@ interface VaultMonthlyStatementResponse {
 /**
  * Get the baseline (end of previous month) and end timestamps for a given month
  * We use end of previous month as baseline to capture revenue accrued during the month
+ * For the current month, use current timestamp instead of end of month
  */
 function getMonthTimestamps(year: number, month: number): { baseline: number; end: number } {
   // Baseline: end of previous month (or start date if this is the first month)
@@ -84,8 +85,19 @@ function getMonthTimestamps(year: number, month: number): { baseline: number; en
   const prevYear = month === 1 ? year - 1 : year;
   const baselineDate = new Date(prevYear, prevMonth, 0, 23, 59, 59, 999);
   
-  // End: end of current month
-  const endDate = new Date(year, month, 0, 23, 59, 59, 999);
+  // End: end of current month, or current time if this is the current month
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1; // JavaScript months are 0-indexed
+  
+  let endDate: Date;
+  if (year === currentYear && month === currentMonth) {
+    // This is the current month - use current timestamp
+    endDate = now;
+  } else {
+    // Past or future month - use end of month
+    endDate = new Date(year, month, 0, 23, 59, 59, 999);
+  }
   
   // Ensure baseline is not before statement start date
   const statementStartTimestamp = Math.floor(STATEMENT_START_DATE.getTime() / 1000);
@@ -123,6 +135,7 @@ function getAllMonths(): Array<{ year: number; month: number; key: string }> {
  * Get value at specific timestamp from historical data
  * Returns the value at or just before the target timestamp
  * If target is before first data point, returns 0 (no position yet)
+ * If target is after all data points, returns the most recent value
  */
 function getValueAtTimestamp(
   data: Array<{ x?: number; y?: number }>,
@@ -130,12 +143,15 @@ function getValueAtTimestamp(
 ): number | null {
   if (!data || data.length === 0) return null;
   
+  // Find valid data points
+  const validPoints = data.filter(p => p.x !== undefined && p.y !== undefined) as Array<{ x: number; y: number }>;
+  if (validPoints.length === 0) return null;
+  
   // Find the closest data point before or at the target timestamp
-  let closest: { x?: number; y?: number } | null = null;
+  let closest: { x: number; y: number } | null = null;
   let closestDiff = Infinity;
   
-  for (const point of data) {
-    if (point.x === undefined || point.y === undefined) continue;
+  for (const point of validPoints) {
     const diff = targetTimestamp - point.x;
     // Accept points at or before the target timestamp
     if (diff >= 0 && diff < closestDiff) {
@@ -146,21 +162,20 @@ function getValueAtTimestamp(
   
   // If we found a point at or before the target, use it
   if (closest) {
-    return closest.y ?? null;
+    return closest.y;
   }
   
   // If no point at or before target, check if target is before the first data point
-  // In that case, the position didn't exist yet, so return 0
-  const firstPoint = data.find(p => p.x !== undefined && p.y !== undefined);
-  if (firstPoint && firstPoint.x !== undefined) {
-    if (targetTimestamp < firstPoint.x) {
-      // Target is before first data point - position didn't exist, return 0
-      return 0;
-    }
+  const firstPoint = validPoints[0];
+  if (targetTimestamp < firstPoint.x) {
+    // Target is before first data point - position didn't exist, return 0
+    return 0;
   }
   
-  // Fallback: return null if we can't determine the value
-  return null;
+  // Target is after all data points - use the most recent value
+  // This handles cases where we're querying the current month and data hasn't been updated yet
+  const lastPoint = validPoints[validPoints.length - 1];
+  return lastPoint.y;
 }
 
 export async function GET(request: Request) {
@@ -266,8 +281,9 @@ export async function GET(request: Request) {
         };
 
     // V2 vault position query - V2 positions have a 'history' field (not 'historicalState')
+    // V2 history supports timeseriesOptions for daily granularity
     const v2PositionQuery = gql`
-      query VaultV2Position($vaultAddress: String!, $userAddress: String!, $chainId: Int!) {
+      query VaultV2Position($vaultAddress: String!, $userAddress: String!, $chainId: Int!, $options: TimeseriesOptions) {
         vaultV2: vaultV2ByAddress(address: $vaultAddress, chainId: $chainId) {
           address
           asset {
@@ -285,15 +301,15 @@ export async function GET(request: Request) {
               address
             }
             history {
-              shares {
+              shares(options: $options) {
                 x
                 y
               }
-              assets {
+              assets(options: $options) {
                 x
                 y
               }
-              assetsUsd {
+              assetsUsd(options: $options) {
                 x
                 y
               }
@@ -366,6 +382,7 @@ export async function GET(request: Request) {
           }
         } else {
           // Query V2 vault position - V2 positions use 'history' field (not 'historicalState')
+          // V2 history supports timeseriesOptions for daily granularity
           try {
             const v2Result = await morphoGraphQLClient.request<V2PositionResponse>(
               v2PositionQuery,
@@ -373,6 +390,7 @@ export async function GET(request: Request) {
                 vaultAddress,
                 userAddress: treasuryAddr,
                 chainId: BASE_CHAIN_ID,
+                options: timeseriesOptions,
               }
             );
 
@@ -390,10 +408,19 @@ export async function GET(request: Request) {
               
               if (position?.history?.assets && position.history.assetsUsd) {
                 const assetDecimals = v2Result.vaultV2?.asset?.decimals ?? 18;
+                const assetsLength = position.history.assets.length;
+                const assetsUsdLength = position.history.assetsUsd.length;
+                const lastAssetPoint = assetsLength > 0 ? position.history.assets[assetsLength - 1] : null;
+                const lastUsdPoint = assetsUsdLength > 0 ? position.history.assetsUsd[assetsUsdLength - 1] : null;
+                
                 logger.debug('V2 position found with history', {
                   vaultAddress,
-                  historyLength: position.history.assets.length,
-                  samplePoints: position.history.assets.slice(0, 3),
+                  historyLength: assetsLength,
+                  assetsUsdLength,
+                  firstPoint: position.history.assets[0],
+                  lastAssetPoint,
+                  lastUsdPoint,
+                  currentTimestamp: Math.floor(Date.now() / 1000),
                 });
                 
                 return {
@@ -471,9 +498,56 @@ export async function GET(request: Request) {
         const { baseline, end } = getMonthTimestamps(month.year, month.month);
         
         // Get position values at baseline (end of previous month) and end of current month
+        // For the current month, use the most recent available data point
         const baselineAssets = getValueAtTimestamp(position.historicalAssets, baseline);
-        const endAssets = getValueAtTimestamp(position.historicalAssets, end);
-        const endAssetsUsd = getValueAtTimestamp(position.historicalAssetsUsd, end);
+        let endAssets = getValueAtTimestamp(position.historicalAssets, end);
+        let endAssetsUsd = getValueAtTimestamp(position.historicalAssetsUsd, end);
+        
+        // If we're in the current month and don't have data at the end timestamp,
+        // use the most recent available data point
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth() + 1;
+        if (month.year === currentYear && month.month === currentMonth) {
+          // Find the most recent data point
+          const validAssets = position.historicalAssets.filter(p => p.x !== undefined && p.y !== undefined) as Array<{ x: number; y: number }>;
+          const validAssetsUsd = position.historicalAssetsUsd.filter(p => p.x !== undefined && p.y !== undefined) as Array<{ x: number; y: number }>;
+          
+          if (validAssets.length > 0 && validAssetsUsd.length > 0) {
+            const lastAssetPoint = validAssets[validAssets.length - 1];
+            const lastUsdPoint = validAssetsUsd[validAssetsUsd.length - 1];
+            
+            // Use the most recent point if it's more recent than what we found
+            if (endAssets === null || (lastAssetPoint.x > end && lastAssetPoint.x <= Math.floor(now.getTime() / 1000))) {
+              endAssets = lastAssetPoint.y;
+            }
+            if (endAssetsUsd === null || (lastUsdPoint.x > end && lastUsdPoint.x <= Math.floor(now.getTime() / 1000))) {
+              endAssetsUsd = lastUsdPoint.y;
+            }
+          }
+        }
+
+        // Debug logging for V2 vaults in January 2026
+        if (vaultVersion === 'v2' && month.key === '2026-01') {
+          const lastAssetPoint = position.historicalAssets[position.historicalAssets.length - 1];
+          const lastUsdPoint = position.historicalAssetsUsd[position.historicalAssetsUsd.length - 1];
+          logger.info('V2 vault January 2026 calculation', {
+            vaultAddress: position.vaultAddress,
+            asset: position.asset,
+            month: month.key,
+            baselineTimestamp: baseline,
+            endTimestamp: end,
+            currentTimestamp: Math.floor(Date.now() / 1000),
+            baselineAssets,
+            endAssets,
+            endAssetsUsd,
+            historicalAssetsLength: position.historicalAssets.length,
+            historicalAssetsUsdLength: position.historicalAssetsUsd.length,
+            lastDataPoint: lastAssetPoint,
+            lastUsdPoint: lastUsdPoint,
+            allNull: baselineAssets === null || endAssets === null || endAssetsUsd === null,
+          });
+        }
 
         if (baselineAssets !== null && endAssets !== null && endAssetsUsd !== null) {
           // Calculate token amount change (income = end - baseline)
@@ -481,6 +555,18 @@ export async function GET(request: Request) {
           const baselineTokens = baselineAssets / Math.pow(10, position.assetDecimals);
           const endTokens = endAssets / Math.pow(10, position.assetDecimals);
           const tokenChange = endTokens - baselineTokens;
+
+          // Debug logging for V2 vaults in January 2026
+          if (vaultVersion === 'v2' && month.key === '2026-01') {
+            logger.info('V2 vault January 2026 token calculation', {
+              vaultAddress: position.vaultAddress,
+              asset: position.asset,
+              baselineTokens,
+              endTokens,
+              tokenChange,
+              willInclude: tokenChange > 0,
+            });
+          }
 
           // Only count positive changes (income/revenue), ignore withdrawals
           // Revenue is the increase in position from end of previous month to end of current month
@@ -514,6 +600,14 @@ export async function GET(request: Request) {
               usd: usdValue,
             });
           }
+        } else if (vaultVersion === 'v2' && month.key === '2026-01') {
+          logger.warn('V2 vault January 2026 - missing data', {
+            vaultAddress: position.vaultAddress,
+            asset: position.asset,
+            baselineAssets,
+            endAssets,
+            endAssetsUsd,
+          });
         }
       }
     }

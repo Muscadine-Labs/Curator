@@ -32,11 +32,11 @@
     "react-dom": "^19.2.3",
     "recharts": "^3.6.0",
     "tailwind-merge": "^3.4.0",
-    "viem": "^2.43.5",
+    "viem": "^2.44.0",
     "wagmi": "^2.19.5"
   },
   "devDependencies": {
-    "@eslint/compat": "^2.0.0",
+    "@eslint/compat": "^2.0.1",
     "@eslint/eslintrc": "^3",
     "@eslint/js": "^9.39.2",
     "@jest/globals": "^30.2.0",

@@ -34,8 +34,8 @@ export function Sidebar({ onClose }: SidebarProps) {
   };
 
   return (
-    <aside className="flex h-full w-64 shrink-0 flex-col border-r border-slate-200 bg-white/90 p-4 backdrop-blur">
-      <div className="mb-6 flex items-center justify-between">
+    <aside className="flex h-full w-64 shrink-0 flex-col border-r border-slate-200 bg-white/90 backdrop-blur">
+      <div className="flex shrink-0 items-center justify-between border-b border-slate-200 p-4">
         <Link
           href="/"
           onClick={handleLinkClick}
@@ -58,7 +58,7 @@ export function Sidebar({ onClose }: SidebarProps) {
         )}
       </div>
 
-      <nav className="space-y-6 text-sm">
+      <nav className="flex-1 space-y-6 overflow-y-auto p-4 text-sm">
         <div className="space-y-1">
           <p className="px-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
             Explore
