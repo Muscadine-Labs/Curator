@@ -7,7 +7,10 @@ export const formatUSD = (amount: number | bigint | null, decimals: number = 2):
   const numAmount = typeof amount === 'bigint' ? Number(amount) : amount;
   
   if (numAmount === 0) return '$0.00';
-  if (numAmount < 0.01) return '<$0.01';
+  // Only show <$0.01 for positive values between 0 and 0.01
+  if (numAmount > 0 && numAmount < 0.01) return '<$0.01';
+  // For negative values between -0.01 and 0, show >-$0.01
+  if (numAmount < 0 && numAmount > -0.01) return '>-$0.01';
   
   return new Intl.NumberFormat('en-US', {
     style: 'currency',

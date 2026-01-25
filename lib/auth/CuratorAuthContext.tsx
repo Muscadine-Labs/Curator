@@ -16,10 +16,13 @@ import {
   writeCuratorAuthCache,
 } from './curator-auth';
 
+export type UserRole = 'owner' | 'intern' | null;
+
 type CuratorAuthContextValue = {
   isAuthenticated: boolean;
   isReady: boolean;
-  login: (password: string) => Promise<{ ok: boolean; error?: string }>;
+  role: UserRole;
+  login: (username: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   logout: () => void;
 };
 
@@ -36,41 +39,49 @@ export function useCuratorAuth(): CuratorAuthContextValue {
 export function CuratorAuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isReady, setIsReady] = useState(false);
+  const [role, setRole] = useState<UserRole>(null);
 
   useEffect(() => {
     const cache = readCuratorAuthCache();
-    if (isCuratorAuthCacheValid(cache)) {
+    if (isCuratorAuthCacheValid(cache) && cache) {
       setIsAuthenticated(true);
+      setRole(cache.role);
     } else {
       if (cache) clearCuratorAuthCache();
       setIsAuthenticated(false);
+      setRole(null);
     }
     setIsReady(true);
   }, []);
 
-  const login = useCallback(async (password: string): Promise<{ ok: boolean; error?: string }> => {
-    const res = await fetch('/api/auth/verify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (res.ok && data?.ok === true) {
-      writeCuratorAuthCache();
-      setIsAuthenticated(true);
-      return { ok: true };
-    }
-    return { ok: false, error: (data?.error as string) || 'Invalid password' };
-  }, []);
+  const login = useCallback(
+    async (username: string, password: string): Promise<{ ok: boolean; error?: string }> => {
+      const res = await fetch('/api/auth/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data?.ok === true && (data?.role === 'owner' || data?.role === 'intern')) {
+        writeCuratorAuthCache(data.role);
+        setIsAuthenticated(true);
+        setRole(data.role);
+        return { ok: true };
+      }
+      return { ok: false, error: (data?.error as string) || 'Invalid username or password' };
+    },
+    []
+  );
 
   const logout = useCallback(() => {
     clearCuratorAuthCache();
     setIsAuthenticated(false);
+    setRole(null);
   }, []);
 
   const value = useMemo<CuratorAuthContextValue>(
-    () => ({ isAuthenticated, isReady, login, logout }),
-    [isAuthenticated, isReady, login, logout]
+    () => ({ isAuthenticated, isReady, role, login, logout }),
+    [isAuthenticated, isReady, role, login, logout]
   );
 
   return (

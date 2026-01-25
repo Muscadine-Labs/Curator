@@ -2,10 +2,10 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Shield, X, FileText, BookOpen, LayoutGrid } from 'lucide-react';
+import { Shield, X, FileText, BookOpen, LayoutGrid, Book } from 'lucide-react';
 import { getVaultCategory, shouldUseV2Query } from '@/lib/config/vaults';
 import { useVaultList } from '@/lib/hooks/useProtocolStats';
-import { useCuratorAuth } from '@/lib/auth/CuratorAuthContext';
+import { useCuratorAuth, type UserRole } from '@/lib/auth/CuratorAuthContext';
 import { Button } from '@/components/ui/button';
 
 const navBase = [
@@ -18,7 +18,7 @@ type SidebarProps = {
 
 export function Sidebar({ onClose }: SidebarProps) {
   const pathname = usePathname();
-  const { isAuthenticated } = useCuratorAuth();
+  const { isAuthenticated, role } = useCuratorAuth();
   const { data: vaults = [], isLoading } = useVaultList();
 
   // Categorize vaults dynamically based on name
@@ -175,74 +175,84 @@ export function Sidebar({ onClose }: SidebarProps) {
           </div>
         </div>
 
-        {isAuthenticated && (
-          <>
-            <div className="space-y-2">
-              <p className="px-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                Curator Tools
-              </p>
-              <div className="space-y-1">
-                <Link
-                  href="/curator/morpho"
-                  onClick={handleLinkClick}
-                  className={`flex min-h-[44px] items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${
-                    isActive('/curator/morpho') ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900' : ''
-                  }`}
-                >
-                  <Shield className="h-4 w-4" />
-                  <span className="truncate">Morpho</span>
-                </Link>
-                <Link
-                  href="/curator/frontend"
-                  onClick={handleLinkClick}
-                  className={`flex min-h-[44px] items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${
-                    isActive('/curator/frontend') ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900' : ''
-                  }`}
-                >
-                  <LayoutGrid className="h-4 w-4" />
-                  <span className="truncate">Frontend</span>
-                </Link>
-                <Link
-                  href="/curator/safe"
-                  onClick={handleLinkClick}
-                  className={`flex min-h-[44px] items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${
-                    isActive('/curator/safe') ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900' : ''
-                  }`}
-                >
-                  <Shield className="h-4 w-4" />
-                  <span className="truncate">Multisig Safe</span>
-                </Link>
-                <Link
-                  href="/curator/eip-7702"
-                  onClick={handleLinkClick}
-                  className={`flex min-h-[44px] items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${
-                    isActive('/curator/eip-7702') ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900' : ''
-                  }`}
-                >
-                  <BookOpen className="h-4 w-4" />
-                  <span className="truncate">EIP-7702</span>
-                </Link>
-              </div>
+        {(role === 'owner' || role === 'intern') && (
+          <div className="space-y-2">
+            <p className="px-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              Curator Tools
+            </p>
+            <div className="space-y-1">
+              <Link
+                href="/curator/morpho"
+                onClick={handleLinkClick}
+                className={`flex min-h-[44px] items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${
+                  isActive('/curator/morpho') ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900' : ''
+                }`}
+              >
+                <Shield className="h-4 w-4" />
+                <span className="truncate">Morpho</span>
+              </Link>
+              <Link
+                href="/curator/frontend"
+                onClick={handleLinkClick}
+                className={`flex min-h-[44px] items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${
+                  isActive('/curator/frontend') ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900' : ''
+                }`}
+              >
+                <LayoutGrid className="h-4 w-4" />
+                <span className="truncate">Frontend</span>
+              </Link>
+              <Link
+                href="/curator/safe"
+                onClick={handleLinkClick}
+                className={`flex min-h-[44px] items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${
+                  isActive('/curator/safe') ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900' : ''
+                }`}
+              >
+                <Shield className="h-4 w-4" />
+                <span className="truncate">Multisig Safe</span>
+              </Link>
+              <Link
+                href="/curator/eip-7702"
+                onClick={handleLinkClick}
+                className={`flex min-h-[44px] items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${
+                  isActive('/curator/eip-7702') ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900' : ''
+                }`}
+              >
+                <BookOpen className="h-4 w-4" />
+                <span className="truncate">EIP-7702</span>
+              </Link>
             </div>
+          </div>
+        )}
 
-            <div className="space-y-2">
-              <p className="px-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                Business
-              </p>
-              <div className="space-y-1">
-                <Link
-                  href="/overview/monthly-statement"
-                  onClick={handleLinkClick}
-                  className={`flex min-h-[44px] items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${
-                    isActive('/overview/monthly-statement') ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900' : ''
-                  }`}
-                >
-                  <FileText className="h-4 w-4" />
-                  <span className="truncate">Monthly Statement</span>
-                </Link>
-              </div>
+        {role === 'owner' && (
+          <div className="space-y-2">
+            <p className="px-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              Business
+            </p>
+            <div className="space-y-1">
+              <Link
+                href="/overview/monthly-statement"
+                onClick={handleLinkClick}
+                className={`flex min-h-[44px] items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${
+                  isActive('/overview/monthly-statement') ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900' : ''
+                }`}
+              >
+                <FileText className="h-4 w-4" />
+                <span className="truncate">Monthly Statement</span>
+              </Link>
+              <Link
+                href="/overview/muscadine-ledger"
+                onClick={handleLinkClick}
+                className={`flex min-h-[44px] items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${
+                  isActive('/overview/muscadine-ledger') ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900' : ''
+                }`}
+              >
+                <Book className="h-4 w-4" />
+                <span className="truncate">Muscadine Ledger</span>
+              </Link>
             </div>
-          </>
+          </div>
         )}
       </nav>
     </aside>

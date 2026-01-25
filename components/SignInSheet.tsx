@@ -17,14 +17,18 @@ type SignInSheetProps = {
 export function SignInSheet({ open, onClose }: SignInSheetProps) {
   const { isConnected } = useAccount();
   const { isAuthenticated, login, logout } = useCuratorAuth();
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showSignInForm, setShowSignInForm] = useState(false);
 
   const reset = useCallback(() => {
+    setUsername('');
     setPassword('');
     setError(null);
     setLoading(false);
+    setShowSignInForm(false);
   }, []);
 
   useEffect(() => {
@@ -49,12 +53,12 @@ export function SignInSheet({ open, onClose }: SignInSheetProps) {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const result = await login(password);
+    const result = await login(username, password);
     setLoading(false);
     if (result.ok) {
       onClose();
     } else {
-      setError(result.error ?? 'Invalid password');
+      setError(result.error ?? 'Invalid username or password');
     }
   };
 
@@ -93,7 +97,7 @@ export function SignInSheet({ open, onClose }: SignInSheetProps) {
               </div>
             </div>
 
-            {/* 2. Session (signed in) or Password (sign in) — each includes Appearance (theme) boxes under it */}
+            {/* 2. Session (signed in) or Sign In form */}
             {isAuthenticated ? (
               <div className="space-y-2">
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Session</p>
@@ -110,13 +114,22 @@ export function SignInSheet({ open, onClose }: SignInSheetProps) {
                   <ThemeSwitcher />
                 </div>
               </div>
-            ) : (
+            ) : showSignInForm ? (
               <div className="space-y-2">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Password</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Sign In</p>
                 <form onSubmit={handleSubmit} className="space-y-2">
                   <Input
+                    type="text"
+                    placeholder="Username"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    disabled={loading}
+                    autoComplete="username"
+                    className="h-11 min-h-[44px] touch-manipulation rounded-lg border-slate-200"
+                  />
+                  <Input
                     type="password"
-                    placeholder="Enter password"
+                    placeholder="Password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     disabled={loading}
@@ -131,11 +144,25 @@ export function SignInSheet({ open, onClose }: SignInSheetProps) {
                   <Button
                     type="submit"
                     className="h-11 min-h-[44px] w-full touch-manipulation rounded-lg"
-                    disabled={loading || !password.trim()}
+                    disabled={loading || !username.trim() || !password.trim()}
                   >
                     {loading ? 'Checking…' : 'Sign in'}
                   </Button>
                 </form>
+                <div className="pt-2">
+                  <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Appearance</p>
+                  <ThemeSwitcher />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Button
+                  type="button"
+                  className="h-11 min-h-[44px] w-full touch-manipulation rounded-lg"
+                  onClick={() => setShowSignInForm(true)}
+                >
+                  Sign in
+                </Button>
                 <div className="pt-2">
                   <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Appearance</p>
                   <ThemeSwitcher />
