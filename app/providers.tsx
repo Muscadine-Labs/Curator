@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { WagmiProvider } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import dynamic from 'next/dynamic';
@@ -9,10 +9,13 @@ const ReactQueryDevtools = dynamic(
   () => import('@tanstack/react-query-devtools').then((mod) => mod.ReactQueryDevtools),
   { ssr: false }
 );
-import { RainbowKitProvider } from '@rainbow-me/rainbowkit';
+import { RainbowKitProvider, darkTheme, lightTheme } from '@rainbow-me/rainbowkit';
 import { config } from '@/lib/wallet/config';
+import { useTheme } from '@/lib/theme/ThemeContext';
 import { QUERY_STALE_TIME_MEDIUM } from '@/lib/constants';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { CuratorAuthProvider } from '@/lib/auth/CuratorAuthContext';
+import { ThemeProvider } from '@/lib/theme/ThemeContext';
 
 // Create QueryClient at module level for build-time availability
 const queryClient = new QueryClient({
@@ -24,24 +27,54 @@ const queryClient = new QueryClient({
   },
 });
 
+function resolveDark(theme: 'light' | 'dark' | 'system'): boolean {
+  if (typeof window === 'undefined') return false;
+  if (theme === 'dark') return true;
+  if (theme === 'light') return false;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
+function RainbowKitWithTheme({ children }: { children: ReactNode }) {
+  const { theme } = useTheme();
+  // Keep resolvedDark false on server and first client render to avoid hydration mismatch:
+  // resolveDark() uses window/matchMedia, which differ between server and client when theme is 'system'.
+  const [resolvedDark, setResolvedDark] = useState(false);
+
+  useEffect(() => {
+    const update = () => setResolvedDark(resolveDark(theme));
+    update();
+    if (theme === 'system') {
+      const mq = window.matchMedia('(prefers-color-scheme: dark)');
+      mq.addEventListener('change', update);
+      return () => mq.removeEventListener('change', update);
+    }
+  }, [theme]);
+
+  return <RainbowKitProvider theme={resolvedDark ? darkTheme() : lightTheme()}>{children}</RainbowKitProvider>;
+}
+
 export function Providers({ children }: { children: ReactNode }) {
   // Provider order:
   // 1. QueryClientProvider (required for React Query hooks - must be outermost for static generation)
-  // 2. WagmiProvider (required for all wallet functionality)
-  // 3. RainbowKitProvider (enhances wallet UX with modal and wallet options)
-  
+  // 2. ThemeProvider (theme for app + RainbowKit modal)
+  // 3. WagmiProvider (required for all wallet functionality)
+  // 4. RainbowKitProvider (enhances wallet UX with modal; theme synced to app light/dark)
   return (
     <QueryClientProvider client={queryClient}>
-      <WagmiProvider config={config}>
-        <RainbowKitProvider>
-          <ErrorBoundary>
-            {children}
-          </ErrorBoundary>
-          {process.env.NODE_ENV === 'development' && (
-            <ReactQueryDevtools initialIsOpen={false} />
-          )}
-        </RainbowKitProvider>
-      </WagmiProvider>
+      <ThemeProvider>
+        <WagmiProvider config={config}>
+          <RainbowKitWithTheme>
+            <CuratorAuthProvider>
+              <ErrorBoundary>
+                {children}
+              </ErrorBoundary>
+            </CuratorAuthProvider>
+            {process.env.NODE_ENV === 'development' && (
+              <ReactQueryDevtools initialIsOpen={false} />
+            )}
+          </RainbowKitWithTheme>
+        </WagmiProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }

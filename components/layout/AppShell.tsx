@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
+import { useCuratorAuth } from '@/lib/auth/CuratorAuthContext';
 
 type AppShellProps = {
   title: ReactNode;
@@ -12,11 +14,26 @@ type AppShellProps = {
   children: ReactNode;
 };
 
+function isProtectedPath(pathname: string): boolean {
+  if (pathname === '/overview/monthly-statement') return true;
+  return pathname.startsWith('/curator/');
+}
+
 export function AppShell({ title, description, actions, children }: AppShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const pathname = usePathname();
+  const router = useRouter();
+  const { isAuthenticated, isReady } = useCuratorAuth();
+
+  useEffect(() => {
+    if (!isReady) return;
+    if (isProtectedPath(pathname ?? '') && !isAuthenticated) {
+      router.replace('/');
+    }
+  }, [pathname, isAuthenticated, isReady, router]);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+    <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <div className="flex min-h-screen">
         {/* Mobile sidebar overlay */}
         {sidebarOpen && (
@@ -28,7 +45,7 @@ export function AppShell({ title, description, actions, children }: AppShellProp
 
         {/* Sidebar - hidden on mobile, drawer on mobile when open */}
         <aside
-          className={`fixed inset-y-0 left-0 z-50 w-64 transform border-r border-slate-200 bg-white/95 backdrop-blur transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 ${
+          className={`fixed inset-y-0 left-0 z-50 w-64 transform border-r border-slate-200 bg-white/95 backdrop-blur transition-transform duration-300 ease-in-out dark:border-slate-800 dark:bg-slate-900/95 lg:relative lg:translate-x-0 ${
             sidebarOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
         >
@@ -37,12 +54,12 @@ export function AppShell({ title, description, actions, children }: AppShellProp
 
         <div className="flex flex-1 flex-col lg:ml-0">
           <Topbar onMenuClick={() => setSidebarOpen(true)} />
-          <header className="border-b border-slate-200 bg-white/80 px-4 py-3 backdrop-blur sm:px-6 sm:py-4">
+          <header className="border-b border-slate-200 bg-white/80 px-4 py-3 backdrop-blur dark:border-slate-800 dark:bg-slate-900/80 sm:px-6 sm:py-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
               <div>
-                <h1 className="text-xl font-semibold text-slate-900 sm:text-2xl">{title}</h1>
+                <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100 sm:text-2xl">{title}</h1>
                 {description ? (
-                  <p className="text-xs text-slate-500 sm:text-sm">{description}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 sm:text-sm">{description}</p>
                 ) : null}
               </div>
               {actions ? (

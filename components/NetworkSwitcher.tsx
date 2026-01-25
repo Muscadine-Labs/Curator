@@ -24,7 +24,9 @@ async function checkApiHealth(): Promise<boolean> {
   }
 }
 
-export function NetworkSwitcher() {
+type NetworkSwitcherProps = { alwaysShow?: boolean };
+
+export function NetworkSwitcher({ alwaysShow }: NetworkSwitcherProps = {}) {
   const { isConnected } = useAccount();
   const chainId = useChainId();
   
@@ -53,18 +55,20 @@ export function NetworkSwitcher() {
   const hasConnectionIssue = isBlockchainError || isApiError || isApiHealthy === false;
 
   return (
-    <div className="hidden items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-slate-700 sm:flex sm:gap-2 sm:px-3">
+    <div
+      className={`items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs font-medium text-slate-700 sm:gap-2 sm:px-3 ${alwaysShow ? 'flex' : 'hidden sm:flex'}`}
+      title={currentChain.label}
+    >
       {(() => {
         if (hasConnectionIssue) {
-          return <span className="h-2 w-2 rounded-full bg-red-500" title="Connection issue detected" />;
+          return <span className="h-2 w-2 shrink-0 rounded-full bg-red-500" title="Connection issue detected" />;
         }
         if (isConnected) {
-          return <span className="h-2 w-2 rounded-full bg-emerald-500" title="Connected" />;
+          return <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" title="Connected" />;
         }
-        return <span className="h-2 w-2 rounded-full bg-slate-400" title="Not connected" />;
+        return <span className="h-2 w-2 shrink-0 rounded-full bg-slate-400" title="Not connected" />;
       })()}
-      <span className="hidden sm:inline">{currentChain.label} • </span>
-      <span>{currentChain.chain.name}</span>
+      <span className="truncate">{currentChain.label}</span>
     </div>
   );
 }
