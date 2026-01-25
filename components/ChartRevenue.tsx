@@ -31,23 +31,45 @@ export function ChartRevenue({
   const [viewMode, setViewMode] = useState<'daily' | 'cumulative'>('cumulative');
   const { revenueSource } = useRevenueSource();
 
-  const effectiveDaily = revenueSource === 'treasury' ? (treasuryDailyData ?? []) : (dailyData ?? []);
-  const effectiveCumulative = revenueSource === 'treasury' ? (treasuryCumulativeData ?? []) : (cumulativeData ?? []);
+  const effectiveDaily = useMemo(
+    () => revenueSource === 'treasury' ? (treasuryDailyData ?? []) : (dailyData ?? []),
+    [revenueSource, treasuryDailyData, dailyData]
+  );
+  const effectiveCumulative = useMemo(
+    () => revenueSource === 'treasury' ? (treasuryCumulativeData ?? []) : (cumulativeData ?? []),
+    [revenueSource, treasuryCumulativeData, cumulativeData]
+  );
 
   const filteredDailyData = useMemo(() => filterDataByDate(effectiveDaily), [effectiveDaily]);
   const filteredCumulativeData = useMemo(() => filterDataByDate(effectiveCumulative), [effectiveCumulative]);
 
   const loading = revenueSource === 'treasury' ? isTreasuryLoading : isLoading;
 
-  // Treasury: cumulative only. DefiLlama: daily or cumulative by viewMode.
-  const data =
-    revenueSource === 'treasury'
-      ? filteredCumulativeData
-      : viewMode === 'daily' && filteredDailyData.length > 0
-        ? filteredDailyData
-        : filteredCumulativeData.length > 0
-          ? filteredCumulativeData
-          : filteredDailyData;
+  // Both DefiLlama and Treasury: daily or cumulative by viewMode (memoized)
+  const data = useMemo(() => {
+    if (viewMode === 'daily' && filteredDailyData.length > 0) {
+      return filteredDailyData;
+    }
+    if (filteredCumulativeData.length > 0) {
+      return filteredCumulativeData;
+    }
+    return filteredDailyData;
+  }, [viewMode, filteredDailyData, filteredCumulativeData]);
+
+  const formatTooltipValue = useMemo(() => (value: number) => formatCompactUSD(value), []);
+  const formatXAxisLabel = useMemo(
+    () => (tickItem: string) => {
+      const date = new Date(tickItem);
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    },
+    []
+  );
+
+  const showViewToggle = useMemo(() => {
+    const hasDefiToggle = Boolean(dailyData?.length && cumulativeData?.length);
+    const hasTreasuryToggle = Boolean(treasuryDailyData?.length && treasuryCumulativeData?.length);
+    return (revenueSource === 'defillama' && hasDefiToggle) || (revenueSource === 'treasury' && hasTreasuryToggle);
+  }, [revenueSource, dailyData, cumulativeData, treasuryDailyData, treasuryCumulativeData]);
 
   if (loading) {
     return (
@@ -76,15 +98,6 @@ export function ChartRevenue({
       </Card>
     );
   }
-
-  const formatTooltipValue = (value: number) => formatCompactUSD(value);
-  const formatXAxisLabel = (tickItem: string) => {
-    const date = new Date(tickItem);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  };
-
-  // Only DefiLlama gets Daily/Cumulative toggle; Treasury is cumulative-only.
-  const showViewToggle = revenueSource === 'defillama' && Boolean(dailyData?.length && cumulativeData?.length);
 
   return (
     <Card>
@@ -128,7 +141,7 @@ export function ChartRevenue({
             />
             <Tooltip 
               formatter={(value) => {
-                const label = revenueSource === 'treasury' || viewMode === 'cumulative' ? 'Cumulative Revenue' : 'Daily Revenue';
+                const label = viewMode === 'cumulative' ? 'Cumulative Revenue' : 'Daily Revenue';
                 if (value === undefined || value === null) return ['N/A', label];
                 const numValue = typeof value === 'number' ? value : Array.isArray(value) ? value[0] : Number(value);
                 if (isNaN(numValue)) return ['N/A', label];

@@ -135,7 +135,7 @@ export default function VaultDetailPage() {
                       href={morphoUiUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-xl sm:text-2xl font-semibold text-slate-900 hover:text-blue-600 transition-colors break-words"
+                      className="text-xl sm:text-2xl font-semibold text-slate-900 dark:text-slate-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors break-words"
                     >
                       {vault.name}
                     </a>

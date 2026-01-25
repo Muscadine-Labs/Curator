@@ -1,0 +1,182 @@
+'use client';
+
+import { AppShell } from '@/components/layout/AppShell';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { ExternalLink } from 'lucide-react';
+
+export default function FrontendPage() {
+  return (
+    <AppShell
+      title="Front end"
+      description="Quick links to Coinbase, front end, RPC, and wallet connect."
+    >
+      <div className="space-y-6">
+        {/* Coinbase - first row */}
+        <div>
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            Coinbase
+          </h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Card className="flex flex-col">
+              <CardHeader>
+                <CardTitle className="text-center text-base">Base Build</CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-1 flex-col items-center justify-center">
+                <Button
+                  asChild
+                  variant="outline"
+                  size="lg"
+                  className="w-full"
+                >
+                  <a
+                    href="https://www.base.dev/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2"
+                  >
+                    base.dev
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                </Button>
+              </CardContent>
+            </Card>
+            <Card className="flex flex-col">
+              <CardHeader>
+                <CardTitle className="text-center text-base">CDP Portal</CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-1 flex-col items-center justify-center">
+                <Button
+                  asChild
+                  variant="outline"
+                  size="lg"
+                  className="w-full"
+                >
+                  <a
+                    href="https://portal.cdp.coinbase.com/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2"
+                  >
+                    portal.cdp.coinbase.com
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* Front end - its own row */}
+        <div>
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            Front end
+          </h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Card className="flex flex-col">
+              <CardHeader>
+                <CardTitle className="text-center text-base">GitHub</CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-1 flex-col items-center justify-center">
+                <Button
+                  asChild
+                  variant="outline"
+                  size="lg"
+                  className="w-full"
+                >
+                  <a
+                    href="https://github.com/Muscadine-Labs"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2"
+                  >
+                    Muscadine-Labs
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                </Button>
+              </CardContent>
+            </Card>
+            <Card className="flex flex-col">
+              <CardHeader>
+                <CardTitle className="text-center text-base">Vercel</CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-1 flex-col items-center justify-center">
+                <Button
+                  asChild
+                  variant="outline"
+                  size="lg"
+                  className="w-full"
+                >
+                  <a
+                    href="https://vercel.com/muscadine-labs"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2"
+                  >
+                    muscadine-labs
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* RPC, Wallet Connect Reown - same row */}
+        <div>
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            RPC, Wallet Connect
+          </h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Card className="flex flex-col">
+              <CardHeader>
+                <CardTitle className="text-center text-base">RPC</CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-1 flex-col items-center justify-center">
+                <Button
+                  asChild
+                  variant="outline"
+                  size="lg"
+                  className="w-full"
+                >
+                  <a
+                    href="https://dashboard.alchemy.com/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2"
+                  >
+                    Alchemy Dashboard
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                </Button>
+              </CardContent>
+            </Card>
+            <Card className="flex flex-col">
+              <CardHeader>
+                <CardTitle className="text-center text-base">Wallet Connect Reown</CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-1 flex-col items-center justify-center">
+                <Button
+                  asChild
+                  variant="outline"
+                  size="lg"
+                  className="w-full"
+                >
+                  <a
+                    href="https://dashboard.reown.com/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2"
+                  >
+                    Reown Dashboard
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </AppShell>
+  );
+}

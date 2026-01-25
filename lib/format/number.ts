@@ -149,6 +149,15 @@ export const formatTokenSymbol = (symbol: string | null): string => {
   return symbol.toUpperCase();
 };
 
+/** Format LTV to a percentage string (2 decimals). Handles wei (n>1e6), fraction (n<=1), or plain %. */
+export function formatLtv(lltv: number | string | null | undefined): string {
+  const n = typeof lltv === 'string' ? Number(lltv) : lltv;
+  if (n == null || !Number.isFinite(n)) return '—';
+  if (n > 1_000_000) return `${((n / 1e18) * 100).toFixed(2)}%`;
+  if (n <= 1) return `${(n * 100).toFixed(2)}%`;
+  return `${n.toFixed(2)}%`;
+}
+
 // Format token amount with decimals
 export const formatTokenAmount = (
   amount: bigint | number | null,

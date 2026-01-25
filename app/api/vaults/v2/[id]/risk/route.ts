@@ -48,6 +48,7 @@ type GraphVaultResponse = {
     totalAssetsUsd?: number | null;
     idleAssetsUsd?: number | null;
     liquidityUsd?: number | null;
+    asset?: { symbol?: string; decimals?: number } | null;
     adapters?: {
       items?: Array<GraphAdapter | null> | null;
     } | null;
@@ -58,6 +59,7 @@ export type V2MarketRiskData = {
   market: V1VaultMarketData;
   scores: MarketRiskScores | null;
   allocationUsd: number;
+  allocationAssets: string | null;
   oracleTimestampData?: OracleTimestampData | null;
 };
 
@@ -66,6 +68,7 @@ export type V2AdapterRiskData = {
   adapterType: AdapterType;
   adapterLabel: string;
   allocationUsd: number;
+  allocationAssets: string | null;
   riskScore: number;
   riskGrade: MarketRiskGrade;
   markets: V2MarketRiskData[];
@@ -77,6 +80,7 @@ export type V2VaultRiskResponse = {
   totalAdapterAssetsUsd: number;
   vaultRiskScore: number;
   vaultRiskGrade: MarketRiskGrade;
+  vaultAsset: { symbol: string; decimals: number } | null;
   adapters: V2AdapterRiskData[];
 };
 
@@ -87,6 +91,7 @@ const VAULT_V2_RISK_QUERY = gql`
       totalAssetsUsd
       idleAssetsUsd
       liquidityUsd
+      asset { symbol decimals }
       adapters(first: $adapterLimit) {
         items {
           __typename
@@ -102,6 +107,7 @@ const VAULT_V2_RISK_QUERY = gql`
             positions(first: $positionLimit) {
               items {
                 state {
+                  supplyAssets
                   supplyAssetsUsd
                 }
                 market {
@@ -161,7 +167,8 @@ function getGradeFromScore(score: number): MarketRiskGrade {
 
 async function buildMarketRisk(
   market: V1VaultMarketData,
-  supplyUsd: number | null | undefined
+  supplyUsd: number | null | undefined,
+  supplyAssets?: string | null
 ): Promise<V2MarketRiskData> {
   const baseFeedOneAddress = market.oracle?.data?.baseFeedOne?.address
     ? (market.oracle.data.baseFeedOne.address as Address)
@@ -185,10 +192,14 @@ async function buildMarketRisk(
       targetUtilization
     );
 
+  const allocationAssets =
+    supplyAssets ?? (market as unknown as { vaultSupplyAssets?: string | null }).vaultSupplyAssets ?? null;
+
   return {
     market,
     scores: computedScores,
     allocationUsd: supplyUsd ?? 0,
+    allocationAssets,
     oracleTimestampData,
   };
 }
@@ -202,7 +213,7 @@ async function computeAdapterRisk(
   if (adapter.__typename === 'MetaMorphoAdapter' && adapter.metaMorpho?.address) {
     const { markets } = await fetchV1VaultMarkets(adapter.metaMorpho.address, chainId);
     const marketRisks = await Promise.all(
-      markets.map((m) => buildMarketRisk(m, m.vaultSupplyAssetsUsd ?? 0))
+      markets.map((m) => buildMarketRisk(m, m.vaultSupplyAssetsUsd ?? 0, m.vaultSupplyAssets ?? null))
     );
 
     const { weightedScore, grade } = computeWeightedRisk(marketRisks);
@@ -212,6 +223,7 @@ async function computeAdapterRisk(
       adapterType: 'MetaMorphoAdapter',
       adapterLabel: adapter.metaMorpho.name ?? adapter.metaMorpho.symbol ?? 'MetaMorpho Adapter',
       allocationUsd,
+      allocationAssets: adapter.assets ?? null,
       riskScore: weightedScore,
       riskGrade: grade,
       markets: marketRisks,
@@ -227,6 +239,7 @@ async function computeAdapterRisk(
         adapterType: 'MorphoMarketV1Adapter',
         adapterLabel: 'Morpho Market Adapter',
         allocationUsd,
+        allocationAssets: adapter.assets ?? null,
         riskScore: 0,
         riskGrade: 'F',
         markets: [],
@@ -235,7 +248,11 @@ async function computeAdapterRisk(
 
     const marketRisks = await Promise.all(
       positions.map((pos) =>
-        buildMarketRisk(pos!.market, pos!.state?.supplyAssetsUsd ?? 0)
+        buildMarketRisk(
+          pos!.market,
+          pos!.state?.supplyAssetsUsd ?? 0,
+          pos!.state?.supplyAssets ?? null
+        )
       )
     );
 
@@ -246,6 +263,7 @@ async function computeAdapterRisk(
       adapterType: 'MorphoMarketV1Adapter',
       adapterLabel: 'Morpho Market Adapter',
       allocationUsd,
+      allocationAssets: adapter.assets ?? null,
       riskScore: weightedScore,
       riskGrade: grade,
       markets: marketRisks,
@@ -334,21 +352,27 @@ export async function GET(
       0
     );
 
-    let vaultWeightedSum = 0;
-    adapterRisks.forEach((adapter) => {
+    // Calculate weighted risk score in a single reduce pass
+    const vaultWeightedSum = adapterRisks.reduce((sum, adapter) => {
       if (adapter.allocationUsd > 0) {
-        vaultWeightedSum += adapter.riskScore * adapter.allocationUsd;
+        return sum + adapter.riskScore * adapter.allocationUsd;
       }
-    });
+      return sum;
+    }, 0);
 
     const vaultRiskScore =
       totalAdapterAssetsUsd > 0 ? vaultWeightedSum / totalAdapterAssetsUsd : 0;
+
+    const vaultAsset = data.vault?.asset
+      ? { symbol: data.vault.asset.symbol ?? 'UNKNOWN', decimals: data.vault.asset.decimals ?? 18 }
+      : null;
 
     const response: V2VaultRiskResponse = {
       vaultAddress: address,
       totalAdapterAssetsUsd,
       vaultRiskScore,
       vaultRiskGrade: getGradeFromScore(vaultRiskScore),
+      vaultAsset,
       adapters: adapterRisks,
     };
 

@@ -54,14 +54,14 @@ export default function Home() {
   const treasuryRevenueDaily = useMemo(() => {
     const apiDaily = monthlyData?.daily;
     if (apiDaily && apiDaily.length > 0) {
-      return apiDaily;
+      return apiDaily.slice().sort((a, b) => a.date.localeCompare(b.date));
     }
     const st = monthlyData?.statements ?? [];
     return st
       .slice()
       .sort((a, b) => a.month.localeCompare(b.month))
       .map((s) => ({ date: `${s.month}-01`, value: s.total.usd }));
-  }, [monthlyData?.daily, monthlyData?.statements]);
+  }, [monthlyData]);
 
   const treasuryRevenueCumulative = useMemo(() => {
     let sum = 0;
@@ -85,17 +85,14 @@ export default function Home() {
       }
       description="Select a vault from the sidebar to view risk and configuration."
       actions={
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-slate-500 dark:text-slate-400">Revenue source</span>
-          <select
-            value={revenueSource}
-            onChange={(e) => setRevenueSource(e.target.value as RevenueSource)}
-            className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-          >
-            <option value="defillama">DefiLlama</option>
-            <option value="treasury">Treasury Wallet</option>
-          </select>
-        </div>
+        <select
+          value={revenueSource}
+          onChange={(e) => setRevenueSource(e.target.value as RevenueSource)}
+          className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+        >
+          <option value="defillama">DefiLlama</option>
+          <option value="treasury">Treasury Wallet</option>
+        </select>
       }
     >
       <div className="space-y-10">
