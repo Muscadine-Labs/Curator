@@ -1,6 +1,6 @@
 {
-  "name": "curator.muscadine.io",
-  "version": "0.1.0",
+  "name": "curator",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
@@ -59,6 +59,9 @@
     "typescript": "^5"
   },
   "overrides": {
-    "glob": "^10.0.0"
+    "glob": "^10.0.0",
+    "lodash": ">=4.17.23",
+    "h3": ">=1.15.5",
+    "hono": ">=4.11.4"
   }
 }
