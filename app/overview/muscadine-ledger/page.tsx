@@ -11,6 +11,7 @@ import { formatCompactUSD } from '@/lib/format/number';
 import { QUERY_STALE_TIME_MEDIUM, QUERY_REFETCH_INTERVAL_MEDIUM } from '@/lib/constants';
 import { Alert } from '@/components/ui/alert';
 import { Filter, ChevronDown, ChevronUp } from 'lucide-react';
+import { logger } from '@/lib/utils/logger';
 
 interface GoogleSheetsData {
   rows: Array<Record<string, string>>;
@@ -59,7 +60,7 @@ export default function MuscadineLedgerPage() {
               results[name] = await response.json();
             }
           } catch (error) {
-            console.error(`Failed to fetch ${name}:`, error);
+            logger.error(`Failed to fetch ${name}`, error instanceof Error ? error : new Error(String(error)));
           }
         })
       );

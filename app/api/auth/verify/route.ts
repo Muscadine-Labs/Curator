@@ -18,16 +18,16 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
-  const username = typeof body?.username === 'string' ? body.username.trim().toLowerCase() : '';
+  const username = typeof body?.username === 'string' ? body.username.trim() : '';
   const password = typeof body?.password === 'string' ? body.password : '';
 
-  // Check owner credentials
-  if (username === 'owner' && password === OWNER_PASSWORD) {
+  // Check owner credentials (case-sensitive: "Owner")
+  if (username === 'Owner' && password === OWNER_PASSWORD) {
     return NextResponse.json({ ok: true, role: 'owner' });
   }
 
-  // Check intern credentials
-  if (username === 'intern' && password === INTERN_PASSWORD) {
+  // Check intern credentials (case-sensitive: "Intern")
+  if (username === 'Intern' && password === INTERN_PASSWORD) {
     return NextResponse.json({ ok: true, role: 'intern' });
   }
 

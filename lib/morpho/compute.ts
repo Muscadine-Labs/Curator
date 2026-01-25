@@ -53,8 +53,7 @@ export function computeMetricsForMarket(
       : suppliedRaw + borrowed;
 
   const minTvlUsd = config.minTvlUsd ?? 10_000;
-  const minTvlThresholdHit = tvl < minTvlUsd;
-  const insufficientTvl = minTvlThresholdHit;
+  const insufficientTvl = tvl < minTvlUsd;
 
   // Utilization scoring with configurable maxUtilizationBeyond
   const maxUtilizationBeyond = config.maxUtilizationBeyond ?? 1.1;
@@ -268,7 +267,7 @@ export function computeMetricsForMarket(
     liquidatorCapacityPostStress,
     liquidationCapacityScore,
     tvlUsd: tvl,
-    minTvlThresholdHit,
+    minTvlThresholdHit: insufficientTvl,
     insufficientTvl,
     effectiveWeights: weights,
     rating,

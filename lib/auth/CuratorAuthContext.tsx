@@ -43,9 +43,10 @@ export function CuratorAuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const cache = readCuratorAuthCache();
-    if (isCuratorAuthCacheValid(cache) && cache) {
+    if (isCuratorAuthCacheValid(cache)) {
+      // cache is guaranteed to be non-null if isCuratorAuthCacheValid returns true
       setIsAuthenticated(true);
-      setRole(cache.role);
+      setRole(cache!.role);
     } else {
       if (cache) clearCuratorAuthCache();
       setIsAuthenticated(false);
