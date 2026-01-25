@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount } from 'wagmi';
-import { ChainSwitcher } from '@/components/ChainSwitcher';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { useCuratorAuth } from '@/lib/auth/CuratorAuthContext';
 import { Button } from '@/components/ui/button';
@@ -94,13 +93,7 @@ export function SignInSheet({ open, onClose }: SignInSheetProps) {
               </div>
             </div>
 
-            {/* 2. Network */}
-            <div className="space-y-2">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Network</p>
-              <ChainSwitcher />
-            </div>
-
-            {/* 3. Session (signed in) or Password (sign in) — each includes Appearance (theme) boxes under it */}
+            {/* 2. Session (signed in) or Password (sign in) — each includes Appearance (theme) boxes under it */}
             {isAuthenticated ? (
               <div className="space-y-2">
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Session</p>

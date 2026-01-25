@@ -1,10 +1,14 @@
 'use client';
 
+import { useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
+import { useQuery } from '@tanstack/react-query';
 import { KpiCard } from '@/components/KpiCard';
 import { useProtocolStats } from '@/lib/hooks/useProtocolStats';
 import { AppShell } from '@/components/layout/AppShell';
+import { useRevenueSource, type RevenueSource } from '@/lib/RevenueSourceContext';
+import { QUERY_STALE_TIME_MEDIUM, QUERY_REFETCH_INTERVAL_MEDIUM } from '@/lib/constants';
 
 // Lazy load chart components to reduce initial bundle size
 const ChartTvl = dynamic(() => import('@/components/ChartTvl').then(mod => ({ default: mod.ChartTvl })), {
@@ -27,8 +31,45 @@ const ChartRevenue = dynamic(() => import('@/components/ChartRevenue').then(mod 
   ssr: false,
 });
 
+interface MonthlyStatementResponse {
+  statements: Array<{ month: string; total: { usd: number } }>;
+  daily?: Array<{ date: string; value: number }>;
+}
+
 export default function Home() {
   const { data: stats, isLoading } = useProtocolStats();
+  const { revenueSource, setRevenueSource } = useRevenueSource();
+
+  const { data: monthlyData, isLoading: isTreasuryLoading } = useQuery<MonthlyStatementResponse>({
+    queryKey: ['monthly-statement'],
+    queryFn: async () => {
+      const res = await fetch('/api/monthly-statement-morphoql', { credentials: 'omit' });
+      if (!res.ok) throw new Error('Failed to fetch monthly statement');
+      return res.json();
+    },
+    staleTime: QUERY_STALE_TIME_MEDIUM,
+    refetchInterval: QUERY_REFETCH_INTERVAL_MEDIUM,
+  });
+
+  const treasuryRevenueDaily = useMemo(() => {
+    const apiDaily = monthlyData?.daily;
+    if (apiDaily && apiDaily.length > 0) {
+      return apiDaily;
+    }
+    const st = monthlyData?.statements ?? [];
+    return st
+      .slice()
+      .sort((a, b) => a.month.localeCompare(b.month))
+      .map((s) => ({ date: `${s.month}-01`, value: s.total.usd }));
+  }, [monthlyData?.daily, monthlyData?.statements]);
+
+  const treasuryRevenueCumulative = useMemo(() => {
+    let sum = 0;
+    return treasuryRevenueDaily.map((d) => {
+      sum += d.value;
+      return { date: d.date, value: sum };
+    });
+  }, [treasuryRevenueDaily]);
 
   return (
     <AppShell
@@ -43,15 +84,29 @@ export default function Home() {
         </Link>
       }
       description="Select a vault from the sidebar to view risk and configuration."
+      actions={
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-slate-500 dark:text-slate-400">Revenue source</span>
+          <select
+            value={revenueSource}
+            onChange={(e) => setRevenueSource(e.target.value as RevenueSource)}
+            className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          >
+            <option value="defillama">DefiLlama</option>
+            <option value="treasury">Treasury Wallet</option>
+          </select>
+        </div>
+      }
     >
       <div className="space-y-10">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           <KpiCard
             title="Total Deposited"
             value={stats?.totalDeposited || 0}
             subtitle="Across all vaults"
             isLoading={isLoading}
             format="usd"
+            compact
           />
           <KpiCard
             title="Total Fees Generated"
@@ -59,13 +114,19 @@ export default function Home() {
             subtitle="Depositor earnings"
             isLoading={isLoading}
             format="usd"
+            compact
           />
           <KpiCard
             title="Total Revenue Generated"
-            value={stats?.totalFeesGenerated || 0}
-            subtitle="Curator fees"
-            isLoading={isLoading}
+            value={
+              revenueSource === 'treasury'
+                ? (treasuryRevenueCumulative?.length ? treasuryRevenueCumulative[treasuryRevenueCumulative.length - 1].value : 0)
+                : (stats?.totalFeesGenerated ?? 0)
+            }
+            subtitle="Total curator revenue generated"
+            isLoading={revenueSource === 'treasury' ? isTreasuryLoading : isLoading}
             format="usd"
+            compact
           />
           <KpiCard
             title="Active Vaults"
@@ -73,6 +134,7 @@ export default function Home() {
             subtitle="Currently active"
             isLoading={isLoading}
             format="number"
+            compact
           />
           <KpiCard
             title="Users"
@@ -80,6 +142,7 @@ export default function Home() {
             subtitle="Total depositors"
             isLoading={isLoading}
             format="number"
+            compact
           />
         </div>
 
@@ -105,7 +168,10 @@ export default function Home() {
           <ChartRevenue
             dailyData={stats?.revenueTrendDaily}
             cumulativeData={stats?.revenueTrendCumulative}
+            treasuryDailyData={treasuryRevenueDaily}
+            treasuryCumulativeData={treasuryRevenueCumulative}
             isLoading={isLoading}
+            isTreasuryLoading={isTreasuryLoading}
             title="Revenue"
           />
         </div>

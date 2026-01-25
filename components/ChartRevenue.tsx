@@ -7,27 +7,49 @@ import { Button } from '@/components/ui/button';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { formatCompactUSD } from '@/lib/format/number';
 import { filterDataByDate } from '@/lib/utils/date-filter';
+import { useRevenueSource } from '@/lib/RevenueSourceContext';
 
 interface ChartRevenueProps {
   dailyData?: Array<{ date: string; value: number }>;
   cumulativeData?: Array<{ date: string; value: number }>;
+  treasuryDailyData?: Array<{ date: string; value: number }>;
+  treasuryCumulativeData?: Array<{ date: string; value: number }>;
   isLoading?: boolean;
+  isTreasuryLoading?: boolean;
   title?: string;
 }
 
-export function ChartRevenue({ dailyData, cumulativeData, isLoading = false, title = "Revenue" }: ChartRevenueProps) {
+export function ChartRevenue({
+  dailyData,
+  cumulativeData,
+  treasuryDailyData,
+  treasuryCumulativeData,
+  isLoading = false,
+  isTreasuryLoading = false,
+  title = 'Revenue',
+}: ChartRevenueProps) {
   const [viewMode, setViewMode] = useState<'daily' | 'cumulative'>('cumulative');
-  
-  // Filter data to exclude dates after June 1, 2025
-  const filteredDailyData = useMemo(() => filterDataByDate(dailyData || []), [dailyData]);
-  const filteredCumulativeData = useMemo(() => filterDataByDate(cumulativeData || []), [cumulativeData]);
-  
-  // Use the selected view mode data, fallback to cumulative if daily is not available
-  const data = viewMode === 'daily' && filteredDailyData.length > 0 
-    ? filteredDailyData 
-    : (filteredCumulativeData.length > 0 ? filteredCumulativeData : filteredDailyData);
+  const { revenueSource } = useRevenueSource();
 
-  if (isLoading) {
+  const effectiveDaily = revenueSource === 'treasury' ? (treasuryDailyData ?? []) : (dailyData ?? []);
+  const effectiveCumulative = revenueSource === 'treasury' ? (treasuryCumulativeData ?? []) : (cumulativeData ?? []);
+
+  const filteredDailyData = useMemo(() => filterDataByDate(effectiveDaily), [effectiveDaily]);
+  const filteredCumulativeData = useMemo(() => filterDataByDate(effectiveCumulative), [effectiveCumulative]);
+
+  const loading = revenueSource === 'treasury' ? isTreasuryLoading : isLoading;
+
+  // Treasury: cumulative only. DefiLlama: daily or cumulative by viewMode.
+  const data =
+    revenueSource === 'treasury'
+      ? filteredCumulativeData
+      : viewMode === 'daily' && filteredDailyData.length > 0
+        ? filteredDailyData
+        : filteredCumulativeData.length > 0
+          ? filteredCumulativeData
+          : filteredDailyData;
+
+  if (loading) {
     return (
       <Card>
         <CardHeader>
@@ -61,31 +83,34 @@ export function ChartRevenue({ dailyData, cumulativeData, isLoading = false, tit
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
-  const showToggle = dailyData && cumulativeData;
+  // Only DefiLlama gets Daily/Cumulative toggle; Treasury is cumulative-only.
+  const showViewToggle = revenueSource === 'defillama' && Boolean(dailyData?.length && cumulativeData?.length);
 
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle>{title}</CardTitle>
-          {showToggle && (
-            <div className="flex gap-2">
-              <Button
-                variant={viewMode === 'daily' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setViewMode('daily')}
-              >
-                Daily
-              </Button>
-              <Button
-                variant={viewMode === 'cumulative' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setViewMode('cumulative')}
-              >
-                Cumulative
-              </Button>
-            </div>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {showViewToggle && (
+              <div className="flex gap-1">
+                <Button
+                  variant={viewMode === 'daily' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setViewMode('daily')}
+                >
+                  Daily
+                </Button>
+                <Button
+                  variant={viewMode === 'cumulative' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setViewMode('cumulative')}
+                >
+                  Cumulative
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -103,10 +128,11 @@ export function ChartRevenue({ dailyData, cumulativeData, isLoading = false, tit
             />
             <Tooltip 
               formatter={(value) => {
-                if (value === undefined || value === null) return ['N/A', viewMode === 'daily' ? 'Daily Revenue' : 'Cumulative Revenue'];
+                const label = revenueSource === 'treasury' || viewMode === 'cumulative' ? 'Cumulative Revenue' : 'Daily Revenue';
+                if (value === undefined || value === null) return ['N/A', label];
                 const numValue = typeof value === 'number' ? value : Array.isArray(value) ? value[0] : Number(value);
-                if (isNaN(numValue)) return ['N/A', viewMode === 'daily' ? 'Daily Revenue' : 'Cumulative Revenue'];
-                return [formatTooltipValue(numValue), viewMode === 'daily' ? 'Daily Revenue' : 'Cumulative Revenue'];
+                if (isNaN(numValue)) return ['N/A', label];
+                return [formatTooltipValue(numValue), label];
               }}
               labelFormatter={(label) => new Date(label).toLocaleDateString()}
             />

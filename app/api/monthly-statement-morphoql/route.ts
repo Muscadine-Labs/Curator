@@ -178,6 +178,63 @@ function getValueAtTimestamp(
   return lastPoint.y;
 }
 
+type PositionWithHistory = {
+  vaultAddress: string;
+  asset: string;
+  assetDecimals: number;
+  isV1: boolean;
+  historicalAssets: Array<{ x?: number; y?: number }>;
+  historicalAssetsUsd: Array<{ x?: number; y?: number }>;
+};
+
+/**
+ * Build a daily treasury revenue series from position history.
+ * For each day: total USD at end of day minus total USD at end of previous day; only positive changes count as revenue.
+ */
+function getDailyTreasuryRevenue(
+  validPositions: PositionWithHistory[]
+): Array<{ date: string; value: number }> {
+  const daily: Array<{ date: string; value: number }> = [];
+  const start = new Date(STATEMENT_START_DATE);
+  start.setUTCHours(0, 0, 0, 0);
+  const now = new Date();
+  const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
+
+  let d = new Date(start);
+  d.setUTCHours(0, 0, 0, 0);
+
+  const nowSec = Math.floor(Date.now() / 1000);
+
+  while (d <= todayUTC) {
+    const endOfDay = new Date(d);
+    endOfDay.setUTCHours(23, 59, 59, 999);
+    let endOfDaySec = Math.floor(endOfDay.getTime() / 1000);
+    // For the current day, cap at "now" so we use the most recent available data (avoids future timestamps)
+    if (endOfDaySec > nowSec) {
+      endOfDaySec = nowSec;
+    }
+
+    const prevDay = new Date(d);
+    prevDay.setUTCDate(prevDay.getUTCDate() - 1);
+    const endOfPrevDay = new Date(prevDay);
+    endOfPrevDay.setUTCHours(23, 59, 59, 999);
+    const endOfPrevDaySec = Math.floor(endOfPrevDay.getTime() / 1000);
+
+    let totalToday = 0;
+    let totalPrev = 0;
+    for (const pos of validPositions) {
+      totalToday += getValueAtTimestamp(pos.historicalAssetsUsd, endOfDaySec) ?? 0;
+      totalPrev += getValueAtTimestamp(pos.historicalAssetsUsd, endOfPrevDaySec) ?? 0;
+    }
+    const value = Math.max(0, totalToday - totalPrev);
+    daily.push({ date: d.toISOString().slice(0, 10), value });
+
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+
+  return daily;
+}
+
 export async function GET(request: Request) {
   // Rate limiting
   const rateLimitMiddleware = createRateLimitMiddleware(
@@ -469,8 +526,10 @@ export async function GET(request: Request) {
     const validPositions = vaultPositionResults.filter((v): v is NonNullable<typeof v> => v !== null);
 
     if (validPositions.length === 0) {
-      return NextResponse.json({ statements: [] });
+      return NextResponse.json({ statements: [], daily: [] });
     }
+
+    const daily = getDailyTreasuryRevenue(validPositions);
 
     // Initialize monthly statements (for backward compatibility)
     const monthlyStatements = new Map<string, {
@@ -623,6 +682,11 @@ export async function GET(request: Request) {
     const now = new Date();
     now.setHours(23, 59, 59, 999);
 
+    const isCurrentMonth = (monthKey: string) => {
+      const [y, mo] = monthKey.split('-').map(Number);
+      return now.getUTCFullYear() === y && now.getUTCMonth() + 1 === mo;
+    };
+
     const statements: MonthlyStatementData[] = Array.from(monthlyStatements.entries())
       .map(([month, assets]) => {
         const [year, monthNum] = month.split('-').map(Number);
@@ -643,7 +707,7 @@ export async function GET(request: Request) {
           isComplete,
         };
       })
-      .filter(s => s.total.tokens !== 0 || s.total.usd !== 0) // Only include months with changes
+      .filter(s => s.total.tokens !== 0 || s.total.usd !== 0 || isCurrentMonth(s.month)) // Include months with changes, or current month (so we have a point for Jan 2026 etc.)
       .sort((a, b) => a.month.localeCompare(b.month));
 
     const responseHeaders = new Headers(rateLimitResult.headers);
@@ -654,10 +718,10 @@ export async function GET(request: Request) {
     const perVault = url.searchParams.get('perVault') === 'true';
 
     if (perVault) {
-      return NextResponse.json({ vaults: vaultMonthlyData }, { headers: responseHeaders });
+      return NextResponse.json({ vaults: vaultMonthlyData, daily }, { headers: responseHeaders });
     }
 
-    return NextResponse.json({ statements }, { headers: responseHeaders });
+    return NextResponse.json({ statements, daily }, { headers: responseHeaders });
   } catch (err) {
     const { error, statusCode } = handleApiError(err, 'Failed to fetch monthly statement');
     return NextResponse.json(error, { status: statusCode });

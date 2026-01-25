@@ -3,7 +3,7 @@
 import { getDefaultConfig } from '@rainbow-me/rainbowkit';
 import { getDefaultWallets } from '@rainbow-me/rainbowkit';
 import { rabbyWallet } from '@rainbow-me/rainbowkit/wallets';
-import { http, createStorage } from 'wagmi';
+import { http } from 'wagmi';
 import { base, mainnet, optimism, polygon } from 'viem/chains';
 
 // Create wagmi config with RainbowKit
@@ -63,16 +63,6 @@ function getRpcUrl(chainId: number): string {
   }
 }
 
-// Create a no-op storage that doesn't persist connections
-// This prevents auto-reconnect since there's no stored connection state
-const noOpStorage = createStorage({
-  storage: {
-    getItem: () => null,
-    setItem: () => {},
-    removeItem: () => {},
-  },
-});
-
 const config = getDefaultConfig({
   appName: 'Muscadine Curator',
   projectId,
@@ -85,7 +75,7 @@ const config = getDefaultConfig({
     [optimism.id]: http(getRpcUrl(optimism.id)),
     [polygon.id]: http(getRpcUrl(polygon.id)),
   },
-  storage: noOpStorage,
+  // Use default storage (localStorage) so the wallet reconnects on refresh
   // Disable automatic wallet detection and connection (prevents Base wallet popup)
   multiInjectedProviderDiscovery: false,
 });

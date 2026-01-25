@@ -16,6 +16,7 @@ import { QUERY_STALE_TIME_MEDIUM } from '@/lib/constants';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { CuratorAuthProvider } from '@/lib/auth/CuratorAuthContext';
 import { ThemeProvider } from '@/lib/theme/ThemeContext';
+import { RevenueSourceProvider } from '@/lib/RevenueSourceContext';
 
 // Create QueryClient at module level for build-time availability
 const queryClient = new QueryClient({
@@ -62,12 +63,14 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <WagmiProvider config={config}>
+        <WagmiProvider config={config} reconnectOnMount>
           <RainbowKitWithTheme>
             <CuratorAuthProvider>
-              <ErrorBoundary>
-                {children}
-              </ErrorBoundary>
+              <RevenueSourceProvider>
+                <ErrorBoundary>
+                  {children}
+                </ErrorBoundary>
+              </RevenueSourceProvider>
             </CuratorAuthProvider>
             {process.env.NODE_ENV === 'development' && (
               <ReactQueryDevtools initialIsOpen={false} />
