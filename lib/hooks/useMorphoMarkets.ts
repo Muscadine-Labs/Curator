@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { QUERY_STALE_TIME_MEDIUM } from '@/lib/constants';
 import type { MorphoMarketsResponse } from '@/lib/morpho/types';
 
 async function fetchMorphoMarkets(): Promise<MorphoMarketsResponse> {
@@ -18,7 +19,7 @@ export function useMorphoMarkets() {
   return useQuery({
     queryKey: ['morpho-markets'],
     queryFn: fetchMorphoMarkets,
-    staleTime: 5 * 60 * 1000,
+    staleTime: QUERY_STALE_TIME_MEDIUM,
   });
 }
 

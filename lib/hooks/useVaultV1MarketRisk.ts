@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { QUERY_REFETCH_INTERVAL_MEDIUM, QUERY_STALE_TIME_SHORT } from '@/lib/constants';
 import type { V1VaultMarketRiskResponse } from '@/app/api/vaults/v1/[id]/market-risk/route';
 
 async function fetchVaultV1MarketRisk(vaultAddress: string): Promise<V1VaultMarketRiskResponse> {
@@ -37,7 +38,7 @@ export function useVaultV1MarketRisk(vaultAddress: string | null | undefined) {
       return fetchVaultV1MarketRisk(vaultAddress);
     },
     enabled: !!vaultAddress,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    refetchInterval: 5 * 60 * 1000, // 5 minutes
+    staleTime: QUERY_STALE_TIME_SHORT,
+    refetchInterval: QUERY_REFETCH_INTERVAL_MEDIUM,
   });
 }

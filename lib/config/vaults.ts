@@ -18,6 +18,12 @@ export interface RoleConfig {
 
 import { BASE_CHAIN_ID, BASE_CHAIN_NAME } from '@/lib/constants';
 
+/**
+ * Chain IDs for reference:
+ * - Ethereum: 1
+ * - Base: 8453
+ */
+
 export interface ProtocolConfig {
   chainId: number;
   chainName: string;

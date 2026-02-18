@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getVaultByAddress, shouldUseV2Query } from '@/lib/config/vaults';
-import { GRAPHQL_FIRST_LIMIT, GRAPHQL_TRANSACTIONS_LIMIT, getDaysAgoTimestamp } from '@/lib/constants';
+import { BPS_PER_ONE, GRAPHQL_FIRST_LIMIT, GRAPHQL_TRANSACTIONS_LIMIT, getDaysAgoTimestamp } from '@/lib/constants';
 import { handleApiError, AppError } from '@/lib/utils/error-handler';
 import { createRateLimitMiddleware, RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS } from '@/lib/utils/rate-limit';
 import { morphoGraphQLClient } from '@/lib/morpho/graphql-client';
@@ -546,8 +546,8 @@ export async function GET(
     
     // Get performance fee from Morpho API (decimal like 0.05 = 5%)
     const performanceFeeBps = isV2
-      ? (mv?.performanceFee ? Math.round(mv.performanceFee * 10000) : null)
-      : (mv?.state?.fee ? Math.round(mv.state.fee * 10000) : null);
+      ? (mv?.performanceFee ? Math.round(mv.performanceFee * BPS_PER_ONE) : null)
+      : (mv?.state?.fee ? Math.round(mv.state.fee * BPS_PER_ONE) : null);
 
     const result = {
       ...cfg,

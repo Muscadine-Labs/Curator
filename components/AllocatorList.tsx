@@ -10,6 +10,7 @@ import { Plus, X, Loader2 } from 'lucide-react';
 import { Address, isAddress } from 'viem';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { vaultWriteConfigs } from '@/lib/onchain/vault-writes';
+import { BASE_CHAIN_ID, getScanUrlForChain } from '@/lib/constants';
 import { useVaultRoles } from '@/lib/hooks/useVaultRoles';
 import { logger } from '@/lib/utils/logger';
 
@@ -18,7 +19,7 @@ interface AllocatorListProps {
   chainId?: number;
 }
 
-export function AllocatorList({ vaultAddress, chainId = 8453 }: AllocatorListProps) {
+export function AllocatorList({ vaultAddress, chainId = BASE_CHAIN_ID }: AllocatorListProps) {
   const { address: connectedAddress, isConnected } = useAccount();
   const { data: roles, isLoading } = useVaultRoles(vaultAddress, chainId);
   
@@ -134,7 +135,7 @@ export function AllocatorList({ vaultAddress, chainId = 8453 }: AllocatorListPro
                   <Badge variant="secondary">Allocator</Badge>
                   <AddressBadge 
                     address={allocator} 
-                    scanUrl={`https://basescan.org/address/${allocator}`}
+                    scanUrl={`${getScanUrlForChain(chainId)}/address/${allocator}`}
                   />
                 </div>
                 {canManageAllocators && (

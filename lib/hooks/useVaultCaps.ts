@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { morphoGraphQLClient } from '@/lib/morpho/graphql-client';
 import { gql } from 'graphql-request';
-import { BASE_CHAIN_ID } from '@/lib/constants';
+import { BASE_CHAIN_ID, QUERY_REFETCH_INTERVAL_VERY_SHORT, QUERY_STALE_TIME_VERY_SHORT } from '@/lib/constants';
 import type { Address } from 'viem';
 
 export interface MarketCap {
@@ -165,8 +165,8 @@ export function useVaultCaps(vaultAddress: Address | string | null | undefined, 
       return { markets };
     },
     enabled: !!vaultAddress,
-    staleTime: 30 * 1000, // 30 seconds
-    refetchInterval: 60 * 1000, // Refetch every minute
+    staleTime: QUERY_STALE_TIME_VERY_SHORT,
+    refetchInterval: QUERY_REFETCH_INTERVAL_VERY_SHORT,
   });
 }
 

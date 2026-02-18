@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { QUERY_STALE_TIME_MEDIUM } from '@/lib/constants';
 
 export interface SuppliedMarket {
   uniqueKey: string;
@@ -46,7 +47,7 @@ export function useMarketsSupplied() {
   return useQuery<MarketsSuppliedResponse>({
     queryKey: ['markets-supplied'],
     queryFn: fetchMarketsSupplied,
-    staleTime: 5 * 60 * 1000,
+    staleTime: QUERY_STALE_TIME_MEDIUM,
   });
 }
 

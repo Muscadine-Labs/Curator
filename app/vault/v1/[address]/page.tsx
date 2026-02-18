@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Shield } from 'lucide-react';
+import { getScanUrlForChain } from '@/lib/constants';
 import { useVaultV1Complete } from '@/lib/hooks/useVaultV1Complete';
 import { AppShell } from '@/components/layout/AppShell';
 import { KpiCard } from '@/components/KpiCard';
@@ -94,7 +95,7 @@ export default function VaultDetailPage() {
             <Shield className="h-3 w-3" /> V1
           </Badge>
           <Button variant="outline" size="sm" asChild className="text-xs sm:text-sm">
-            <a href={vault.address ? `https://basescan.org/address/${vault.address}` : '#'} target="_blank" rel="noreferrer">
+            <a href={vault.address ? `${getScanUrlForChain(vault.chainId)}/address/${vault.address}` : '#'} target="_blank" rel="noreferrer">
               <span className="hidden sm:inline">View on Basescan</span>
               <span className="sm:hidden">Basescan</span>
             </a>

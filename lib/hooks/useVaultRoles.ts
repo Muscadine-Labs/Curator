@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { Address } from 'viem';
+import { BASE_CHAIN_ID, QUERY_REFETCH_INTERVAL_VERY_SHORT, QUERY_STALE_TIME_VERY_SHORT } from '@/lib/constants';
 import { readVaultRoles, readVaultAllocators, readPendingGuardian } from '@/lib/onchain/contracts';
 import { morphoGraphQLClient } from '@/lib/morpho/graphql-client';
 import { gql } from 'graphql-request';
@@ -19,7 +20,7 @@ export interface VaultRolesData {
 /**
  * Hook to fetch vault roles and allocators from GraphQL (with blockchain fallback)
  */
-export function useVaultRoles(vaultAddress: Address | null | undefined, chainId: number = 8453) {
+export function useVaultRoles(vaultAddress: Address | null | undefined, chainId: number = BASE_CHAIN_ID) {
   return useQuery<VaultRolesData>({
     queryKey: ['vault-roles', vaultAddress, chainId],
     queryFn: async () => {
@@ -111,8 +112,8 @@ export function useVaultRoles(vaultAddress: Address | null | undefined, chainId:
       };
     },
     enabled: !!vaultAddress,
-    staleTime: 30 * 1000, // 30 seconds
-    refetchInterval: 60 * 1000, // Refetch every minute
+    staleTime: QUERY_STALE_TIME_VERY_SHORT,
+    refetchInterval: QUERY_REFETCH_INTERVAL_VERY_SHORT,
   });
 }
 

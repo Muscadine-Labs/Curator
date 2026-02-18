@@ -6,6 +6,7 @@ import { useVault } from '@/lib/hooks/useProtocolStats';
 import { useVaultRoles } from '@/lib/hooks/useVaultRoles';
 import { ExternalLink } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
+import { getScanUrlForChain, QUERY_STALE_TIME_MEDIUM } from '@/lib/constants';
 import { publicClient } from '@/lib/onchain/client';
 import type { Address } from 'viem';
 
@@ -154,14 +155,14 @@ export function VaultParametersV1({ vaultAddress }: VaultParametersV1Props) {
     queryKey: ['vault-public-allocator-params', vaultAddress],
     queryFn: () => fetchPublicAllocatorParams(vaultAddress as Address),
     enabled: !!vaultAddress,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: QUERY_STALE_TIME_MEDIUM,
   });
 
   const { data: timelockDuration, isLoading: isTimelockLoading } = useQuery({
     queryKey: ['vault-timelock-duration', vaultAddress],
     queryFn: () => fetchTimelockDuration(vaultAddress as Address),
     enabled: !!vaultAddress,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: QUERY_STALE_TIME_MEDIUM,
   });
 
   const isLoading = isVaultLoading || isRolesLoading || isPublicAllocatorLoading || isTimelockLoading;
@@ -269,7 +270,7 @@ export function VaultParametersV1({ vaultAddress }: VaultParametersV1Props) {
                   <>
                     <span className="font-mono text-sm">{param.value}</span>
                     <a
-                      href={`https://basescan.org/address/${param.value}`}
+                      href={`${getScanUrlForChain(vault.chainId)}/address/${param.value}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"

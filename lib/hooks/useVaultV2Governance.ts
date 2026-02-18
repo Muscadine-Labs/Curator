@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { QUERY_REFETCH_INTERVAL_MEDIUM, QUERY_STALE_TIME_SHORT } from '@/lib/constants';
 import type { VaultV2GovernanceResponse } from '@/app/api/vaults/v2/[id]/governance/route';
 
 async function fetchVaultV2Governance(vaultAddress: string): Promise<VaultV2GovernanceResponse> {
@@ -29,8 +30,8 @@ export function useVaultV2Governance(vaultAddress: string | null | undefined) {
       return fetchVaultV2Governance(vaultAddress);
     },
     enabled: Boolean(vaultAddress),
-    staleTime: 2 * 60 * 1000,
-    refetchInterval: 5 * 60 * 1000,
+    staleTime: QUERY_STALE_TIME_SHORT,
+    refetchInterval: QUERY_REFETCH_INTERVAL_MEDIUM,
   });
 }
 

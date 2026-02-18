@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { vaultAddresses } from '@/lib/config/vaults';
-import { BASE_CHAIN_ID, GRAPHQL_FIRST_LIMIT } from '@/lib/constants';
+import { BASE_CHAIN_ID, BPS_PER_ONE, getScanUrlForChain, GRAPHQL_FIRST_LIMIT } from '@/lib/constants';
 import { handleApiError } from '@/lib/utils/error-handler';
 import { createRateLimitMiddleware, RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS } from '@/lib/utils/rate-limit';
 import { morphoGraphQLClient } from '@/lib/morpho/graphql-client';
@@ -174,16 +174,25 @@ export async function GET(request: Request) {
       depositorCounts[addr] = users.size;
     }
 
+    const addressToChainId = Object.fromEntries(
+      vaultAddresses.map((v) => [v.address.toLowerCase(), v.chainId])
+    );
+
+    const getChainId = (addr: string) =>
+      addressToChainId[addr.toLowerCase()] ?? BASE_CHAIN_ID;
+
     // Combine and format vaults from GraphQL
     const allVaults = [
-      ...v1Vaults.map(v => ({
-        address: v.address,
-        name: v.name ?? 'Unknown Vault',
-        symbol: v.symbol ?? v.asset?.symbol ?? 'UNKNOWN',
-        asset: v.asset?.symbol ?? 'UNKNOWN',
-        chainId: BASE_CHAIN_ID,
-        scanUrl: `https://basescan.org/address/${v.address}`,
-        performanceFeeBps: v.state?.fee ? Math.round(v.state.fee * 10000) : null,
+      ...v1Vaults.map((v) => {
+        const chainId = getChainId(v.address);
+        return {
+          address: v.address,
+          name: v.name ?? 'Unknown Vault',
+          symbol: v.symbol ?? v.asset?.symbol ?? 'UNKNOWN',
+          asset: v.asset?.symbol ?? 'UNKNOWN',
+          chainId,
+          scanUrl: `${getScanUrlForChain(chainId)}/address/${v.address}`,
+        performanceFeeBps: v.state?.fee ? Math.round(v.state.fee * BPS_PER_ONE) : null,
         status: v.whitelisted ? 'active' as const : 'paused' as const,
         riskTier: 'medium' as const,
         createdAt: new Date().toISOString(),
@@ -194,16 +203,18 @@ export async function GET(request: Request) {
         revenueAllTime: null,
         feesAllTime: null,
         lastHarvest: null,
-      })),
-      ...v2Vaults.map(v => {
-        const mapped = {
+        };
+      }),
+      ...v2Vaults.map((v) => {
+        const chainId = getChainId(v.address);
+        return {
           address: v.address,
           name: v.name ?? 'Unknown Vault',
           symbol: v.symbol ?? v.asset?.symbol ?? 'UNKNOWN',
           asset: v.asset?.symbol ?? 'UNKNOWN',
-          chainId: BASE_CHAIN_ID,
-          scanUrl: `https://basescan.org/address/${v.address}`,
-          performanceFeeBps: v.performanceFee ? Math.round(v.performanceFee * 10000) : null,
+          chainId,
+          scanUrl: `${getScanUrlForChain(chainId)}/address/${v.address}`,
+          performanceFeeBps: v.performanceFee ? Math.round(v.performanceFee * BPS_PER_ONE) : null,
           status: v.whitelisted ? 'active' as const : 'paused' as const,
           riskTier: 'medium' as const,
           createdAt: new Date().toISOString(),
@@ -215,7 +226,6 @@ export async function GET(request: Request) {
           feesAllTime: null,
           lastHarvest: null,
         };
-        return mapped;
       }),
     ];
 
