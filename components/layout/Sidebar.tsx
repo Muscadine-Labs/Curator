@@ -82,7 +82,7 @@ export function Sidebar({ onClose }: SidebarProps) {
         )}
       </div>
 
-      <nav className="flex-1 space-y-6 overflow-y-auto p-4 text-sm">
+      <nav className="flex-1 space-y-6 overflow-y-auto p-4 text-sm touch-manipulation">
         <div className="space-y-1">
           <p className="px-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
             Explore
@@ -92,13 +92,13 @@ export function Sidebar({ onClose }: SidebarProps) {
               key={item.href}
               href={item.href}
               onClick={handleLinkClick}
-              className={`flex min-h-[44px] items-center gap-2 rounded-lg px-2 py-2 transition ${
+              className={`flex min-h-[44px] w-full touch-manipulation items-center gap-2 rounded-lg px-2 py-2 transition ${
                 isActive(item.href)
                   ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
                   : 'text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'
               }`}
             >
-              <item.icon className="h-4 w-4" />
+              <item.icon className="h-4 w-4 shrink-0" />
               {item.label}
             </Link>
           ))}
@@ -157,22 +157,22 @@ export function Sidebar({ onClose }: SidebarProps) {
                                 key={vault.address}
                                 href={href}
                                 onClick={handleLinkClick}
-                                className={`flex min-h-[44px] items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${
+                                className={`flex min-h-[44px] w-full touch-manipulation items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${
                                   active
                                     ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
                                     : ''
                                 }`}
                               >
                                 <span
-                                  className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${
+                                  className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
                                     section.type === 'v1'
-                                      ? 'bg-slate-100 text-slate-700'
-                                      : 'bg-blue-100 text-blue-700'
+                                      ? 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200'
+                                      : 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300'
                                   }`}
                                 >
                                   {(vault.asset ?? 'U').slice(0, 1)}
                                 </span>
-                                <span className="truncate">{vault.name ?? 'Unknown Vault'}</span>
+                                <span className="truncate min-w-0">{vault.name ?? 'Unknown Vault'}</span>
                               </Link>
                             );
                           })}
@@ -195,42 +195,42 @@ export function Sidebar({ onClose }: SidebarProps) {
               <Link
                 href="/curator/morpho"
                 onClick={handleLinkClick}
-                className={`flex min-h-[44px] items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${
+                className={`flex min-h-[44px] w-full touch-manipulation items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${
                   isActive('/curator/morpho') ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900' : ''
                 }`}
               >
-                <Shield className="h-4 w-4" />
-                <span className="truncate">Morpho</span>
+                <Shield className="h-4 w-4 shrink-0" />
+                <span className="truncate min-w-0">Morpho</span>
               </Link>
               <Link
                 href="/curator/frontend"
                 onClick={handleLinkClick}
-                className={`flex min-h-[44px] items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${
+                className={`flex min-h-[44px] w-full touch-manipulation items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${
                   isActive('/curator/frontend') ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900' : ''
                 }`}
               >
-                <LayoutGrid className="h-4 w-4" />
-                <span className="truncate">Frontend</span>
+                <LayoutGrid className="h-4 w-4 shrink-0" />
+                <span className="truncate min-w-0">Frontend</span>
               </Link>
               <Link
                 href="/curator/safe"
                 onClick={handleLinkClick}
-                className={`flex min-h-[44px] items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${
+                className={`flex min-h-[44px] w-full touch-manipulation items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${
                   isActive('/curator/safe') ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900' : ''
                 }`}
               >
-                <Shield className="h-4 w-4" />
-                <span className="truncate">Multisig Safe</span>
+                <Shield className="h-4 w-4 shrink-0" />
+                <span className="truncate min-w-0">Multisig Safe</span>
               </Link>
               <Link
                 href="/curator/eip-7702"
                 onClick={handleLinkClick}
-                className={`flex min-h-[44px] items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${
+                className={`flex min-h-[44px] w-full touch-manipulation items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${
                   isActive('/curator/eip-7702') ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900' : ''
                 }`}
               >
-                <BookOpen className="h-4 w-4" />
-                <span className="truncate">EIP-7702</span>
+                <BookOpen className="h-4 w-4 shrink-0" />
+                <span className="truncate min-w-0">EIP-7702</span>
               </Link>
             </div>
           </div>
@@ -245,22 +245,22 @@ export function Sidebar({ onClose }: SidebarProps) {
               <Link
                 href="/overview/monthly-statement"
                 onClick={handleLinkClick}
-                className={`flex min-h-[44px] items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${
+                className={`flex min-h-[44px] w-full touch-manipulation items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${
                   isActive('/overview/monthly-statement') ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900' : ''
                 }`}
               >
-                <FileText className="h-4 w-4" />
-                <span className="truncate">Monthly Statement</span>
+                <FileText className="h-4 w-4 shrink-0" />
+                <span className="truncate min-w-0">Monthly Statement</span>
               </Link>
               <Link
                 href="/overview/muscadine-ledger"
                 onClick={handleLinkClick}
-                className={`flex min-h-[44px] items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${
+                className={`flex min-h-[44px] w-full touch-manipulation items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${
                   isActive('/overview/muscadine-ledger') ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900' : ''
                 }`}
               >
-                <Book className="h-4 w-4" />
-                <span className="truncate">Muscadine Ledger</span>
+                <Book className="h-4 w-4 shrink-0" />
+                <span className="truncate min-w-0">Muscadine Ledger</span>
               </Link>
             </div>
           </div>

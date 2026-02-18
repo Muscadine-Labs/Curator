@@ -52,7 +52,7 @@ export default function MultisigSafePage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="font-mono text-xs text-slate-500 break-all">
+                <div className="font-mono text-xs text-slate-500 dark:text-slate-400 break-all">
                   0x4E5D3ef790C75682ac4f6d4C1dDCc08b36fC100A
                 </div>
                 <Button
@@ -82,7 +82,7 @@ export default function MultisigSafePage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="font-mono text-xs text-slate-500 break-all">
+                <div className="font-mono text-xs text-slate-500 dark:text-slate-400 break-all">
                   0xb6d1d784e9Bc3570546e231caCB52B4E0f1ED8b1
                 </div>
                 <Button
@@ -112,7 +112,7 @@ export default function MultisigSafePage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="font-mono text-xs text-slate-500 break-all">
+                <div className="font-mono text-xs text-slate-500 dark:text-slate-400 break-all">
                   0x64e804eEF4F5a53272A8623b563ad2724E98A0a9
                 </div>
                 <Button
@@ -142,7 +142,7 @@ export default function MultisigSafePage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="font-mono text-xs text-slate-500 break-all">
+                <div className="font-mono text-xs text-slate-500 dark:text-slate-400 break-all">
                   0x057fd8B961Eb664baA647a5C7A6e9728fabA266A
                 </div>
                 <div className="flex gap-2">

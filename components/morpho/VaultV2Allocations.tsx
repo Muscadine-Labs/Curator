@@ -184,7 +184,7 @@ export function VaultV2Allocations({ vaultAddress, preloadedRisk }: VaultV2Alloc
           <CardTitle>Allocations</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-slate-500">No allocations yet.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">No allocations yet.</p>
         </CardContent>
       </Card>
     );

@@ -90,7 +90,7 @@ export default function VaultDetailPage() {
             <CardTitle>Missing vault</CardTitle>
           </CardHeader>
           <CardContent className="flex items-center justify-between">
-            <p className="text-sm text-slate-600">Check the address or pick a vault from the sidebar.</p>
+            <p className="text-sm text-slate-600 dark:text-slate-400">Check the address or pick a vault from the sidebar.</p>
             <Button asChild>
               <Link href="/vaults">Back to vaults</Link>
             </Button>
@@ -155,35 +155,35 @@ export default function VaultDetailPage() {
               <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <CardTitle>Risk management rating</CardTitle>
-                  <p className="text-sm text-slate-500">Curator risk posture and key signals</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">Curator risk posture and key signals</p>
                 </div>
                 <RatingBadge rating={riskLoading ? null : riskSummary.rating} />
               </CardHeader>
               <CardContent className="grid gap-4 md:grid-cols-3">
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-xs uppercase text-slate-500">Rating</p>
-                  <p className="text-lg font-semibold text-slate-900">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/50">
+                  <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Rating</p>
+                  <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                     {riskLoading
                       ? 'Loading...'
                       : riskSummary.rating !== null
                         ? `${riskSummary.rating} / 100`
                         : ratingLabel}
                   </p>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
                     {riskSummary.marketsRated > 0
                       ? `Averaged across ${riskSummary.marketsRated} rated markets`
                       : 'Fallback to configured risk tier'}
                   </p>
                 </div>
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-xs uppercase text-slate-500">Timelock posture</p>
-                  <p className="text-lg font-semibold text-slate-900">Pending / Scheduled</p>
-                  <p className="text-xs text-slate-500">View in Timelocks tab</p>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/50">
+                  <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Timelock posture</p>
+                  <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">Pending / Scheduled</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">View in Timelocks tab</p>
                 </div>
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-xs uppercase text-slate-500">Liquidity & caps</p>
-                  <p className="text-lg font-semibold text-slate-900">Monitored</p>
-                  <p className="text-xs text-slate-500">Idle, caps, utilization tracked</p>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/50">
+                  <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Liquidity & caps</p>
+                  <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">Monitored</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Idle, caps, utilization tracked</p>
                 </div>
               </CardContent>
             </Card>
@@ -215,7 +215,7 @@ export default function VaultDetailPage() {
                 <CardHeader>
                   <CardTitle>Adapters</CardTitle>
                 </CardHeader>
-                <CardContent className="text-sm text-slate-600">
+                <CardContent className="text-sm text-slate-600 dark:text-slate-400">
                   Adapter registry and configuration pulls from Morpho vault contracts. Use caps and timelocks tabs to change allocations and timing.
                 </CardContent>
               </Card>
@@ -231,38 +231,38 @@ export default function VaultDetailPage() {
                 <CardContent>
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-xs uppercase text-slate-500">Performance Fee</p>
-                      <p className="text-lg font-semibold text-slate-900">
+                      <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Performance Fee</p>
+                      <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                         {vault.parameters?.performanceFeeBps 
                           ? `${(vault.parameters.performanceFeeBps / 100).toFixed(2)}%` 
                           : null}
                       </p>
-                      <p className="text-xs text-slate-500">Fee charged on yield generated</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Fee charged on yield generated</p>
                     </div>
                     <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-xs uppercase text-slate-500">Max Deposit</p>
-                      <p className="text-lg font-semibold text-slate-900">
+                      <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Max Deposit</p>
+                      <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                         {vault.parameters?.maxDeposit 
                           ? formatCompactUSD(vault.parameters.maxDeposit) 
                           : 'Unlimited'}
                       </p>
-                      <p className="text-xs text-slate-500">Maximum deposit per transaction</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Maximum deposit per transaction</p>
                     </div>
                     <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-xs uppercase text-slate-500">Max Withdrawal</p>
-                      <p className="text-lg font-semibold text-slate-900">
+                      <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Max Withdrawal</p>
+                      <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                         {vault.parameters?.maxWithdrawal 
                           ? formatCompactUSD(vault.parameters.maxWithdrawal) 
                           : 'Unlimited'}
                       </p>
-                      <p className="text-xs text-slate-500">Maximum withdrawal per transaction</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Maximum withdrawal per transaction</p>
                     </div>
                     <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-xs uppercase text-slate-500">Strategy</p>
-                      <p className="text-sm font-medium text-slate-900">
+                      <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Strategy</p>
+                      <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
                         {vault.parameters?.strategyNotes || 'MetaMorpho v1.1 yield strategy'}
                       </p>
-                      <p className="text-xs text-slate-500">Vault allocation strategy</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Vault allocation strategy</p>
                     </div>
                   </div>
                 </CardContent>
@@ -332,7 +332,7 @@ export default function VaultDetailPage() {
                 <CardHeader>
                   <CardTitle>No allocations found</CardTitle>
                 </CardHeader>
-                <CardContent className="text-sm text-slate-600">This vault has no allocations yet.</CardContent>
+                <CardContent className="text-sm text-slate-600 dark:text-slate-400">This vault has no allocations yet.</CardContent>
               </Card>
             )}
           </TabsContent>
@@ -342,7 +342,7 @@ export default function VaultDetailPage() {
               <CardHeader>
                 <CardTitle>Caps</CardTitle>
               </CardHeader>
-              <CardContent className="text-sm text-slate-600">
+              <CardContent className="text-sm text-slate-600 dark:text-slate-400">
                 Configure absolute and relative caps per adapter. Pull data from Morpho vault V2 for v2 vaults and MetaMorpho v1.1 for v1 vaults.
               </CardContent>
             </Card>
@@ -353,7 +353,7 @@ export default function VaultDetailPage() {
               <CardHeader>
                 <CardTitle>Timelocks</CardTitle>
               </CardHeader>
-              <CardContent className="text-sm text-slate-600">
+              <CardContent className="text-sm text-slate-600 dark:text-slate-400">
                 Pending actions will surface here once wired to contract reads. Execute after timelock expiry or revoke if needed.
               </CardContent>
             </Card>

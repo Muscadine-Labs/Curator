@@ -297,12 +297,36 @@ export async function GET(
 
     const query = isV2 ? v2Query : v1Query;
 
+    // Fetch vault detail and monthly statement revenue in parallel
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
+    const revenuePromise = fetch(`${baseUrl}/api/monthly-statement-morphoql?perVault=true`, {
+      headers: { 'Content-Type': 'application/json' },
+    })
+      .then((res) => (res.ok ? res.json() : { vaults: [] }))
+      .then((d: { vaults?: Array<{ vaultAddress: string; month: string; usd: number }> }) => {
+        const addr = address.toLowerCase();
+        let total = 0;
+        let ytd = 0;
+        const currentYear = new Date().getFullYear().toString();
+        for (const v of d.vaults ?? []) {
+          if (v.vaultAddress?.toLowerCase() === addr) {
+            total += v.usd ?? 0;
+            if (v.month?.startsWith(currentYear)) ytd += v.usd ?? 0;
+          }
+        }
+        return { revenueAllTime: total || null, feesYtd: ytd || null };
+      })
+      .catch(() => ({ revenueAllTime: null, feesYtd: null }));
+
     let data: VaultDetailQueryResponse;
+    let revenue: { revenueAllTime: number | null; feesYtd: number | null } = { revenueAllTime: null, feesYtd: null };
     try {
-      data = await morphoGraphQLClient.request<VaultDetailQueryResponse>(
-        query,
-        variables
-      );
+      const [graphqlData, revenueData] = await Promise.all([
+        morphoGraphQLClient.request<VaultDetailQueryResponse>(query, variables),
+        revenuePromise,
+      ]);
+      data = graphqlData;
+      revenue = revenueData;
       if (isV2 && data.vaultV2ByAddress) {
         logger.debug('V2 vault data found', {
           address: cfg.address,
@@ -313,8 +337,8 @@ export async function GET(
       }
     } catch (graphqlError) {
       // For v2 vaults, GraphQL API may not have indexed them yet
-      // Check if this is a v2 vault and handle gracefully
       if (isV2) {
+        revenue = await revenuePromise; // Still get revenue for fallback response
         logger.error('GraphQL query failed for v2 vault', graphqlError instanceof Error ? graphqlError : new Error(String(graphqlError)), {
           address,
         });
@@ -352,7 +376,7 @@ export async function GET(
           tvl: null,
           apy: null,
           depositors: 0,
-          revenueAllTime: null,
+          revenueAllTime: revenue.revenueAllTime,
           feesAllTime: null,
           lastHarvest: null,
           apyBreakdown: null,
@@ -560,10 +584,10 @@ export async function GET(
       apy: apyPct,
       apyBase: apyBasePct,
       apyBoosted: apyBoostedPct,
-      feesYtd: null,
+      feesYtd: revenue.feesYtd,
       utilization: utilization,
       depositors,
-      revenueAllTime: null,
+      revenueAllTime: revenue.revenueAllTime,
       feesAllTime: null,
       lastHarvest: null,
       apyBreakdown: isV2 ? {

@@ -72,7 +72,7 @@ export default function VaultDetailPage() {
             <CardTitle>Missing vault</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-slate-600">Check the address or pick a vault from the sidebar.</p>
+            <p className="text-sm text-slate-600 dark:text-slate-400">Check the address or pick a vault from the sidebar.</p>
             <Button asChild className="w-full sm:w-auto">
               <Link href="/vaults">Back to vaults</Link>
             </Button>
@@ -164,8 +164,8 @@ export default function VaultDetailPage() {
                 subtitle="Curator fee rate" 
                 format="percentage" 
               />
-              <KpiCard title="Revenue (All Time)" value="Coming Soon" subtitle="Total revenue generated" format="raw" />
-              <KpiCard title="Fees (All Time)" value="Coming Soon" subtitle="Total fees collected" format="raw" />
+              <KpiCard title="Revenue (All Time)" value={vault.revenueAllTime} subtitle="Total revenue to protocol" format="usd" />
+              <KpiCard title="Fees (All Time)" value="Coming Soon" subtitle="Total fees collected to token holders" format="raw" />
             </div>
           </TabsContent>
 
@@ -195,7 +195,7 @@ export default function VaultDetailPage() {
                 <CardTitle>Emergency</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <p className="text-center py-8 text-slate-500">Coming Soon</p>
+                <p className="text-center py-8 text-slate-500 dark:text-slate-400">Coming Soon</p>
                 <div className="text-center">
                   <Button variant="outline" asChild>
                     <a

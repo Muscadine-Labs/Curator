@@ -84,7 +84,7 @@ export function KpiCard({
           <div
             className={cn(
               'text-xs font-medium',
-              trend.isPositive ? 'text-green-600' : 'text-red-600'
+              trend.isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
             )}
           >
             {trend.isPositive ? '+' : ''}

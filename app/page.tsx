@@ -5,28 +5,30 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { KpiCard } from '@/components/KpiCard';
-import { useProtocolStats } from '@/lib/hooks/useProtocolStats';
+import { useProtocolStats, useVaultList } from '@/lib/hooks/useProtocolStats';
 import { AppShell } from '@/components/layout/AppShell';
 import { useRevenueSource, type RevenueSource } from '@/lib/RevenueSourceContext';
+import { formatCompactUSD } from '@/lib/format/number';
+import { shouldUseV2Query } from '@/lib/config/vaults';
 
 // Lazy load chart components to reduce initial bundle size
 const ChartTvl = dynamic(() => import('@/components/ChartTvl').then(mod => ({ default: mod.ChartTvl })), {
-  loading: () => <div className="h-96 animate-pulse rounded-lg bg-slate-100" />,
+  loading: () => <div className="h-96 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />,
   ssr: false,
 });
 
 const ChartInflows = dynamic(() => import('@/components/ChartInflows').then(mod => ({ default: mod.ChartInflows })), {
-  loading: () => <div className="h-96 animate-pulse rounded-lg bg-slate-100" />,
+  loading: () => <div className="h-96 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />,
   ssr: false,
 });
 
 const ChartFees = dynamic(() => import('@/components/ChartFees').then(mod => ({ default: mod.ChartFees })), {
-  loading: () => <div className="h-96 animate-pulse rounded-lg bg-slate-100" />,
+  loading: () => <div className="h-96 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />,
   ssr: false,
 });
 
 const ChartRevenue = dynamic(() => import('@/components/ChartRevenue').then(mod => ({ default: mod.ChartRevenue })), {
-  loading: () => <div className="h-96 animate-pulse rounded-lg bg-slate-100" />,
+  loading: () => <div className="h-96 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />,
   ssr: false,
 });
 
@@ -37,6 +39,7 @@ interface MonthlyStatementResponse {
 
 export default function Home() {
   const { data: stats, isLoading } = useProtocolStats();
+  const { data: vaults = [], isLoading: isVaultListLoading } = useVaultList();
   const { revenueSource, setRevenueSource } = useRevenueSource();
 
   const { data: monthlyData, isLoading: isTreasuryLoading } = useQuery<MonthlyStatementResponse>({
@@ -105,7 +108,7 @@ export default function Home() {
           <KpiCard
             title="Total Fees Generated"
             value={stats?.totalInterestGenerated || 0}
-            subtitle="Depositor earnings"
+            subtitle="Total fees collected to token holders"
             isLoading={isLoading}
             format="usd"
             compact
@@ -117,7 +120,7 @@ export default function Home() {
                 ? (treasuryRevenueCumulative?.length ? treasuryRevenueCumulative[treasuryRevenueCumulative.length - 1].value : 0)
                 : (stats?.totalFeesGenerated ?? 0)
             }
-            subtitle="Total curator revenue generated"
+            subtitle="Total revenue to protocol"
             isLoading={revenueSource === 'treasury' ? isTreasuryLoading : isLoading}
             format="usd"
             compact
@@ -139,6 +142,38 @@ export default function Home() {
             compact
           />
         </div>
+
+        {revenueSource === 'treasury' && (
+          <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-4 dark:border-slate-700 dark:bg-slate-800/30">
+            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              Revenue by Vault (Treasury)
+            </h3>
+            {isVaultListLoading ? (
+              <div className="h-8 animate-pulse rounded bg-slate-200 dark:bg-slate-700" />
+            ) : (
+              <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+                {vaults
+                  .filter((v) => v.revenueAllTime != null && v.revenueAllTime > 0)
+                  .sort((a, b) => (b.revenueAllTime ?? 0) - (a.revenueAllTime ?? 0))
+                  .map((vault) => (
+                    <Link
+                      key={vault.address}
+                      href={shouldUseV2Query(vault.name) ? `/vault/v2/${vault.address}` : `/vault/v1/${vault.address}`}
+                      className="hover:underline"
+                    >
+                      <span className="text-slate-700 dark:text-slate-300">{vault.name}:</span>{' '}
+                      <span className="font-medium text-slate-900 dark:text-slate-100">
+                        {formatCompactUSD(vault.revenueAllTime ?? 0)}
+                      </span>
+                    </Link>
+                  ))}
+                {vaults.filter((v) => v.revenueAllTime != null && v.revenueAllTime > 0).length === 0 && (
+                  <span className="text-slate-500 dark:text-slate-400">No vault revenue yet</span>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <ChartTvl

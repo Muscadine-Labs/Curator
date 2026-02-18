@@ -35,6 +35,22 @@ export async function GET(request: Request) {
     const addresses = vaultAddresses.map(v => getAddress(v.address));
     const configuredAddressSet = new Set(addresses.map((a) => a.toLowerCase()));
 
+    // Fetch monthly statement by vault in parallel for revenue data
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
+    const revenueByVaultPromise = fetch(`${baseUrl}/api/monthly-statement-morphoql?perVault=true`, {
+      headers: { 'Content-Type': 'application/json' },
+    })
+      .then((res) => (res.ok ? res.json() : { vaults: [] }))
+      .then((data: { vaults?: Array<{ vaultAddress: string; usd: number }> }) => {
+        const map: Record<string, number> = {};
+        for (const v of data.vaults ?? []) {
+          const addr = v.vaultAddress.toLowerCase();
+          map[addr] = (map[addr] ?? 0) + (v.usd ?? 0);
+        }
+        return map;
+      })
+      .catch(() => ({} as Record<string, number>));
+
     // Build queries for both V1 and V2 vaults
     const v1Query = gql`
       query FetchV1Vaults($addresses: [String!]) {
@@ -108,10 +124,11 @@ export async function GET(request: Request) {
       }
     });
 
-    // Fetch V1 vaults and V2 vaults in parallel
-    const [v1Data, v2Results] = await Promise.all([
+    // Fetch V1 vaults, V2 vaults, and revenue by vault in parallel
+    const [v1Data, v2Results, revenueByVault] = await Promise.all([
       morphoGraphQLClient.request<{ vaults?: { items?: Array<{ address: string; name: string; whitelisted?: boolean; asset?: { address?: string; symbol?: string; decimals?: number }; state?: { totalAssetsUsd?: number; weeklyNetApy?: number; monthlyNetApy?: number; fee?: number } } | null> | null } | null }>(v1Query, { addresses }).catch(() => ({ vaults: { items: [] } })),
       Promise.all(v2VaultPromises),
+      revenueByVaultPromise,
     ]);
 
     const v2Vaults = v2Results.filter((v): v is NonNullable<typeof v> => v !== null);
@@ -200,7 +217,7 @@ export async function GET(request: Request) {
         apy: v.state?.weeklyNetApy != null ? v.state.weeklyNetApy * 100 :
              v.state?.monthlyNetApy != null ? v.state.monthlyNetApy * 100 : null,
         depositors: depositorCounts[v.address.toLowerCase()] ?? 0,
-        revenueAllTime: null,
+        revenueAllTime: revenueByVault[v.address.toLowerCase()] ?? null,
         feesAllTime: null,
         lastHarvest: null,
         };
@@ -222,7 +239,7 @@ export async function GET(request: Request) {
           apy: v.avgNetApy != null ? v.avgNetApy * 100 : 
                v.avgApy != null ? v.avgApy * 100 : null,
           depositors: depositorCounts[v.address.toLowerCase()] ?? 0,
-          revenueAllTime: null,
+          revenueAllTime: revenueByVault[v.address.toLowerCase()] ?? null,
           feesAllTime: null,
           lastHarvest: null,
         };

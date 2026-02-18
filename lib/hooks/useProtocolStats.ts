@@ -111,7 +111,8 @@ export interface VaultDetail extends VaultWithData {
     owner?: string | null;
     curator?: string | null;
     guardian?: string | null;
-    timelock?: string | null;
+    /** V1: duration in seconds (number). V2: address (string). */
+    timelock?: string | number | null;
   };
   transactions?: Array<{
     blockNumber: number;

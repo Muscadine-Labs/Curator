@@ -130,7 +130,7 @@ export function AllocatorList({ vaultAddress, chainId = BASE_CHAIN_ID }: Allocat
         {roles.allocators.length > 0 ? (
           <div className="space-y-3">
             {roles.allocators.map((allocator, index) => (
-              <div key={index} className="flex items-center justify-between p-2 rounded-lg border border-slate-200 bg-slate-50">
+              <div key={index} className="flex items-center justify-between p-2 rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50">
                 <div className="flex items-center gap-2">
                   <Badge variant="secondary">Allocator</Badge>
                   <AddressBadge 

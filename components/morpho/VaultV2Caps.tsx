@@ -72,7 +72,7 @@ export function VaultV2Caps({ vaultAddress, preloadedData }: VaultV2CapsProps) {
           <CardTitle>Adapter Caps</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-slate-500">No caps configured.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">No caps configured.</p>
         </CardContent>
       </Card>
     );
@@ -98,34 +98,34 @@ export function VaultV2Caps({ vaultAddress, preloadedData }: VaultV2CapsProps) {
                 className="grid grid-cols-1 gap-3 rounded-md border border-slate-200 p-4 text-sm dark:border-slate-800 sm:grid-cols-5 sm:items-center"
               >
                 <div>
-                  <p className="text-xs uppercase text-slate-500">Type</p>
+                  <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Type</p>
                   <div className="mt-1 flex items-center gap-2">
                     <Badge variant="outline" className="text-xs">
                       {cap.type}
                     </Badge>
-                    <span className="text-xs text-slate-500 break-all">{targetLabel}</span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400 break-all">{targetLabel}</span>
                   </div>
                 </div>
                 <div>
-                  <p className="text-xs uppercase text-slate-500">Absolute Cap</p>
+                  <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Absolute Cap</p>
                   <p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">
                     {formatBigIntValue(cap.absoluteCap)}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase text-slate-500">Relative Cap</p>
+                  <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Relative Cap</p>
                   <p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">
                     {formatRelativeCap(cap.relativeCap)}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase text-slate-500">Allocation</p>
+                  <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Allocation</p>
                   <p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">
                     {formatBigIntValue(cap.allocation)}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase text-slate-500">Adapter</p>
+                  <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Adapter</p>
                   <p className="mt-1 break-all text-slate-700 dark:text-slate-200">
                     {cap.adapterAddress ?? 'N/A'}
                   </p>

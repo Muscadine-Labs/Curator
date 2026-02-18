@@ -688,7 +688,7 @@ export default function MuscadineLedgerPage() {
                     {/* Show message if no data */}
                     {(!filteredExpensesData || filteredExpensesData.length === 0) && 
                      (!filteredIncomeData || filteredIncomeData.length === 0) && (
-                      <div className="flex items-center justify-center h-64 text-slate-500">
+                      <div className="flex items-center justify-center h-64 text-slate-500 dark:text-slate-400">
                         No data available for {selectedYear}
                       </div>
                     )}
@@ -722,7 +722,7 @@ export default function MuscadineLedgerPage() {
                 ) : (
                   // Single sheet view (not "All")
                   !filteredYearData || filteredYearData.length === 0 ? (
-                    <div className="flex items-center justify-center h-64 text-slate-500">
+                    <div className="flex items-center justify-center h-64 text-slate-500 dark:text-slate-400">
                       No data available for {selectedYear}
                     </div>
                   ) : (

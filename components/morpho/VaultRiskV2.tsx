@@ -155,7 +155,7 @@ export function VaultRiskV2({ vaultAddress, preloadedData }: VaultRiskV2Props) {
             <Shield className="h-4 w-4" />
             Risk Management
           </CardTitle>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
             Weighted average across adapters, then underlying markets
           </p>
         </div>
@@ -174,13 +174,13 @@ export function VaultRiskV2({ vaultAddress, preloadedData }: VaultRiskV2Props) {
       <CardContent className="space-y-6">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="rounded-lg border p-4 bg-slate-50/60 dark:bg-slate-900/50">
-            <p className="text-xs text-slate-500">Total Allocated to Adapters</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Total Allocated to Adapters</p>
             <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
               {formatCompactUSD(totalAdapterAssets)}
             </p>
           </div>
           <div className="rounded-lg border p-4 bg-slate-50/60 dark:bg-slate-900/50">
-            <p className="text-xs text-slate-500">Adapters Count</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Adapters Count</p>
             <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
               {sortedAdapters.length}
             </p>
@@ -211,7 +211,7 @@ export function VaultRiskV2({ vaultAddress, preloadedData }: VaultRiskV2Props) {
                         {adapter.adapterType === 'MetaMorphoAdapter' ? 'Vault Adapter' : 'Market Adapter'}
                       </Badge>
                     </div>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
                       Allocation: {formatCompactUSD(adapter.allocationUsd)} ·{' '}
                       {formatPercentage(adapterWeightPct, 2)} of vault
                     </p>
@@ -277,7 +277,7 @@ export function VaultRiskV2({ vaultAddress, preloadedData }: VaultRiskV2Props) {
                       >
                         <div className="space-y-1">
                           <p className="font-medium text-sm">{marketName}</p>
-                          <p className="text-xs text-slate-500">
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
                             Allocation: {formatCompactUSD(m.allocationUsd)} · {formatPercentage(allocPct, 2)} of adapter
                           </p>
                         </div>
@@ -302,26 +302,26 @@ export function VaultRiskV2({ vaultAddress, preloadedData }: VaultRiskV2Props) {
                         {!idle && (
                           <div className="grid grid-cols-1 gap-2 text-xs text-slate-600 dark:text-slate-300 sm:grid-cols-2 lg:grid-cols-4">
                             <div>
-                              <p className="text-[11px] uppercase tracking-wide text-slate-500">LLTV</p>
+                              <p className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400">LLTV</p>
                               <p className="font-medium">
                                 {lltvPct != null ? formatPercentage(lltvPct, 2) : 'N/A'}
                               </p>
                             </div>
                             <div>
-                              <p className="text-[11px] uppercase tracking-wide text-slate-500">Utilization</p>
+                              <p className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400">Utilization</p>
                               <p className="font-medium">
                                 {utilizationPct != null ? formatPercentage(utilizationPct, 2) : 'N/A'}
                               </p>
                             </div>
                             <div>
-                              <p className="text-[11px] uppercase tracking-wide text-slate-500">Supply / Borrow APY</p>
+                              <p className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400">Supply / Borrow APY</p>
                               <p className="font-medium">
                                 {supplyApyPct != null ? formatPercentage(supplyApyPct, 2) : 'N/A'} /{' '}
                                 {borrowApyPct != null ? formatPercentage(borrowApyPct, 2) : 'N/A'}
                               </p>
                             </div>
                             <div>
-                              <p className="text-[11px] uppercase tracking-wide text-slate-500">Liquidity</p>
+                              <p className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400">Liquidity</p>
                               <p className="font-medium">
                                 {liquidityUsd != null ? formatCompactUSD(liquidityUsd) : 'N/A'}
                               </p>
