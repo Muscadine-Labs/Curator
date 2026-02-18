@@ -307,14 +307,16 @@ export async function GET(
         const addr = address.toLowerCase();
         let total = 0;
         let ytd = 0;
+        let found = false;
         const currentYear = new Date().getFullYear().toString();
         for (const v of d.vaults ?? []) {
           if (v.vaultAddress?.toLowerCase() === addr) {
+            found = true;
             total += v.usd ?? 0;
             if (v.month?.startsWith(currentYear)) ytd += v.usd ?? 0;
           }
         }
-        return { revenueAllTime: total ?? null, feesYtd: ytd ?? null };
+        return { revenueAllTime: found ? total : null, feesYtd: found ? ytd : null };
       })
       .catch(() => ({ revenueAllTime: null, feesYtd: null }));
 
