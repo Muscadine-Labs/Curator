@@ -28,6 +28,11 @@ export function getScanUrlForChain(chainId: number): string {
   return CHAIN_SCAN_URLS[chainId] ?? BASE_SCAN_URL;
 }
 
+/** Returns block explorer display name for a chain (e.g. "Etherscan", "Basescan"). */
+export function getScanNameForChain(chainId: number): string {
+  return chainId === ETHEREUM_CHAIN_ID ? 'Etherscan' : 'Basescan';
+}
+
 // Fee conversion (decimal 0–1 to basis points)
 export const BPS_PER_ONE = 10000;
 

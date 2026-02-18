@@ -314,7 +314,7 @@ export async function GET(
             if (v.month?.startsWith(currentYear)) ytd += v.usd ?? 0;
           }
         }
-        return { revenueAllTime: total || null, feesYtd: ytd || null };
+        return { revenueAllTime: total ?? null, feesYtd: ytd ?? null };
       })
       .catch(() => ({ revenueAllTime: null, feesYtd: null }));
 
@@ -378,6 +378,7 @@ export async function GET(
           depositors: 0,
           revenueAllTime: revenue.revenueAllTime,
           feesAllTime: null,
+          feesYtd: revenue.feesYtd,
           lastHarvest: null,
           apyBreakdown: null,
           rewards: [],

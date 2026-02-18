@@ -44,7 +44,8 @@ export async function GET(request: Request) {
       .then((data: { vaults?: Array<{ vaultAddress: string; usd: number }> }) => {
         const map: Record<string, number> = {};
         for (const v of data.vaults ?? []) {
-          const addr = v.vaultAddress.toLowerCase();
+          const addr = v.vaultAddress?.toLowerCase();
+          if (!addr) continue;
           map[addr] = (map[addr] ?? 0) + (v.usd ?? 0);
         }
         return map;
