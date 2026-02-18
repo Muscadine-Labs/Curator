@@ -477,7 +477,7 @@ export async function GET(request: Request) {
         // For V2 vaults with only 1 data point, add a second point 30 days ago for better chart visualization
         if (v.data.length === 1 && v.performanceFee !== null && v.performanceFee !== undefined) {
           const currentPoint = v.data[0];
-          const thirtyDaysAgo = new Date(new Date(currentPoint.date).getTime() - (30 * 24 * 60 * 60 * 1000));
+          const thirtyDaysAgo = new Date(new Date(currentPoint.date).getTime() - DAYS_30_MS);
           return {
             name: v.name,
             address: v.address,

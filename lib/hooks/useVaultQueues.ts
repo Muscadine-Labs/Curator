@@ -192,8 +192,6 @@ export function useVaultQueues(vaultAddress: Address | string | null | undefined
       return { supplyQueue, withdrawQueue };
     },
     enabled: !!vaultAddress,
-    staleTime: 30 * 1000, // 30 seconds
-    refetchInterval: 60 * 1000, // Refetch every minute
   });
 }
 

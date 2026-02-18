@@ -9,6 +9,7 @@ import { ExternalLink, Edit2, Check, X, Loader2 } from 'lucide-react';
 import { Address, isAddress } from 'viem';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { vaultWriteConfigs } from '@/lib/onchain/vault-writes';
+import { BASE_CHAIN_ID } from '@/lib/constants';
 import { useVaultRoles } from '@/lib/hooks/useVaultRoles';
 import { logger } from '@/lib/utils/logger';
 
@@ -17,7 +18,7 @@ interface RoleListProps {
   chainId?: number;
 }
 
-export function RoleList({ vaultAddress, chainId = 8453 }: RoleListProps) {
+export function RoleList({ vaultAddress, chainId = BASE_CHAIN_ID }: RoleListProps) {
   const { address: connectedAddress, isConnected } = useAccount();
   const { data: roles, isLoading } = useVaultRoles(vaultAddress, chainId);
   

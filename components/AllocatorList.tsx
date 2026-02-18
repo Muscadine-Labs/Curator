@@ -10,6 +10,7 @@ import { Plus, X, Loader2 } from 'lucide-react';
 import { Address, isAddress } from 'viem';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { vaultWriteConfigs } from '@/lib/onchain/vault-writes';
+import { BASE_CHAIN_ID, getScanUrlForChain } from '@/lib/constants';
 import { useVaultRoles } from '@/lib/hooks/useVaultRoles';
 import { logger } from '@/lib/utils/logger';
 
@@ -18,7 +19,7 @@ interface AllocatorListProps {
   chainId?: number;
 }
 
-export function AllocatorList({ vaultAddress, chainId = 8453 }: AllocatorListProps) {
+export function AllocatorList({ vaultAddress, chainId = BASE_CHAIN_ID }: AllocatorListProps) {
   const { address: connectedAddress, isConnected } = useAccount();
   const { data: roles, isLoading } = useVaultRoles(vaultAddress, chainId);
   
@@ -129,12 +130,12 @@ export function AllocatorList({ vaultAddress, chainId = 8453 }: AllocatorListPro
         {roles.allocators.length > 0 ? (
           <div className="space-y-3">
             {roles.allocators.map((allocator, index) => (
-              <div key={index} className="flex items-center justify-between p-2 rounded-lg border border-slate-200 bg-slate-50">
+              <div key={index} className="flex items-center justify-between p-2 rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50">
                 <div className="flex items-center gap-2">
                   <Badge variant="secondary">Allocator</Badge>
                   <AddressBadge 
                     address={allocator} 
-                    scanUrl={`https://basescan.org/address/${allocator}`}
+                    scanUrl={`${getScanUrlForChain(chainId)}/address/${allocator}`}
                   />
                 </div>
                 {canManageAllocators && (

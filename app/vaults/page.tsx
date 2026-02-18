@@ -191,8 +191,17 @@ export default function VaultsPage() {
                           </div>
                         </CardHeader>
                         <CardContent>
-                          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
                             <StatCard label="Total Supplied" value={formatCompactUSD(vaultSummary.totalSupplied)} />
+                            <StatCard
+                              label="Revenue (All Time)"
+                              value={
+                                vaultSummary.vault.revenueAllTime != null
+                                  ? formatCompactUSD(vaultSummary.vault.revenueAllTime)
+                                  : '—'
+                              }
+                              className="text-green-600 dark:text-green-400"
+                            />
                             <StatCard
                               label="Avg Utilization"
                               value={formatPercentage(vaultSummary.avgUtilization * 100, 2)}

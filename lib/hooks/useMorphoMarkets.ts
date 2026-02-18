@@ -18,7 +18,6 @@ export function useMorphoMarkets() {
   return useQuery({
     queryKey: ['morpho-markets'],
     queryFn: fetchMorphoMarkets,
-    staleTime: 5 * 60 * 1000,
   });
 }
 

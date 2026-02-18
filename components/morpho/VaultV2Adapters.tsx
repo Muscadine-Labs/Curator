@@ -62,7 +62,7 @@ export function VaultV2Adapters({ vaultAddress, preloadedData }: VaultV2Adapters
           <CardTitle>Adapters</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-slate-500">No adapters configured for this vault.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">No adapters configured for this vault.</p>
         </CardContent>
       </Card>
     );
@@ -105,20 +105,20 @@ export function VaultV2Adapters({ vaultAddress, preloadedData }: VaultV2Adapters
                   </div>
                   <AddressBadge address={adapter.address} truncate={false} />
                   {adapter.metaMorpho?.address && (
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
                       Underlying vault: <AddressBadge address={adapter.metaMorpho.address} truncate={false} />
                     </p>
                   )}
                 </div>
                 <div className="text-right space-y-1">
-                  <p className="text-sm text-slate-500">Allocated</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">Allocated</p>
                   <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                     {adapter.assetsUsd !== null && adapter.assetsUsd !== undefined
                       ? formatUSD(adapter.assetsUsd, 2)
                       : 'N/A'}
                   </p>
                   {adapter.assets !== null && adapter.assets !== undefined && (
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
                       Raw: {formatNumber(adapter.assets)} units
                     </p>
                   )}

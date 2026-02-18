@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Shield } from 'lucide-react';
+import { getScanUrlForChain, getScanNameForChain } from '@/lib/constants';
 import { useVaultV2Complete } from '@/lib/hooks/useVaultV2Complete';
 import { getVaultCategory } from '@/lib/config/vaults';
 import { AppShell } from '@/components/layout/AppShell';
@@ -71,7 +72,7 @@ export default function V2VaultPage() {
             <CardTitle>Missing vault</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-slate-600">Check the address or pick a vault from the sidebar.</p>
+            <p className="text-sm text-slate-600 dark:text-slate-400">Check the address or pick a vault from the sidebar.</p>
             <Button asChild className="w-full sm:w-auto">
               <Link href="/">Back to overview</Link>
             </Button>
@@ -102,9 +103,9 @@ export default function V2VaultPage() {
             <Shield className="h-3 w-3" /> {vaultBadge}
           </Badge>
           <Button variant="outline" size="sm" asChild className="text-xs sm:text-sm">
-            <a href={vault.address ? `https://basescan.org/address/${vault.address}` : '#'} target="_blank" rel="noreferrer">
-              <span className="hidden sm:inline">View on Basescan</span>
-              <span className="sm:hidden">Basescan</span>
+            <a href={vault.address ? `${getScanUrlForChain(vault.chainId)}/address/${vault.address}` : '#'} target="_blank" rel="noreferrer">
+              <span className="hidden sm:inline">View on {getScanNameForChain(vault.chainId)}</span>
+              <span className="sm:hidden">{getScanNameForChain(vault.chainId)}</span>
             </a>
           </Button>
         </div>
@@ -167,8 +168,8 @@ export default function V2VaultPage() {
                 subtitle="Curator fee rate" 
                 format="percentage" 
               />
-              <KpiCard title="Revenue (All Time)" value="Coming Soon" subtitle="Total revenue generated" format="raw" />
-              <KpiCard title="Fees (All Time)" value="Coming Soon" subtitle="Total fees collected" format="raw" />
+              <KpiCard title="Revenue (All Time)" value={vault.revenueAllTime} subtitle="Total revenue to protocol" format="usd" />
+              <KpiCard title="Fees (All Time)" value="Coming Soon" subtitle="Total fees collected to token holders" format="raw" />
             </div>
           </TabsContent>
 

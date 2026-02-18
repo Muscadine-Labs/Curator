@@ -37,7 +37,5 @@ export function useVaultV1MarketRisk(vaultAddress: string | null | undefined) {
       return fetchVaultV1MarketRisk(vaultAddress);
     },
     enabled: !!vaultAddress,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    refetchInterval: 5 * 60 * 1000, // 5 minutes
   });
 }

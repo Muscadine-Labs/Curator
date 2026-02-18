@@ -46,7 +46,6 @@ export function useMarketsSupplied() {
   return useQuery<MarketsSuppliedResponse>({
     queryKey: ['markets-supplied'],
     queryFn: fetchMarketsSupplied,
-    staleTime: 5 * 60 * 1000,
   });
 }
 

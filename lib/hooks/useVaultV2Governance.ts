@@ -29,8 +29,6 @@ export function useVaultV2Governance(vaultAddress: string | null | undefined) {
       return fetchVaultV2Governance(vaultAddress);
     },
     enabled: Boolean(vaultAddress),
-    staleTime: 2 * 60 * 1000,
-    refetchInterval: 5 * 60 * 1000,
   });
 }
 

@@ -63,7 +63,7 @@ export function VaultV2Timelocks({ vaultAddress, preloadedData }: VaultV2Timeloc
           <CardTitle>Timelocks</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-slate-500">No timelocks configured.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">No timelocks configured.</p>
         </CardContent>
       </Card>
     );
@@ -82,19 +82,19 @@ export function VaultV2Timelocks({ vaultAddress, preloadedData }: VaultV2Timeloc
               className="grid grid-cols-1 gap-2 rounded-md border border-slate-200 p-3 text-sm dark:border-slate-800 sm:grid-cols-4 sm:items-center"
             >
               <div>
-                <p className="text-xs uppercase text-slate-500">Function</p>
+                <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Function</p>
                 <p className="font-semibold text-slate-900 dark:text-slate-100">
                   {t.functionName}
                 </p>
               </div>
               <div>
-                <p className="text-xs uppercase text-slate-500">Selector</p>
+                <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Selector</p>
                 <p className="font-mono text-xs text-slate-700 dark:text-slate-200 break-all">
                   {t.selector}
                 </p>
               </div>
               <div>
-                <p className="text-xs uppercase text-slate-500">Duration</p>
+                <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Duration</p>
                 <p className="font-semibold text-slate-900 dark:text-slate-100">
                   {formatDuration(t.durationSeconds)}
                 </p>

@@ -9,7 +9,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { formatCompactUSD } from '@/lib/format/number';
-import { QUERY_STALE_TIME_MEDIUM, QUERY_REFETCH_INTERVAL_MEDIUM } from '@/lib/constants';
 import { getAddress } from 'viem';
 import Link from 'next/link';
 import { Info } from 'lucide-react';
@@ -112,8 +111,6 @@ export default function MonthlyStatementPage() {
       if (!response.ok) throw new Error('Failed to fetch monthly statement');
       return response.json();
     },
-    staleTime: QUERY_STALE_TIME_MEDIUM,
-    refetchInterval: QUERY_REFETCH_INTERVAL_MEDIUM,
   });
 
   const { data: vaultData, isLoading: isVaultDataLoading } = useQuery<VaultStatementResponse>({
@@ -126,8 +123,6 @@ export default function MonthlyStatementPage() {
       return response.json();
     },
     enabled: viewMode === 'byVault' && activeTab === 'treasury',
-    staleTime: QUERY_STALE_TIME_MEDIUM,
-    refetchInterval: QUERY_REFETCH_INTERVAL_MEDIUM,
   });
 
   const { data: defiLlamaData, isLoading: isDefiLlamaLoading, error: defiLlamaError } = useQuery<DefiLlamaStatementResponse>({
@@ -140,8 +135,6 @@ export default function MonthlyStatementPage() {
       return response.json();
     },
     enabled: activeTab === 'defillama',
-    staleTime: QUERY_STALE_TIME_MEDIUM,
-    refetchInterval: QUERY_REFETCH_INTERVAL_MEDIUM,
   });
 
   const formatMonth = (monthKey: string, periodMode?: TreasuryPeriodMode) => {
@@ -636,7 +629,7 @@ export default function MonthlyStatementPage() {
           <Info className="h-4 w-4 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors" />
         </button>
         {isVisible && (
-          <div className="absolute right-0 top-6 z-50 w-64 rounded-md border bg-white p-2 text-xs shadow-lg dark:bg-slate-800 dark:border-slate-700 whitespace-normal">
+          <div className="absolute right-0 top-6 z-50 w-64 rounded-md border bg-white p-2 text-xs text-slate-900 shadow-lg dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 whitespace-normal">
             {content}
           </div>
         )}
@@ -687,13 +680,13 @@ export default function MonthlyStatementPage() {
           <Card>
           <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as TabMode)}>
             <CardHeader>
-              <div className="flex items-center justify-between mb-4">
-                <TabsList>
+              <div className="flex flex-col gap-4 mb-4 sm:flex-row sm:items-center sm:justify-between">
+                <TabsList className="w-fit shrink-0">
                   <TabsTrigger value="treasury">By Treasury Wallet</TabsTrigger>
                   <TabsTrigger value="defillama">DefiLlama</TabsTrigger>
                 </TabsList>
-                <CardAction>
-                  <div className="flex items-center gap-2">
+                <CardAction className="min-w-0 w-full sm:w-auto">
+                  <div className="flex flex-wrap items-center gap-2">
                     {/* Currency Dropdown - only for treasury tab, shown first */}
                     {activeTab === 'treasury' && (viewMode === 'byToken' || viewMode === 'byVault') && (
                       <div className="relative" ref={currencyDropdownRef}>
@@ -714,7 +707,7 @@ export default function MonthlyStatementPage() {
                           </svg>
                         </Button>
                         {isCurrencyDropdownOpen && (
-                          <div className="absolute right-0 mt-1 w-full min-w-[100px] rounded-md border bg-white shadow-lg z-10 dark:bg-slate-800 dark:border-slate-700">
+                          <div className="absolute right-0 mt-1 w-full min-w-[100px] rounded-md border bg-white text-slate-900 shadow-lg dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 z-10">
                             {currencyOptions.map((option) => (
                               <button
                                 key={option.value}
@@ -755,7 +748,7 @@ export default function MonthlyStatementPage() {
                           </svg>
                         </Button>
                         {isViewModeDropdownOpen && (
-                          <div className="absolute left-0 mt-1 w-full min-w-[120px] rounded-md border bg-white shadow-lg z-10 dark:bg-slate-800 dark:border-slate-700">
+                          <div className="absolute left-0 mt-1 w-full min-w-[120px] rounded-md border bg-white text-slate-900 shadow-lg dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 z-10">
                             {viewModeOptions.map((option) => (
                               <button
                                 key={option.value}
@@ -796,7 +789,7 @@ export default function MonthlyStatementPage() {
                           </svg>
                         </Button>
                         {isTreasuryPeriodDropdownOpen && (
-                          <div className="absolute left-0 mt-1 w-full min-w-[140px] rounded-md border bg-white shadow-lg z-10 dark:bg-slate-800 dark:border-slate-700">
+                          <div className="absolute left-0 mt-1 w-full min-w-[140px] rounded-md border bg-white text-slate-900 shadow-lg dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 z-10">
                             {treasuryPeriodModeOptions.map((option) => (
                               <button
                                 key={option.value}
@@ -836,7 +829,7 @@ export default function MonthlyStatementPage() {
                         </svg>
                       </Button>
                       {isYearDropdownOpen && (
-                        <div className="absolute right-0 mt-1 w-full min-w-[100px] rounded-md border bg-white shadow-lg z-10 dark:bg-slate-800 dark:border-slate-700">
+                        <div className="absolute right-0 mt-1 w-full min-w-[100px] rounded-md border bg-white text-slate-900 shadow-lg dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 z-10">
                           {yearOptions.map((option) => (
                             <button
                               key={option.value}
@@ -876,7 +869,7 @@ export default function MonthlyStatementPage() {
                           </svg>
                         </Button>
                         {isDefiLlamaViewModeDropdownOpen && (
-                          <div className="absolute left-0 mt-1 w-full min-w-[120px] rounded-md border bg-white shadow-lg z-10 dark:bg-slate-800 dark:border-slate-700">
+                          <div className="absolute left-0 mt-1 w-full min-w-[120px] rounded-md border bg-white text-slate-900 shadow-lg dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 z-10">
                             {defiLlamaViewModeOptions.map((option) => (
                               <button
                                 key={option.value}
@@ -907,13 +900,13 @@ export default function MonthlyStatementPage() {
                 {isLoadingData ? (
                   <Skeleton className="h-64 w-full" />
                 ) : error ? (
-                  <div className="flex items-center justify-center h-64 text-red-600">
+                  <div className="flex items-center justify-center h-64 text-red-600 dark:text-red-400">
                     Failed to load monthly statement data
                   </div>
                 ) : (viewMode === 'total' && statements.length === 0) || 
                     (viewMode === 'byToken' && statements.length === 0) ||
                     (viewMode === 'byVault' && vaultMonths.length === 0) ? (
-                  <div className="flex items-center justify-center h-64 text-slate-500">
+                  <div className="flex items-center justify-center h-64 text-slate-500 dark:text-slate-400">
                     No data available for the specified period
                   </div>
                 ) : (
@@ -940,7 +933,7 @@ export default function MonthlyStatementPage() {
                           </TableCell>
                         </TableRow>
                       ))}
-                        <TableRow className="bg-slate-50 font-semibold">
+                        <TableRow className="bg-slate-50 dark:bg-slate-800 font-semibold">
                           <TableCell className="font-semibold">Total</TableCell>
                           <TableCell className="text-right font-semibold">
                             {formatCompactUSD(grandTotalUSD)}
@@ -992,7 +985,7 @@ export default function MonthlyStatementPage() {
                           </TableCell>
                         </TableRow>
                       ))}
-                      <TableRow className="bg-slate-50 font-semibold">
+                      <TableRow className="bg-slate-50 dark:bg-slate-800 font-semibold">
                         <TableCell className="font-semibold">Total</TableCell>
                         <TableCell className="text-right font-semibold">
                             {currencyMode === 'usd' 
@@ -1066,7 +1059,7 @@ export default function MonthlyStatementPage() {
                             </TableRow>
                           );
                         })}
-                        <TableRow className="bg-slate-50 font-semibold">
+                        <TableRow className="bg-slate-50 dark:bg-slate-800 font-semibold">
                           <TableCell className="font-semibold">Total</TableCell>
                           {vaultAddresses.map((addr) => (
                             <TableCell key={addr} className="text-right font-semibold">
@@ -1103,7 +1096,7 @@ export default function MonthlyStatementPage() {
                     Failed to load DefiLlama statement data
                   </div>
                 ) : aggregatedDefiLlamaData.length === 0 ? (
-                  <div className="flex items-center justify-center h-64 text-slate-500">
+                  <div className="flex items-center justify-center h-64 text-slate-500 dark:text-slate-400">
                     No data available for the specified period
                   </div>
                 ) : (

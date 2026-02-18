@@ -8,7 +8,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { formatCompactUSD } from '@/lib/format/number';
-import { QUERY_STALE_TIME_MEDIUM, QUERY_REFETCH_INTERVAL_MEDIUM } from '@/lib/constants';
 import { Alert } from '@/components/ui/alert';
 import { Filter, ChevronDown, ChevronUp } from 'lucide-react';
 import { logger } from '@/lib/utils/logger';
@@ -67,8 +66,6 @@ export default function MuscadineLedgerPage() {
       return results;
     },
     enabled: activeTab === 'view' && sheetName === 'All',
-    staleTime: QUERY_STALE_TIME_MEDIUM,
-    refetchInterval: QUERY_REFETCH_INTERVAL_MEDIUM,
   });
 
   // Fetch single sheet when specific sheet is selected
@@ -86,8 +83,6 @@ export default function MuscadineLedgerPage() {
       return response.json();
     },
     enabled: activeTab === 'view' && sheetName !== 'All',
-    staleTime: QUERY_STALE_TIME_MEDIUM,
-    refetchInterval: QUERY_REFETCH_INTERVAL_MEDIUM,
   });
 
   const sheetsError = singleSheetError;
@@ -693,7 +688,7 @@ export default function MuscadineLedgerPage() {
                     {/* Show message if no data */}
                     {(!filteredExpensesData || filteredExpensesData.length === 0) && 
                      (!filteredIncomeData || filteredIncomeData.length === 0) && (
-                      <div className="flex items-center justify-center h-64 text-slate-500">
+                      <div className="flex items-center justify-center h-64 text-slate-500 dark:text-slate-400">
                         No data available for {selectedYear}
                       </div>
                     )}
@@ -727,7 +722,7 @@ export default function MuscadineLedgerPage() {
                 ) : (
                   // Single sheet view (not "All")
                   !filteredYearData || filteredYearData.length === 0 ? (
-                    <div className="flex items-center justify-center h-64 text-slate-500">
+                    <div className="flex items-center justify-center h-64 text-slate-500 dark:text-slate-400">
                       No data available for {selectedYear}
                     </div>
                   ) : (

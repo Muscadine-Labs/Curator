@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { vaultAddresses } from '@/lib/config/vaults';
-import { BASE_CHAIN_ID, GRAPHQL_FIRST_LIMIT } from '@/lib/constants';
+import { BASE_CHAIN_ID, BPS_PER_ONE, getScanUrlForChain, GRAPHQL_FIRST_LIMIT } from '@/lib/constants';
 import { handleApiError } from '@/lib/utils/error-handler';
 import { createRateLimitMiddleware, RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS } from '@/lib/utils/rate-limit';
 import { morphoGraphQLClient } from '@/lib/morpho/graphql-client';
@@ -34,6 +34,23 @@ export async function GET(request: Request) {
     // Get all configured vault addresses (checksummed for GraphQL)
     const addresses = vaultAddresses.map(v => getAddress(v.address));
     const configuredAddressSet = new Set(addresses.map((a) => a.toLowerCase()));
+
+    // Fetch monthly statement by vault in parallel for revenue data
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
+    const revenueByVaultPromise = fetch(`${baseUrl}/api/monthly-statement-morphoql?perVault=true`, {
+      headers: { 'Content-Type': 'application/json' },
+    })
+      .then((res) => (res.ok ? res.json() : { vaults: [] }))
+      .then((data: { vaults?: Array<{ vaultAddress: string; usd: number }> }) => {
+        const map: Record<string, number> = {};
+        for (const v of data.vaults ?? []) {
+          const addr = v.vaultAddress?.toLowerCase();
+          if (!addr) continue;
+          map[addr] = (map[addr] ?? 0) + (v.usd ?? 0);
+        }
+        return map;
+      })
+      .catch(() => ({} as Record<string, number>));
 
     // Build queries for both V1 and V2 vaults
     const v1Query = gql`
@@ -108,10 +125,11 @@ export async function GET(request: Request) {
       }
     });
 
-    // Fetch V1 vaults and V2 vaults in parallel
-    const [v1Data, v2Results] = await Promise.all([
+    // Fetch V1 vaults, V2 vaults, and revenue by vault in parallel
+    const [v1Data, v2Results, revenueByVault] = await Promise.all([
       morphoGraphQLClient.request<{ vaults?: { items?: Array<{ address: string; name: string; whitelisted?: boolean; asset?: { address?: string; symbol?: string; decimals?: number }; state?: { totalAssetsUsd?: number; weeklyNetApy?: number; monthlyNetApy?: number; fee?: number } } | null> | null } | null }>(v1Query, { addresses }).catch(() => ({ vaults: { items: [] } })),
       Promise.all(v2VaultPromises),
+      revenueByVaultPromise,
     ]);
 
     const v2Vaults = v2Results.filter((v): v is NonNullable<typeof v> => v !== null);
@@ -174,16 +192,25 @@ export async function GET(request: Request) {
       depositorCounts[addr] = users.size;
     }
 
+    const addressToChainId = Object.fromEntries(
+      vaultAddresses.map((v) => [v.address.toLowerCase(), v.chainId])
+    );
+
+    const getChainId = (addr: string) =>
+      addressToChainId[addr.toLowerCase()] ?? BASE_CHAIN_ID;
+
     // Combine and format vaults from GraphQL
     const allVaults = [
-      ...v1Vaults.map(v => ({
-        address: v.address,
-        name: v.name ?? 'Unknown Vault',
-        symbol: v.symbol ?? v.asset?.symbol ?? 'UNKNOWN',
-        asset: v.asset?.symbol ?? 'UNKNOWN',
-        chainId: BASE_CHAIN_ID,
-        scanUrl: `https://basescan.org/address/${v.address}`,
-        performanceFeeBps: v.state?.fee ? Math.round(v.state.fee * 10000) : null,
+      ...v1Vaults.map((v) => {
+        const chainId = getChainId(v.address);
+        return {
+          address: v.address,
+          name: v.name ?? 'Unknown Vault',
+          symbol: v.symbol ?? v.asset?.symbol ?? 'UNKNOWN',
+          asset: v.asset?.symbol ?? 'UNKNOWN',
+          chainId,
+          scanUrl: `${getScanUrlForChain(chainId)}/address/${v.address}`,
+        performanceFeeBps: v.state?.fee ? Math.round(v.state.fee * BPS_PER_ONE) : null,
         status: v.whitelisted ? 'active' as const : 'paused' as const,
         riskTier: 'medium' as const,
         createdAt: new Date().toISOString(),
@@ -191,19 +218,21 @@ export async function GET(request: Request) {
         apy: v.state?.weeklyNetApy != null ? v.state.weeklyNetApy * 100 :
              v.state?.monthlyNetApy != null ? v.state.monthlyNetApy * 100 : null,
         depositors: depositorCounts[v.address.toLowerCase()] ?? 0,
-        revenueAllTime: null,
+        revenueAllTime: revenueByVault[v.address.toLowerCase()] ?? null,
         feesAllTime: null,
         lastHarvest: null,
-      })),
-      ...v2Vaults.map(v => {
-        const mapped = {
+        };
+      }),
+      ...v2Vaults.map((v) => {
+        const chainId = getChainId(v.address);
+        return {
           address: v.address,
           name: v.name ?? 'Unknown Vault',
           symbol: v.symbol ?? v.asset?.symbol ?? 'UNKNOWN',
           asset: v.asset?.symbol ?? 'UNKNOWN',
-          chainId: BASE_CHAIN_ID,
-          scanUrl: `https://basescan.org/address/${v.address}`,
-          performanceFeeBps: v.performanceFee ? Math.round(v.performanceFee * 10000) : null,
+          chainId,
+          scanUrl: `${getScanUrlForChain(chainId)}/address/${v.address}`,
+          performanceFeeBps: v.performanceFee ? Math.round(v.performanceFee * BPS_PER_ONE) : null,
           status: v.whitelisted ? 'active' as const : 'paused' as const,
           riskTier: 'medium' as const,
           createdAt: new Date().toISOString(),
@@ -211,11 +240,10 @@ export async function GET(request: Request) {
           apy: v.avgNetApy != null ? v.avgNetApy * 100 : 
                v.avgApy != null ? v.avgApy * 100 : null,
           depositors: depositorCounts[v.address.toLowerCase()] ?? 0,
-          revenueAllTime: null,
+          revenueAllTime: revenueByVault[v.address.toLowerCase()] ?? null,
           feesAllTime: null,
           lastHarvest: null,
         };
-        return mapped;
       }),
     ];
 

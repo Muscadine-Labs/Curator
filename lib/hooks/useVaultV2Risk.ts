@@ -37,8 +37,6 @@ export function useVaultV2Risk(vaultAddress: string | null | undefined) {
       return fetchVaultV2Risk(vaultAddress);
     },
     enabled: Boolean(vaultAddress),
-    staleTime: 2 * 60 * 1000,
-    refetchInterval: 5 * 60 * 1000,
   });
 }
 

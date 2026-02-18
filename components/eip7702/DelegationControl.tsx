@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, CheckCircle2, XCircle, ExternalLink, Shield } from 'lucide-react';
+import { BASE_CHAIN_ID, getScanUrlForChain } from '@/lib/constants';
 import { EIP7702_CONTRACTS } from '@/lib/eip7702/constants';
 import { getDelegationStatus, isEOA } from '@/lib/eip7702/utils';
 import { logger } from '@/lib/utils/logger';
@@ -328,7 +329,7 @@ export function DelegationControl() {
             <div className="flex items-center gap-2">
               <code className="text-xs">{formatAddress(implementation)}</code>
               <a
-                href={`https://basescan.org/address/${implementation}`}
+                href={`${getScanUrlForChain(BASE_CHAIN_ID)}/address/${implementation}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-blue-600 hover:text-blue-800 dark:text-blue-400"
@@ -355,7 +356,7 @@ export function DelegationControl() {
                   {isConfirming ? 'Transaction confirming...' : 'Transaction confirmed!'}
                 </span>
                 <a
-                  href={`https://basescan.org/tx/${txHash}`}
+                  href={`${getScanUrlForChain(BASE_CHAIN_ID)}/tx/${txHash}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-blue-600 hover:text-blue-800 dark:text-blue-400 flex items-center gap-1"

@@ -1,3 +1,4 @@
+import { GRAPHQL_FIRST_LIMIT } from '@/lib/constants';
 import { mergeConfig, type CuratorConfigOverrides } from './config';
 import { computeMetricsForMarket } from './compute';
 import { fetchMorphoMarkets } from './query';
@@ -27,7 +28,7 @@ export async function getMorphoMarketRatings(
   options: RatingOptions = {}
 ): Promise<MorphoMarketMetrics[]> {
   // Default to fetching all markets (up to GRAPHQL_FIRST_LIMIT) to ensure we get ratings for all
-  const { limit = 1000, marketId, configOverride, benchmarkRates } = options;
+  const { limit = GRAPHQL_FIRST_LIMIT, marketId, configOverride, benchmarkRates } = options;
   const config = mergeConfig(configOverride);
   const rawMarkets = await fetchMorphoMarkets(limit, config);
 

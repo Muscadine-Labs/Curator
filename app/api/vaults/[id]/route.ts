@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getVaultByAddress, shouldUseV2Query } from '@/lib/config/vaults';
-import { GRAPHQL_FIRST_LIMIT, GRAPHQL_TRANSACTIONS_LIMIT, getDaysAgoTimestamp } from '@/lib/constants';
+import { BPS_PER_ONE, GRAPHQL_FIRST_LIMIT, GRAPHQL_TRANSACTIONS_LIMIT, getDaysAgoTimestamp } from '@/lib/constants';
 import { handleApiError, AppError } from '@/lib/utils/error-handler';
 import { createRateLimitMiddleware, RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS } from '@/lib/utils/rate-limit';
 import { morphoGraphQLClient } from '@/lib/morpho/graphql-client';
@@ -297,12 +297,38 @@ export async function GET(
 
     const query = isV2 ? v2Query : v1Query;
 
+    // Fetch vault detail and monthly statement revenue in parallel
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
+    const revenuePromise = fetch(`${baseUrl}/api/monthly-statement-morphoql?perVault=true`, {
+      headers: { 'Content-Type': 'application/json' },
+    })
+      .then((res) => (res.ok ? res.json() : { vaults: [] }))
+      .then((d: { vaults?: Array<{ vaultAddress: string; month: string; usd: number }> }) => {
+        const addr = address.toLowerCase();
+        let total = 0;
+        let ytd = 0;
+        let found = false;
+        const currentYear = new Date().getFullYear().toString();
+        for (const v of d.vaults ?? []) {
+          if (v.vaultAddress?.toLowerCase() === addr) {
+            found = true;
+            total += v.usd ?? 0;
+            if (v.month?.startsWith(currentYear)) ytd += v.usd ?? 0;
+          }
+        }
+        return { revenueAllTime: found ? total : null, feesYtd: found ? ytd : null };
+      })
+      .catch(() => ({ revenueAllTime: null, feesYtd: null }));
+
     let data: VaultDetailQueryResponse;
+    let revenue: { revenueAllTime: number | null; feesYtd: number | null } = { revenueAllTime: null, feesYtd: null };
     try {
-      data = await morphoGraphQLClient.request<VaultDetailQueryResponse>(
-        query,
-        variables
-      );
+      const [graphqlData, revenueData] = await Promise.all([
+        morphoGraphQLClient.request<VaultDetailQueryResponse>(query, variables),
+        revenuePromise,
+      ]);
+      data = graphqlData;
+      revenue = revenueData;
       if (isV2 && data.vaultV2ByAddress) {
         logger.debug('V2 vault data found', {
           address: cfg.address,
@@ -313,8 +339,8 @@ export async function GET(
       }
     } catch (graphqlError) {
       // For v2 vaults, GraphQL API may not have indexed them yet
-      // Check if this is a v2 vault and handle gracefully
       if (isV2) {
+        revenue = await revenuePromise; // Still get revenue for fallback response
         logger.error('GraphQL query failed for v2 vault', graphqlError instanceof Error ? graphqlError : new Error(String(graphqlError)), {
           address,
         });
@@ -352,8 +378,9 @@ export async function GET(
           tvl: null,
           apy: null,
           depositors: 0,
-          revenueAllTime: null,
+          revenueAllTime: revenue.revenueAllTime,
           feesAllTime: null,
+          feesYtd: revenue.feesYtd,
           lastHarvest: null,
           apyBreakdown: null,
           rewards: [],
@@ -546,8 +573,8 @@ export async function GET(
     
     // Get performance fee from Morpho API (decimal like 0.05 = 5%)
     const performanceFeeBps = isV2
-      ? (mv?.performanceFee ? Math.round(mv.performanceFee * 10000) : null)
-      : (mv?.state?.fee ? Math.round(mv.state.fee * 10000) : null);
+      ? (mv?.performanceFee ? Math.round(mv.performanceFee * BPS_PER_ONE) : null)
+      : (mv?.state?.fee ? Math.round(mv.state.fee * BPS_PER_ONE) : null);
 
     const result = {
       ...cfg,
@@ -560,10 +587,10 @@ export async function GET(
       apy: apyPct,
       apyBase: apyBasePct,
       apyBoosted: apyBoostedPct,
-      feesYtd: null,
+      feesYtd: revenue.feesYtd,
       utilization: utilization,
       depositors,
-      revenueAllTime: null,
+      revenueAllTime: revenue.revenueAllTime,
       feesAllTime: null,
       lastHarvest: null,
       apyBreakdown: isV2 ? {

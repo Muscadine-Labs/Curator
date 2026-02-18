@@ -28,6 +28,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Muscadine Curator",
   description: "Explore Muscadine vaults and track performance",
+  icons: { icon: "/muscadinelogo.jpg" },
 };
 
 export const viewport: Viewport = {

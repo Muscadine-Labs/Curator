@@ -62,13 +62,13 @@ export function VaultRolesV1({ vaultAddress, preloadedData }: VaultRolesV1Props)
         <div className="grid gap-4 md:grid-cols-2">
           {roleTiles.map((role) => (
             <div key={role.label} className="rounded-lg border border-slate-200 p-4 dark:border-slate-700">
-              <p className="text-xs uppercase tracking-wide text-slate-500">{role.label}</p>
+              <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">{role.label}</p>
               {role.address ? (
                 <div className="mt-2">
                   <AddressBadge address={role.address} truncate={false} />
                 </div>
               ) : (
-                <p className="mt-2 text-sm text-slate-500">Not set</p>
+                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Not set</p>
               )}
             </div>
           ))}
@@ -76,13 +76,13 @@ export function VaultRolesV1({ vaultAddress, preloadedData }: VaultRolesV1Props)
 
         <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-700">
           <div className="flex items-center justify-between">
-            <p className="text-xs uppercase tracking-wide text-slate-500">Allocators</p>
-            <span className="text-xs text-slate-500">
+            <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Allocators</p>
+            <span className="text-xs text-slate-500 dark:text-slate-400">
               {roles.allocators.length} {roles.allocators.length === 1 ? 'allocator' : 'allocators'}
             </span>
           </div>
           {roles.allocators.length === 0 ? (
-            <p className="mt-2 text-sm text-slate-500">No allocators configured</p>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">No allocators configured</p>
           ) : (
             <div className="mt-2 space-y-2">
               {roles.allocators.map((addr) => (

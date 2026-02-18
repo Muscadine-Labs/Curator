@@ -65,13 +65,13 @@ export function VaultV2Roles({ vaultAddress, preloadedData }: VaultV2RolesProps)
 function RoleTile({ title, address }: { title: string; address: string | null }) {
   return (
     <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-700">
-      <p className="text-xs uppercase tracking-wide text-slate-500">{title}</p>
+      <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">{title}</p>
       {address ? (
         <div className="mt-2">
           <AddressBadge address={address} truncate={false} />
         </div>
       ) : (
-        <p className="mt-2 text-sm text-slate-500">Not set</p>
+        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Not set</p>
       )}
     </div>
   );
@@ -89,13 +89,13 @@ function RoleList({
   return (
     <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-700">
       <div className="flex items-center justify-between">
-        <p className="text-xs uppercase tracking-wide text-slate-500">{title}</p>
+        <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">{title}</p>
         <Badge variant="outline" className="text-xs">
           {addresses.length}
         </Badge>
       </div>
       {addresses.length === 0 ? (
-        <p className="mt-2 text-sm text-slate-500">{emptyText}</p>
+        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">{emptyText}</p>
       ) : (
         <div className="mt-2 space-y-2">
           {addresses.map((addr) => (
