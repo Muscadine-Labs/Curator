@@ -34,9 +34,4 @@ If you discover a security vulnerability in Curator, please report it privately:
 
 5. **Safe harbor**
    - We support safe harbor for security researchers who make good-faith efforts to follow these guidelines and avoid privacy violations, destruction of data, or disruption of services.
-
-## Security Updates
-
-- Dependabot and npm audit are used to track dependency vulnerabilities
-- Critical and high-severity issues are prioritized for patching
-- Package overrides in `package.json` enforce minimum secure versions for transitive dependencies
+   

@@ -65,9 +65,11 @@ export function Sidebar({ onClose }: SidebarProps) {
           onClick={handleLinkClick}
           className="flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-slate-100"
         >
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-white">
-            M
-          </span>
+          <img
+            src="/muscadinelogo.jpg"
+            alt="Muscadine"
+            className="h-9 w-9 shrink-0 rounded-xl object-cover"
+          />
           Curator
         </Link>
         {onClose && (
