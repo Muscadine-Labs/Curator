@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { Address } from 'viem';
-import { BASE_CHAIN_ID, QUERY_REFETCH_INTERVAL_VERY_SHORT, QUERY_STALE_TIME_VERY_SHORT } from '@/lib/constants';
+import { BASE_CHAIN_ID } from '@/lib/constants';
 import { readVaultRoles, readVaultAllocators, readPendingGuardian } from '@/lib/onchain/contracts';
 import { morphoGraphQLClient } from '@/lib/morpho/graphql-client';
 import { gql } from 'graphql-request';
@@ -112,8 +112,6 @@ export function useVaultRoles(vaultAddress: Address | null | undefined, chainId:
       };
     },
     enabled: !!vaultAddress,
-    staleTime: QUERY_STALE_TIME_VERY_SHORT,
-    refetchInterval: QUERY_REFETCH_INTERVAL_VERY_SHORT,
   });
 }
 

@@ -8,7 +8,6 @@ import { KpiCard } from '@/components/KpiCard';
 import { useProtocolStats } from '@/lib/hooks/useProtocolStats';
 import { AppShell } from '@/components/layout/AppShell';
 import { useRevenueSource, type RevenueSource } from '@/lib/RevenueSourceContext';
-import { QUERY_STALE_TIME_MEDIUM, QUERY_REFETCH_INTERVAL_MEDIUM } from '@/lib/constants';
 
 // Lazy load chart components to reduce initial bundle size
 const ChartTvl = dynamic(() => import('@/components/ChartTvl').then(mod => ({ default: mod.ChartTvl })), {
@@ -47,8 +46,6 @@ export default function Home() {
       if (!res.ok) throw new Error('Failed to fetch monthly statement');
       return res.json();
     },
-    staleTime: QUERY_STALE_TIME_MEDIUM,
-    refetchInterval: QUERY_REFETCH_INTERVAL_MEDIUM,
   });
 
   const treasuryRevenueDaily = useMemo(() => {

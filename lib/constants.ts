@@ -52,15 +52,6 @@ export const DAYS_30_MS = 30 * DAY_MS;
 // API Configuration
 export const MORPHO_GRAPHQL_ENDPOINT = 'https://api.morpho.org/graphql';
 
-// React Query Configuration
-export const QUERY_STALE_TIME_SHORT = 2 * MINUTE_MS; // 2 minutes
-export const QUERY_STALE_TIME_MEDIUM = 5 * MINUTE_MS; // 5 minutes
-export const QUERY_STALE_TIME_VERY_SHORT = 30 * SECOND_MS; // 30 seconds
-
-export const QUERY_REFETCH_INTERVAL_SHORT = 2 * MINUTE_MS;
-export const QUERY_REFETCH_INTERVAL_MEDIUM = 5 * MINUTE_MS;
-export const QUERY_REFETCH_INTERVAL_VERY_SHORT = MINUTE_MS; // 1 minute
-
 // Request Timeouts
 export const EXTERNAL_API_TIMEOUT_MS = 60000; // 60 seconds
 

@@ -1,5 +1,4 @@
-// Temporary minimal config until eslint-config-next circular reference is fixed
-// This is a known issue with eslint-config-next 16.1.1 and ESLint 9
+// Minimal ESLint flat config (ESLint 10+)
 import js from "@eslint/js";
 
 export default [

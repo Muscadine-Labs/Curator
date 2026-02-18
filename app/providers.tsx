@@ -12,7 +12,6 @@ const ReactQueryDevtools = dynamic(
 import { RainbowKitProvider, darkTheme, lightTheme } from '@rainbow-me/rainbowkit';
 import { config } from '@/lib/wallet/config';
 import { useTheme } from '@/lib/theme/ThemeContext';
-import { QUERY_STALE_TIME_MEDIUM } from '@/lib/constants';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { CuratorAuthProvider } from '@/lib/auth/CuratorAuthContext';
 import { ThemeProvider } from '@/lib/theme/ThemeContext';
@@ -22,7 +21,6 @@ import { RevenueSourceProvider } from '@/lib/RevenueSourceContext';
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: QUERY_STALE_TIME_MEDIUM,
       refetchOnWindowFocus: false,
     },
   },

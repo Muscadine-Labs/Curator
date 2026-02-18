@@ -9,7 +9,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { formatCompactUSD } from '@/lib/format/number';
-import { QUERY_STALE_TIME_MEDIUM, QUERY_REFETCH_INTERVAL_MEDIUM } from '@/lib/constants';
 import { getAddress } from 'viem';
 import Link from 'next/link';
 import { Info } from 'lucide-react';
@@ -112,8 +111,6 @@ export default function MonthlyStatementPage() {
       if (!response.ok) throw new Error('Failed to fetch monthly statement');
       return response.json();
     },
-    staleTime: QUERY_STALE_TIME_MEDIUM,
-    refetchInterval: QUERY_REFETCH_INTERVAL_MEDIUM,
   });
 
   const { data: vaultData, isLoading: isVaultDataLoading } = useQuery<VaultStatementResponse>({
@@ -126,8 +123,6 @@ export default function MonthlyStatementPage() {
       return response.json();
     },
     enabled: viewMode === 'byVault' && activeTab === 'treasury',
-    staleTime: QUERY_STALE_TIME_MEDIUM,
-    refetchInterval: QUERY_REFETCH_INTERVAL_MEDIUM,
   });
 
   const { data: defiLlamaData, isLoading: isDefiLlamaLoading, error: defiLlamaError } = useQuery<DefiLlamaStatementResponse>({
@@ -140,8 +135,6 @@ export default function MonthlyStatementPage() {
       return response.json();
     },
     enabled: activeTab === 'defillama',
-    staleTime: QUERY_STALE_TIME_MEDIUM,
-    refetchInterval: QUERY_REFETCH_INTERVAL_MEDIUM,
   });
 
   const formatMonth = (monthKey: string, periodMode?: TreasuryPeriodMode) => {

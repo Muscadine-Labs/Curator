@@ -1,5 +1,4 @@
 import { useQuery } from '@tanstack/react-query';
-import { QUERY_STALE_TIME_MEDIUM, QUERY_STALE_TIME_SHORT, QUERY_REFETCH_INTERVAL_MEDIUM, QUERY_REFETCH_INTERVAL_SHORT } from '@/lib/constants';
 
 export interface ProtocolStats {
   totalDeposited: number;
@@ -146,8 +145,6 @@ export const useProtocolStats = () => {
       if (!response.ok) throw new Error('Failed to fetch protocol stats');
       return response.json();
     },
-    staleTime: QUERY_STALE_TIME_MEDIUM,
-    refetchInterval: QUERY_REFETCH_INTERVAL_MEDIUM,
   });
 };
 
@@ -173,8 +170,6 @@ export const useVaultList = (filters?: {
       if (!response.ok) throw new Error('Failed to fetch vaults');
       return response.json();
     },
-    staleTime: QUERY_STALE_TIME_SHORT,
-    refetchInterval: QUERY_REFETCH_INTERVAL_SHORT,
   });
 };
 
@@ -190,8 +185,6 @@ export const useVault = (id: string) => {
       return response.json();
     },
     enabled: !!id,
-    staleTime: QUERY_STALE_TIME_SHORT,
-    refetchInterval: QUERY_REFETCH_INTERVAL_SHORT,
   });
 };
 

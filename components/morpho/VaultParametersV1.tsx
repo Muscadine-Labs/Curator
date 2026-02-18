@@ -6,7 +6,7 @@ import { useVault } from '@/lib/hooks/useProtocolStats';
 import { useVaultRoles } from '@/lib/hooks/useVaultRoles';
 import { ExternalLink } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { getScanUrlForChain, QUERY_STALE_TIME_MEDIUM } from '@/lib/constants';
+import { getScanUrlForChain } from '@/lib/constants';
 import { publicClient } from '@/lib/onchain/client';
 import type { Address } from 'viem';
 
@@ -155,14 +155,12 @@ export function VaultParametersV1({ vaultAddress }: VaultParametersV1Props) {
     queryKey: ['vault-public-allocator-params', vaultAddress],
     queryFn: () => fetchPublicAllocatorParams(vaultAddress as Address),
     enabled: !!vaultAddress,
-    staleTime: QUERY_STALE_TIME_MEDIUM,
   });
 
   const { data: timelockDuration, isLoading: isTimelockLoading } = useQuery({
     queryKey: ['vault-timelock-duration', vaultAddress],
     queryFn: () => fetchTimelockDuration(vaultAddress as Address),
     enabled: !!vaultAddress,
-    staleTime: QUERY_STALE_TIME_MEDIUM,
   });
 
   const isLoading = isVaultLoading || isRolesLoading || isPublicAllocatorLoading || isTimelockLoading;

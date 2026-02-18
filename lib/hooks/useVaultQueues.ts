@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { morphoGraphQLClient } from '@/lib/morpho/graphql-client';
 import { gql } from 'graphql-request';
-import { BASE_CHAIN_ID, QUERY_REFETCH_INTERVAL_VERY_SHORT, QUERY_STALE_TIME_VERY_SHORT } from '@/lib/constants';
+import { BASE_CHAIN_ID } from '@/lib/constants';
 import type { Address } from 'viem';
 
 export interface QueuedMarket {
@@ -192,8 +192,6 @@ export function useVaultQueues(vaultAddress: Address | string | null | undefined
       return { supplyQueue, withdrawQueue };
     },
     enabled: !!vaultAddress,
-    staleTime: QUERY_STALE_TIME_VERY_SHORT,
-    refetchInterval: QUERY_REFETCH_INTERVAL_VERY_SHORT,
   });
 }
 

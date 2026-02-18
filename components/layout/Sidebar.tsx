@@ -122,7 +122,7 @@ export function Sidebar({ onClose }: SidebarProps) {
                   <ChevronRight className="h-4 w-4 shrink-0" />
                 )}
                 <span className="font-medium">
-                  {network.name} ({network.chainId})
+                  {network.name}
                 </span>
               </button>
               {isExpanded && (
