@@ -16,7 +16,7 @@ import {
   writeCuratorAuthCache,
 } from './curator-auth';
 
-export type UserRole = 'owner' | 'intern' | null;
+export type UserRole = 'owner' | null;
 
 type CuratorAuthContextValue = {
   isAuthenticated: boolean;
@@ -63,8 +63,8 @@ export function CuratorAuthProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ username, password }),
       });
       const data = await res.json().catch(() => ({}));
-      if (res.ok && data?.ok === true && (data?.role === 'owner' || data?.role === 'intern')) {
-        writeCuratorAuthCache(data.role);
+      if (res.ok && data?.ok === true && data?.role === 'owner') {
+        writeCuratorAuthCache('owner');
         setIsAuthenticated(true);
         setRole(data.role);
         return { ok: true };

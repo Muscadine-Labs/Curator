@@ -14,6 +14,7 @@ import { config } from '@/lib/wallet/config';
 import { useTheme } from '@/lib/theme/ThemeContext';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { CuratorAuthProvider } from '@/lib/auth/CuratorAuthContext';
+import { AuthGuard } from '@/components/AuthGuard';
 import { ThemeProvider } from '@/lib/theme/ThemeContext';
 import { RevenueSourceProvider } from '@/lib/RevenueSourceContext';
 
@@ -64,11 +65,13 @@ export function Providers({ children }: { children: ReactNode }) {
         <WagmiProvider config={config} reconnectOnMount>
           <RainbowKitWithTheme>
             <CuratorAuthProvider>
-              <RevenueSourceProvider>
-                <ErrorBoundary>
-                  {children}
-                </ErrorBoundary>
-              </RevenueSourceProvider>
+              <AuthGuard>
+                <RevenueSourceProvider>
+                  <ErrorBoundary>
+                    {children}
+                  </ErrorBoundary>
+                </RevenueSourceProvider>
+              </AuthGuard>
             </CuratorAuthProvider>
             {process.env.NODE_ENV === 'development' && (
               <ReactQueryDevtools initialIsOpen={false} />

@@ -16,10 +16,18 @@ interface GoogleSheetsData {
   rows: Array<Record<string, string>>;
 }
 
-// Pre-configured Google Sheet IDs by year
-const GOOGLE_SHEET_IDS: Record<string, string> = {
-  '2025': '1Hr2i6WcfN4I6xRmyMtbk1NNmiWfOfBYsegBVX3nd13w',
-  '2026': '183cy9VlCD9csxmz2_5ocEIGfNbckdeR-tZLiGggxGns',
+// Pre-configured Google Sheet IDs by state and year
+// Wyoming: existing ledgers
+// Georgia: GA LLC ledger (https://docs.google.com/spreadsheets/d/183cy9VlCD9csxmz2_5ocEIGfNbckdeR-tZLiGggxGns)
+const GOOGLE_SHEET_IDS: Record<string, Record<string, string>> = {
+  Georgia: {
+    '2025': '183cy9VlCD9csxmz2_5ocEIGfNbckdeR-tZLiGggxGns',
+    '2026': '183cy9VlCD9csxmz2_5ocEIGfNbckdeR-tZLiGggxGns',
+  },
+  Wyoming: {
+    '2025': '1Hr2i6WcfN4I6xRmyMtbk1NNmiWfOfBYsegBVX3nd13w',
+    '2026': '1jAhmmt2pte6ClciasZma--_I0IPIn4u0AvHDeU31rGM',
+  },
 };
 
 // Map sheet names to their GIDs (Google Sheet tab IDs)
@@ -31,8 +39,11 @@ const SHEET_GIDS: Record<string, string> = {
 
 const ALL_SHEET_NAMES = ['Expenses', 'Income'];
 
+type LedgerState = 'Georgia' | 'Wyoming';
+
 export default function MuscadineLedgerPage() {
   const [activeTab, setActiveTab] = useState<'view' | 'edit'>('view');
+  const [selectedState, setSelectedState] = useState<LedgerState>('Georgia'); // Default to Georgia
   const [sheetName, setSheetName] = useState<string>('All'); // Default to All
   const [selectedYear, setSelectedYear] = useState<string>('2026'); // Default to 2026
   const [showFilters, setShowFilters] = useState(false);
@@ -40,12 +51,15 @@ export default function MuscadineLedgerPage() {
   const [expensesVisibleColumns, setExpensesVisibleColumns] = useState<Record<string, boolean>>({});
   const [incomeVisibleColumns, setIncomeVisibleColumns] = useState<Record<string, boolean>>({});
 
-  // Get the current sheet ID based on selected year
-  const currentSheetId = GOOGLE_SHEET_IDS[selectedYear] || GOOGLE_SHEET_IDS['2026'];
+  // Get the current sheet ID based on selected state and year
+  const currentSheetId =
+    GOOGLE_SHEET_IDS[selectedState]?.[selectedYear] ??
+    GOOGLE_SHEET_IDS['Georgia']?.['2026'] ??
+    '';
 
   // Fetch Expenses and Income sheets when "All" is selected
   const { data: allSheetsData, isLoading: isAllSheetsLoading } = useQuery<Record<string, GoogleSheetsData>>({
-    queryKey: ['google-sheets-all', currentSheetId],
+    queryKey: ['google-sheets-all', currentSheetId, selectedState],
     queryFn: async () => {
       const results: Record<string, GoogleSheetsData> = {};
       await Promise.all(
@@ -70,7 +84,7 @@ export default function MuscadineLedgerPage() {
 
   // Fetch single sheet when specific sheet is selected
   const { data: singleSheetData, isLoading: isSingleSheetLoading, error: singleSheetError } = useQuery<GoogleSheetsData>({
-    queryKey: ['google-sheets', currentSheetId, sheetName],
+    queryKey: ['google-sheets', currentSheetId, sheetName, selectedState],
     queryFn: async () => {
       const params = new URLSearchParams({ sheetId: currentSheetId });
       if (sheetName && sheetName !== 'All') {
@@ -449,8 +463,16 @@ export default function MuscadineLedgerPage() {
         <Card>
           <CardHeader>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <CardTitle className="text-lg sm:text-xl">{selectedYear} Business Ledger</CardTitle>
+              <CardTitle className="text-lg sm:text-xl">{selectedYear} {selectedState} Business Ledger</CardTitle>
               <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={selectedState}
+                  onChange={(e) => setSelectedState(e.target.value as LedgerState)}
+                  className="px-3 py-2 text-sm border border-slate-300 rounded-md dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="Georgia">Georgia</option>
+                  <option value="Wyoming">Wyoming</option>
+                </select>
                 <select
                   value={selectedYear}
                   onChange={(e) => {
