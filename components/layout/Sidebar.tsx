@@ -106,9 +106,10 @@ export function Sidebar({ onClose }: SidebarProps) {
           ))}
         </div>
 
-        {SIDEBAR_NETWORKS.map((network) => {
+        {SIDEBAR_NETWORKS.filter(
+          (network) => getSectionsForNetwork(vaults, network.chainId).length > 0
+        ).map((network) => {
           const sections = getSectionsForNetwork(vaults, network.chainId);
-          const hasVaults = sections.length > 0;
           const isExpanded = expandedNetworks.has(network.chainId);
 
           return (
@@ -131,10 +132,6 @@ export function Sidebar({ onClose }: SidebarProps) {
                 <div className="ml-4 space-y-4 border-l border-slate-200 pl-2 dark:border-slate-700">
                   {isLoading ? (
                     <div className="px-2 py-2 text-slate-500 dark:text-slate-400">Loading...</div>
-                  ) : !hasVaults ? (
-                    <div className="px-2 py-2 text-slate-500 text-xs dark:text-slate-400">
-                      No vaults
-                    </div>
                   ) : (
                     sections.map((section) => (
                       <div key={section.type} className="space-y-2">
@@ -188,7 +185,7 @@ export function Sidebar({ onClose }: SidebarProps) {
           );
         })}
 
-        {(role === 'owner' || role === 'intern') && (
+        {role === 'owner' && (
           <div className="space-y-2">
             <p className="px-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
               Curator Tools
@@ -212,7 +209,7 @@ export function Sidebar({ onClose }: SidebarProps) {
                 }`}
               >
                 <LayoutGrid className="h-4 w-4 shrink-0" />
-                <span className="truncate min-w-0">Frontend</span>
+                <span className="truncate min-w-0">Development</span>
               </Link>
               <Link
                 href="/curator/safe"
@@ -263,6 +260,16 @@ export function Sidebar({ onClose }: SidebarProps) {
               >
                 <Book className="h-4 w-4 shrink-0" />
                 <span className="truncate min-w-0">Muscadine Ledger</span>
+              </Link>
+              <Link
+                href="/overview/muscadine-frontends"
+                onClick={handleLinkClick}
+                className={`flex min-h-[44px] w-full touch-manipulation items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${
+                  isActive('/overview/muscadine-frontends') ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900' : ''
+                }`}
+              >
+                <LayoutGrid className="h-4 w-4 shrink-0" />
+                <span className="truncate min-w-0">Muscadine Pages</span>
               </Link>
             </div>
           </div>

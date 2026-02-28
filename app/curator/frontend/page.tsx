@@ -8,8 +8,8 @@ import { ExternalLink } from 'lucide-react';
 export default function FrontendPage() {
   return (
     <AppShell
-      title="Front end"
-      description="Quick links to Coinbase, front end, RPC, and wallet connect."
+      title="Development"
+      description="Quick links to Coinbase, development, RPC, and wallet connect."
     >
       <div className="space-y-6">
         {/* Coinbase - first row */}
@@ -67,10 +67,10 @@ export default function FrontendPage() {
           </div>
         </div>
 
-        {/* Front end - its own row */}
+        {/* Development */}
         <div>
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-            Front end
+            Development
           </h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Card className="flex flex-col">
@@ -96,33 +96,10 @@ export default function FrontendPage() {
                 </Button>
               </CardContent>
             </Card>
-            <Card className="flex flex-col">
-              <CardHeader>
-                <CardTitle className="text-center text-base">Vercel</CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-1 flex-col items-center justify-center">
-                <Button
-                  asChild
-                  variant="outline"
-                  size="lg"
-                  className="w-full"
-                >
-                  <a
-                    href="https://vercel.com/muscadine-labs"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2"
-                  >
-                    muscadine-labs
-                    <ExternalLink className="h-4 w-4" />
-                  </a>
-                </Button>
-              </CardContent>
-            </Card>
           </div>
         </div>
 
-        {/* RPC, Wallet Connect Reown - same row */}
+        {/* RPC, Wallet Connect Reown */}
         <div>
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
             RPC, Wallet Connect
