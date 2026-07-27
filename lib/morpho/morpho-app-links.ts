@@ -32,6 +32,11 @@ export function morphoMarketHref(
   return `${MORPHO_APP_ORIGIN}/${morphoChainSlug(chainId)}/market/${marketKey}`;
 }
 
+/** Morpho app vault detail URL for a chain. */
+export function morphoVaultHref(vaultAddress: string, chainId: number): string {
+  return `${MORPHO_APP_ORIGIN}/${morphoChainSlug(chainId)}/vault/${vaultAddress.toLowerCase()}`;
+}
+
 /** Curator Morpho Blue market detail page. */
 export function curatorBlueMarketHref(
   marketId: string | null | undefined,

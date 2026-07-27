@@ -4,13 +4,14 @@ import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useAccount } from 'wagmi';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { Button } from '@/components/ui/button';
+import { TxErrorBanner } from '@/components/TxErrorBanner';
 
 interface TransactionButtonProps {
   onClick: () => void;
   disabled?: boolean;
   isLoading?: boolean;
   isSuccess?: boolean;
-  error?: Error | null;
+  error?: unknown;
   txHash?: `0x${string}`;
   label?: string;
   variant?: 'default' | 'destructive' | 'outline' | 'secondary';
@@ -70,7 +71,7 @@ export function TransactionButton({
       >
         {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
         {isSuccess && <CheckCircle2 className="h-4 w-4" />}
-        {error && <AlertCircle className="h-4 w-4" />}
+        {error != null && <AlertCircle className="h-4 w-4" />}
         {isLoading ? 'Confirming...' : isSuccess ? 'Success' : label}
       </Button>
       {txHash && (
@@ -78,11 +79,7 @@ export function TransactionButton({
           Tx: {txHash}
         </p>
       )}
-      {error && (
-        <p className="text-xs text-red-600 dark:text-red-400 break-all">
-          {error.message?.slice(0, 200)}
-        </p>
-      )}
+      {error != null && <TxErrorBanner error={error} className="text-xs" />}
     </div>
   );
 }

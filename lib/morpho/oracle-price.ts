@@ -2,8 +2,6 @@ import { Address, Abi, parseAbi, zeroAddress } from 'viem';
 import { publicClient, safeContractRead } from '@/lib/onchain/client';
 import type { OracleFeedHints } from '@/lib/morpho/oracle-utils';
 
-export const ORACLE_PRICE_SCALE = 10n ** 36n;
-
 const MORPHO_ORACLE_ABI = parseAbi(['function price() view returns (uint256)']);
 
 const CHAINLINK_AGGREGATOR_ABI = parseAbi([

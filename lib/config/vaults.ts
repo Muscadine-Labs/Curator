@@ -65,6 +65,16 @@ const vaultAddresses: VaultAddressConfig[] = [
     listCategory: 'test',
     excludeFromBusinessViews: true,
   },
+  {
+    address:
+      process.env.NEXT_PUBLIC_VAULT_USDC_V2_TEST ||
+      '0x7D09D53637c8A3511de0eF1509b8dC5C2108a0AD',
+    chainId: BASE_CHAIN_ID,
+    morphoVersion: 'v2',
+    assetSymbol: 'USDC',
+    listCategory: 'test',
+    excludeFromBusinessViews: true,
+  },
 ];
 
 export const getVaultByAddress = (address: string): VaultAddressConfig | undefined => {
@@ -73,6 +83,21 @@ export const getVaultByAddress = (address: string): VaultAddressConfig | undefin
 
 export function getVaultAssetSymbol(address: string): VaultAssetSymbol | undefined {
   return getVaultByAddress(address)?.assetSymbol;
+}
+
+const CATEGORY_LABEL: Record<VaultCategory, string> = {
+  prime: 'Prime',
+  frontier: 'Frontier',
+  vineyard: 'Vineyard',
+  test: 'Test',
+};
+
+/** Human label for configured vaults, e.g. "Muscadine USDC Frontier". */
+export function getConfiguredVaultDisplayName(
+  vault: Pick<VaultAddressConfig, 'assetSymbol' | 'listCategory'>
+): string {
+  const category = vault.listCategory ? CATEGORY_LABEL[vault.listCategory] : 'V2';
+  return `Muscadine ${vault.assetSymbol} ${category}`;
 }
 
 /** Vaults included in overview, protocol stats, monthly statements, and the public vault list API */

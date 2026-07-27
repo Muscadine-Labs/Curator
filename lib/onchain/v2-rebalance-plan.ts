@@ -68,24 +68,6 @@ export function computeIdleTargetFromStrategyPlan(
   return idle > BigInt(0) ? idle : BigInt(0);
 }
 
-/** Maximum absolute target this row can hold under known caps (Morpho V2 firstTotalAssets proxy). */
-export function maxTargetForRow(
-  t: Pick<RebalanceTarget, 'isVaultIdle' | 'absoluteCapRaw' | 'relativeCapWad'>,
-  totalRaw: bigint
-): bigint {
-  if (t.isVaultIdle) return totalRaw;
-
-  let max = totalRaw;
-  if (t.absoluteCapRaw != null && max > t.absoluteCapRaw) {
-    max = t.absoluteCapRaw;
-  }
-  if (t.relativeCapWad != null && totalRaw > BigInt(0)) {
-    const maxRel = (totalRaw * t.relativeCapWad) / WAD;
-    if (max > maxRel) max = maxRel;
-  }
-  return max;
-}
-
 /** Idle that can be deployed onto a strategy row (cap headroom), excluding current allocation. */
 export function idleDeployAmount(
   current: bigint,
@@ -244,57 +226,6 @@ export function resolveDeployableIdleBase(
 ): bigint {
   const idleRow = rows.find((r) => r.target.isVaultIdle);
   return idleRow?.current ?? BigInt(0);
-}
-
-/** Reduce allocate targets until net allocate fits deployable idle plus same-tx deallocations. */
-export function clampPlanToFundableIdle(
-  rows: ReadonlyArray<RebalancePlanRow>,
-  deployableIdleBase?: bigint
-): { rows: RebalancePlanRow[]; reduced: boolean } {
-  const list = rows.map((r) => ({ ...r, target: { ...r.target } }));
-  const idleBase = deployableIdleBase ?? resolveDeployableIdleBase(list);
-
-  let deallocateSum = BigInt(0);
-  let netAllocate = BigInt(0);
-  const allocIndices: number[] = [];
-
-  for (let i = 0; i < list.length; i++) {
-    const r = list[i]!;
-    if (r.target.isVaultIdle) continue;
-    if (r.assets > r.current) {
-      netAllocate += r.assets - r.current;
-      allocIndices.push(i);
-    } else if (r.assets < r.current) {
-      const delta =
-        r.assets === 0n
-          ? r.current
-          : clampDeallocateAmount(r.current - r.assets, r.current);
-      deallocateSum += delta;
-    }
-  }
-
-  const maxNetAllocate = idleBase + deallocateSum;
-  if (netAllocate <= maxNetAllocate) return { rows: list, reduced: false };
-
-  let excess = netAllocate - maxNetAllocate;
-  allocIndices.sort((a, b) => {
-    const da = list[a]!.assets - list[a]!.current;
-    const db = list[b]!.assets - list[b]!.current;
-    if (da === db) return 0;
-    return da > db ? -1 : 1;
-  });
-
-  for (const idx of allocIndices) {
-    if (excess <= BigInt(0)) break;
-    const row = list[idx]!;
-    const delta = row.assets - row.current;
-    if (delta <= BigInt(0)) continue;
-    const step = excess > delta ? delta : excess;
-    list[idx] = { ...row, assets: row.assets - step };
-    excess -= step;
-  }
-
-  return { rows: list, reduced: true };
 }
 
 /** Refresh strategy row `current` from live `allocation(id)` before building calldata. */

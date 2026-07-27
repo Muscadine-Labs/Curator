@@ -37,6 +37,7 @@ import {
   lookupMorphoOracle,
   morphoBlueCreateMarketAbi,
   morphoOracleFactoryAbi,
+  type MarketParamsInput,
   type OracleLookup,
 } from '@/lib/morpho/blue-create-market';
 import { getCreateMarketDeployment } from '@/lib/morpho/create-market-deployments';
@@ -54,6 +55,7 @@ import {
   curatorBlueMarketHref,
   morphoMarketHref,
 } from '@/lib/morpho/morpho-app-links';
+import { MarketBootstrapPanel } from '@/components/morpho/MarketBootstrapPanel';
 
 type ValidationState = {
   checking: boolean;
@@ -239,6 +241,8 @@ export function CreateMarketForm() {
   const [validation, setValidation] = useState<ValidationState>(emptyValidation);
   /** Market id from the last successful create (survives if validation is re-run). */
   const [createdMarketId, setCreatedMarketId] = useState<Hex | null>(null);
+  /** Params used for the created market — bootstrap stays on this page. */
+  const [createdParams, setCreatedParams] = useState<MarketParamsInput | null>(null);
   /** Bumps on each validation run so slower RPC replies cannot overwrite newer results. */
   const validationGenRef = useRef(0);
 
@@ -253,6 +257,7 @@ export function CreateMarketForm() {
     setParsedOracleTx(null);
     setValidation(emptyValidation);
     setCreatedMarketId(null);
+    setCreatedParams(null);
     reset();
     resetOracleWrite();
     // Intentionally keyed on chainId (not deployment object / reset fn identity).
@@ -557,6 +562,7 @@ export function CreateMarketForm() {
   useEffect(() => {
     if (!isSuccess || !parsedParams) return;
     setCreatedMarketId(computeMarketId(parsedParams));
+    setCreatedParams(parsedParams);
   }, [isSuccess, parsedParams]);
 
   // Clear sticky success UI when MarketParams change after a create.
@@ -569,6 +575,7 @@ export function CreateMarketForm() {
     prevParamsRef.current = paramsFingerprint;
     if (!createdMarketId && !isSuccess) return;
     setCreatedMarketId(null);
+    setCreatedParams(null);
     reset();
   }, [paramsFingerprint, createdMarketId, isSuccess, reset]);
 
@@ -578,11 +585,12 @@ export function CreateMarketForm() {
       ? `${getScanUrlForChain(chainId)}/tx/${txHash}`
       : null;
 
-  const successMarketId = isSuccess
-    ? (createdMarketId ??
-      validation.marketId ??
-      (parsedParams ? computeMarketId(parsedParams) : null))
-    : null;
+  const successMarketId =
+    createdMarketId ??
+    (isSuccess
+      ? (validation.marketId ??
+        (parsedParams ? computeMarketId(parsedParams) : null))
+      : null);
   const morphoCreatedHref = successMarketId
     ? morphoMarketHref(successMarketId, chainId)
     : null;
@@ -600,8 +608,8 @@ export function CreateMarketForm() {
       <AppShell
         title="Create Morpho Market"
         description={`Morpho Blue createMarket is not available on ${networkName}.`}
-        backHref="/morpho"
-        backLabel="Morpho Tools"
+        backHref="/markets"
+        backLabel="Markets"
       >
         <Alert>
           <AlertTriangle className="h-4 w-4" />
@@ -620,8 +628,8 @@ export function CreateMarketForm() {
     <AppShell
       title="Create Morpho Market"
       description={`Paste token + oracle addresses, validate on-chain, then call Morpho Blue createMarket on ${networkName}. Use the top-bar network toggle (works without a wallet).`}
-      backHref="/morpho"
-      backLabel="Morpho Tools"
+      backHref="/markets"
+      backLabel="Markets"
       actions={
         <Button asChild variant="outline" size="sm">
           <a
@@ -965,11 +973,11 @@ export function CreateMarketForm() {
               txHash={txHash}
               label="Create market"
             />
-            {isSuccess ? (
+            {isSuccess || createdMarketId ? (
               <div className="space-y-3 rounded-md border border-emerald-200 bg-emerald-50/80 p-3 dark:border-emerald-900 dark:bg-emerald-950/40">
                 <p className="flex items-center gap-2 text-sm font-medium text-emerald-800 dark:text-emerald-300">
                   <CheckCircle2 className="h-4 w-4 shrink-0" />
-                  Market created
+                  Market created — stay on this page for dead deposit & rate seed
                 </p>
                 {successMarketId ? (
                   <div>
@@ -1018,6 +1026,24 @@ export function CreateMarketForm() {
             ) : null}
           </CardContent>
         </Card>
+
+        {createdMarketId &&
+        createdParams &&
+        loanMeta.status === 'ok' &&
+        collateralMeta.status === 'ok' ? (
+          <MarketBootstrapPanel
+            chainId={chainId}
+            networkName={networkName}
+            morpho={deployment.morpho}
+            marketId={createdMarketId}
+            marketParams={createdParams}
+            loanSymbol={loanMeta.token.symbol}
+            loanDecimals={loanMeta.token.decimals}
+            collateralSymbol={collateralMeta.token.symbol}
+            collateralDecimals={collateralMeta.token.decimals}
+            isWalletOnSelectedChain={isWalletOnSelectedChain}
+          />
+        ) : null}
       </div>
     </AppShell>
   );

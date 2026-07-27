@@ -34,9 +34,24 @@ npm run build   # next build
   (`"this"`, `"collateralToken"`, `"this/marketParams"`) via `lib/morpho/v2-id-data.ts`;
   allocate/deallocate adapter `data` is `encodeMarketParamsData(market)` for Morpho
   Blue markets only. Never pass bare addresses or raw MarketParams as cap `idData`.
-- **V2 vault tabs** (order on vault page): Overview → **Risk** → Roles → Adapters →
-  Caps → Timelocks → Allocation → Sentinel → Emergency. Pending actions embed in Caps;
-  Sentinel is the only tab with sentinel writes (decrease caps, deallocate).
+- **V2 vault routes** (Morpho-style segments under `/vault/[address]/…`):
+  Overview (`/vault/[address]`) → `/analytics` → `/allocation` → `/caps` → `/timelocks` →
+  `/sentinel`. Overview mirrors Morpho Curator (metrics, fees,
+  risk params, roles, adapters, emergency link). Analytics combines risk grades
+  with liquidity breakdown, history, holders, and transactions. Pending actions
+  embed in Caps; Sentinel is the only tab with sentinel writes (decrease caps,
+  deallocate).
+- **Allocation edit amounts** — Rebalance inputs show **display** (Allocated
+  column / Morpho supply). Planning maps display → booked via
+  `booked + (input − display)` so unchanged rows are no-ops and accrued interest
+  is never treated as deployable cash. Min/Max write display-space values.
+- **User deposit/withdraw** — `/vaults/transact` (approve, deposit, withdraw,
+  Bundler3 WETH/ETH). **Blue market positions** — `/markets/positions` (borrow,
+  repay, withdraw collateral, supply; expandable wallet market list). Create +
+  dead deposit/seed — `/markets/create` (Morpho app link after create).
+  Vault transact holdings — any Morpho vault via indexed positions API.
+  Top nav: Overview · Vaults · Markets · Curator · Business; sidebar is
+  area-scoped (`lib/nav/areas.ts`).
 - **Tx preview** — Allocation and Sentinel confirm writes through
   `TxPreviewDialog` + `lib/morpho/tx-preview.ts` before the wallet signs.
 - **V2 pending revoke** — per-row `rowId` + `activeRowId`; never key tx state by
@@ -69,41 +84,43 @@ npm run build   # next build
   `oracle.address` (not `Market.oracleAddress`); V2 overview txs use
   `vaultV2transactions`. Client logs `extensions.warnings` via
   `lib/morpho/graphql-client.ts`. See `CLAUDE.md` §4.4.1.
-- **App routes (no `/curator` or `/overview` prefix)** — `/markets`,
-  `/market/blue/[id]`, `/safe`, `/morpho`, `/morpho/create-market`,
-  `/monthly-statement`, `/muscadine-ledger`, `/muscadine-frontends`,
-  `/vault/[address]`. Legacy page and API paths (`/curator/*`, `/overview/*`,
-  `/vault/v2/*`, `/api/curator/markets`, `/api/vaults/v2/*`) **301 redirect** in
-  `next.config.ts`. Create-market uses wallet `Morpho.createMarket` on the
-  selected top-bar network (Base / Ethereum / HyperEVM / Robinhood / Polygon);
-  validate oracles at https://oracles.morpho.dev/ before broadcasting.
+- **App routes** — `/` (Overview), `/vaults`, `/vault/[address]/*`,
+  `/vaults/transact`, `/markets`, `/markets/create`, `/markets/positions`,
+  `/market/blue/[id]`, `/safe`, `/morpho` (Curator tools hub),
+  `/monthly-statement`, `/muscadine-ledger`, `/muscadine-frontends`.
+  Old `/morpho/create-market` and `/morpho/transact` pages are gone (use
+  `/markets/create`, `/vaults/transact`, `/markets/positions`). Vault pages live
+  at `/vault/[address]/*`; catalog at `/vaults`.
 - **BFF routes (no `/curator` or `/v2` in API paths)** — `GET /api/markets`,
   `GET /api/markets/[marketId]`; on-chain vault reads at
   `GET /api/vaults/[id]/risk`, `…/governance`, `…/pending` (alongside
   `…/history`, `…/holders`, etc.).
-- **Vault pages** — `app/vault/[address]/page.tsx` is `'use client'` + React Query;
-  keep **dynamic** (no SSG/`generateStaticParams` for vault addresses).
+- **Vault pages** — `app/vault/[address]/{page,allocation,caps,…}` via
+  `VaultPageShell` (`'use client'` + React Query); keep **dynamic** (no
+  SSG/`generateStaticParams` for vault addresses).
 - **Curator Morpho Markets** — `/markets` (default: listed only, sort market size
   desc) and `/market/blue/[id]`; use `sizeUsd` / `totalLiquidityUsd` for size/
   liquidity columns (§4.7). `MarketOraclePanel` shows oracle price, spot gap,
   feed bounds, freshness, and block-explorer link. Allocation tab market names
   link in-app via `curatorBlueMarketHref`. Vault Risk tab uses the same helper.
-  Sidebar Curator Tools icons: LineChart / Users / Wrench.
+  Sidebar Curator area: Morpho Tools + Multisig Safe. Markets area: Browse /
+  Create / Positions. Vaults area: All vaults + Transact + vault tree.
 - **Oracle freshness** — `resolveMarketOracleAddress` accepts `oracleAddress` or
   `oracle.address`; risk BFF GraphQL keeps minimal oracle fragments (`baseFeedOne`
   on positions only) to stay under Morpho complexity limits; on-chain
   `BASE_FEED_*` reads are the fallback (`lib/morpho/oracle-utils.ts`).
 - **Allocation display vs booked** — UI shows `max(GraphQL, on-chain)` per row;
-  rebalance deltas use on-chain `bookedAllocationAssets` only
-  (`overlay-v2-onchain-caps.ts`). **Planning total** = Σ booked + GraphQL idle
-  (not `totalAssets`); Max leaves Idle at remaining deployable cash only
-  (accrual residual is not Idle). Post-tx: refetch risk + governance, exit edit.
-  Allocations **Min** = allocation minus withdrawable market liquidity (0 when
-  fully liquid); replaces former Zero.
+  rebalance **inputs** show that display amount; deltas use on-chain
+  `bookedAllocationAssets` via `booked + (input − display)`
+  (`overlay-v2-onchain-caps.ts`, `VaultV2Allocations.tsx`). **Planning total** =
+  Σ booked + GraphQL idle (not `totalAssets`); Max leaves Idle at remaining
+  deployable cash only (accrual residual is not Idle). Post-tx: refetch risk +
+  governance, exit edit. Allocations **Min** = allocation minus withdrawable
+  market liquidity (0 when fully liquid); replaces former Zero.
 - **Curator networks** — Base, Ethereum, HyperEVM, Robinhood, Polygon only
   (`CURATOR_MARKET_NETWORKS` + wagmi `chains`). Top-bar **NetworkSwitcher** sets
   preferred chain **without requiring a wallet**; when connected it also
-  `switchChain`. `/markets` and `/morpho/create-market` follow that preference
+  `switchChain`. `/markets` and `/markets/create` follow that preference
   (not RainbowKit-only chain UI).
 - **Token display decimals** — `getTokenDisplayDecimals`: WETH/cbBTC → 6, USDC → 3
   (holders, txs, allocation history, markets token lines).

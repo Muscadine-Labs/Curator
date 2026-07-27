@@ -11,7 +11,7 @@ type AppShellProps = {
   title: ReactNode;
   description?: ReactNode;
   actions?: ReactNode;
-  /** Parent route for nested pages (e.g. /morpho/create-market → /morpho). */
+  /** Parent route for nested pages (e.g. /markets/create → /markets). */
   backHref?: string;
   backLabel?: string;
   children: ReactNode;

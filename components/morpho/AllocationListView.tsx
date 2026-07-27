@@ -2,26 +2,8 @@
 
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
-import { formatLtv, formatRawTokenAmount } from '@/lib/format/number';
-import { getTokenDisplayDecimals } from '@/lib/format/asset-decimals';
+import { formatLtv } from '@/lib/format/number';
 import type { AllocationFilterState } from '@/lib/allocation/allocation-filters';
-
-export const EXTRA_COLUMN_META: {
-  key: keyof AllocationFilterState['columns'];
-  label: string;
-}[] = [
-  { key: 'utilization', label: 'Util.' },
-  { key: 'liquidity', label: 'Liquidity' },
-  { key: 'borrowApy', label: 'Borrow' },
-  { key: 'supplyApy', label: 'Supply' },
-  { key: 'allocated', label: 'Allocated' },
-  { key: 'effectiveCap', label: 'Eff. cap' },
-  { key: 'percentCap', label: '% cap' },
-];
-
-export function getActiveExtraColumns(columns: AllocationFilterState['columns']) {
-  return EXTRA_COLUMN_META.filter((c) => columns[c.key]);
-}
 
 export function formatLltvPill(lltv: string | number | null | undefined): string | null {
   const formatted = formatLtv(lltv);
@@ -37,21 +19,6 @@ export function AllocationPill({ children }: { children: ReactNode }) {
       {children}
     </span>
   );
-}
-
-export function formatListAllocationAmount(
-  raw: bigint | string | null | undefined,
-  symbol: string,
-  decimals: number
-): string {
-  if (raw == null) return `0 ${symbol}`;
-  try {
-    const value = typeof raw === 'bigint' ? raw : BigInt(raw);
-    const displayDec = getTokenDisplayDecimals(symbol, decimals);
-    return `${formatRawTokenAmount(value, decimals, displayDec)} ${symbol}`;
-  } catch {
-    return `— ${symbol}`;
-  }
 }
 
 export function formatMarketPairLabel(
@@ -88,97 +55,6 @@ export function AllocationListSection({
         {title}
       </div>
       {children}
-    </div>
-  );
-}
-
-export function AllocationListHeader({
-  columnLabels = [],
-  editing = false,
-}: {
-  columnLabels?: ReadonlyArray<string>;
-  editing?: boolean;
-}) {
-  const extraCount = columnLabels.length;
-  return (
-    <div
-      className="grid items-center border-b px-4 py-3 text-sm font-medium text-foreground"
-      style={{
-        gridTemplateColumns: `minmax(0, 1fr) repeat(${extraCount}, 5rem) 7.5rem${editing ? ' 7rem' : ''}`,
-      }}
-    >
-      <span>Allocation</span>
-      {columnLabels.map((label) => (
-        <span
-          key={label}
-          className="hidden text-right text-xs font-medium text-muted-foreground sm:block"
-        >
-          {label}
-        </span>
-      ))}
-      <span className="text-right">Allocation</span>
-      {editing && (
-        <span className="text-right text-xs font-medium text-muted-foreground">New</span>
-      )}
-    </div>
-  );
-}
-
-interface AllocationListRowProps {
-  name: ReactNode;
-  typeLabel?: string;
-  tags?: ReactNode;
-  amount: ReactNode;
-  extraCells?: ReactNode;
-  editingCell?: ReactNode;
-  className?: string;
-}
-
-export function AllocationListRow({
-  name,
-  typeLabel,
-  tags,
-  amount,
-  extraCells,
-  editingCell,
-  className,
-  extraColumnCount = 0,
-}: AllocationListRowProps & { extraColumnCount?: number }) {
-  return (
-    <div
-      className={cn(
-        'grid items-center gap-3 border-b border-border/60 px-4 py-4 last:border-b-0',
-        className
-      )}
-      style={{
-        gridTemplateColumns: `minmax(0, 1fr) repeat(${extraColumnCount}, 5rem) 7.5rem${editingCell ? ' 7rem' : ''}`,
-      }}
-    >
-      <div className="flex min-w-0 items-center justify-between gap-4">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <div className="truncate text-sm font-medium text-foreground">{name}</div>
-          {tags}
-        </div>
-        {typeLabel && (
-          <span className="hidden shrink-0 text-xs text-muted-foreground sm:inline">{typeLabel}</span>
-        )}
-      </div>
-      {extraCells}
-      <div className="text-right text-sm tabular-nums text-foreground">{amount}</div>
-      {editingCell}
-    </div>
-  );
-}
-
-export function AllocationExtraColumn({
-  value,
-}: {
-  label?: string;
-  value: ReactNode;
-}) {
-  return (
-    <div className="text-right text-xs tabular-nums">
-      {value}
     </div>
   );
 }
@@ -313,7 +189,9 @@ export function CuratorAllocationListRow({
           {optionalCells[i] ?? '—'}
         </div>
       ))}
-      <div className="text-right text-sm tabular-nums tracking-tight text-foreground">{allocationAmount}</div>
+      <div className="text-right text-sm tabular-nums tracking-tight text-foreground">
+        {allocationAmount}
+      </div>
       <div className="text-right">{percentAllocated}</div>
       {targetCell}
     </div>

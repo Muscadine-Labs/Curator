@@ -54,7 +54,7 @@ Single entry for AI sessions. Deep architecture stays in **`CLAUDE.md`**. This f
 
 ## Related repos
 
-- **Scripts (deploy markets/oracles):** `~/Desktop/morpho-markets-scripts` — source of truth for MarketPlans / feeds; curator UI mirrors `createMarket` at `/morpho/create-market`.
+- Scripts (deploy markets/oracles): `~/Desktop/morpho-markets-scripts` — source of truth for MarketPlans / feeds; curator UI mirrors `createMarket` at `/markets/create`.
 - **Oracle validation:** https://oracles.morpho.dev/
 
 ## Refactor status

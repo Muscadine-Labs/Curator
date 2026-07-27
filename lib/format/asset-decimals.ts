@@ -15,21 +15,25 @@ export function getKnownAssetDecimals(symbol: string | null | undefined): number
   // cbBTC, CBTC, etc. → BTC
   const core = raw.replace(/^CB/, '');
 
-  if (core === 'USDC' || core === 'USDT' || core === 'DAI' || core === 'USDBC') return 6;
+  if (core === 'USDC' || core === 'USDT' || core === 'USDBC') return 6;
+  if (core === 'DAI') return 18;
   if (core === 'WETH' || core === 'ETH') return 18;
   if (core === 'BTC' || core === 'WBTC' || core === 'TBTC' || core === 'LBTC') return 8;
 
   return null;
 }
 
-/** Chain / API decimals with known-asset fallback (for bigint math). */
+/**
+ * Prefer on-chain / API decimals when provided so Max→parseUnits stays consistent.
+ * Known symbols only fill in when apiDecimals is missing.
+ */
 export function resolveAssetDecimals(
   symbol: string | null | undefined,
   apiDecimals?: number | null
 ): number {
+  if (apiDecimals != null && apiDecimals >= 0 && apiDecimals <= 36) return apiDecimals;
   const known = getKnownAssetDecimals(symbol);
   if (known != null) return known;
-  if (apiDecimals != null && apiDecimals >= 0 && apiDecimals <= 36) return apiDecimals;
   return 18;
 }
 
@@ -41,8 +45,10 @@ export function getTokenDisplayDecimals(
   const raw = normalizeAssetSymbol(symbol);
   const core = raw.replace(/^CB/, '');
 
-  // UI fraction digits (not chain decimals): WETH/cbBTC → 6, stables → 3.
-  if (core === 'USDC' || core === 'USDT' || core === 'DAI' || core === 'USDBC') return 3;
+  // UI fraction digits (not chain decimals): stables with 6 chain dp → 3 display;
+  // DAI/WETH/cbBTC use more of the chain precision in tables.
+  if (core === 'USDC' || core === 'USDT' || core === 'USDBC') return 3;
+  if (core === 'DAI') return Math.min(chainDecimals, 6);
   if (core === 'WETH' || core === 'ETH') return 6;
   if (core === 'BTC' || core === 'WBTC' || core === 'TBTC' || core === 'LBTC') return 6;
 

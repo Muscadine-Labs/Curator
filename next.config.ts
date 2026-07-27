@@ -134,6 +134,7 @@ const nextConfig: NextConfig = {
       { source: '/overview/muscadine-ledger', destination: '/muscadine-ledger', permanent: true },
       { source: '/overview/muscadine-frontends', destination: '/muscadine-frontends', permanent: true },
       { source: '/vault/v2/:address', destination: '/vault/:address', permanent: true },
+      { source: '/vault/:address/allocations', destination: '/vault/:address/allocation', permanent: true },
       { source: '/api/curator/markets', destination: '/api/markets', permanent: true },
       { source: '/api/curator/markets/:marketId', destination: '/api/markets/:marketId', permanent: true },
       { source: '/api/vaults/v2/:id/risk', destination: '/api/vaults/:id/risk', permanent: true },
