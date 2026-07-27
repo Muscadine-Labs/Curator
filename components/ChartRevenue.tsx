@@ -121,7 +121,9 @@ export function ChartRevenue({
                   if (isNaN(numValue)) return ['N/A', label];
                   return [formatTooltipValue(numValue), label];
                 }}
-                labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                labelFormatter={(label) =>
+                  new Date(typeof label === 'string' || typeof label === 'number' ? label : String(label ?? '')).toLocaleDateString()
+                }
               />
               <Line type="monotone" dataKey="value" stroke="#8b5cf6" strokeWidth={2} dot={false} />
             </LineChart>

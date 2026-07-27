@@ -79,4 +79,17 @@ export const MORPHO_AUTOMATION_BOTS: readonly MorphoAutomationBot[] = [
     body: 'Handles reallocation for Morpho Vault V2, managing asset distribution across markets to optimize capital efficiency and maintain target allocations.',
     href: 'https://github.com/morpho-org/vault-v2-reallocation-bot',
   },
+  {
+    title: 'Muscadine Vault V2 Reallocation Bot',
+    description:
+      'Muscadine fork of Morpho’s Vault V2 reallocation bot — Docker / config-driven.',
+    body: 'Muscadine-Labs fork of morpho-org/vault-v2-reallocation-bot with runtime CONFIG_PATH support for Docker and StartOS.',
+    href: 'https://github.com/Muscadine-Labs/vault-v2-reallocation-bot',
+  },
+  {
+    title: 'Muscadine Vault V2 Reallocation Bot (StartOS)',
+    description: 'StartOS package for the Muscadine Vault V2 reallocation bot.',
+    body: 'StartOS packaging for Muscadine’s Morpho Vault V2 reallocation bot fork.',
+    href: 'https://github.com/Muscadine-Labs/vault-v2-reallocation-bot-startos',
+  },
 ];

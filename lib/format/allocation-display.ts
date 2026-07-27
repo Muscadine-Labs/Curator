@@ -52,10 +52,8 @@ export function formatAllocationEditInputExact(
 
   let fracTrimmed = fracPadded;
   if (trimTrailingZeros) {
-    const display = getTokenDisplayDecimals(symbol, chain);
-    fracTrimmed =
-      display < chain ? fracPadded.slice(0, display) : fracPadded;
-    while (fracTrimmed.length > 1 && fracTrimmed.endsWith('0')) {
+    // Keep full chain precision; only strip trailing zeros for readability.
+    while (fracTrimmed.length > 0 && fracTrimmed.endsWith('0')) {
       fracTrimmed = fracTrimmed.slice(0, -1);
     }
   }

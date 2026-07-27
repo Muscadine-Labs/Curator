@@ -14,6 +14,7 @@ import {
 } from '@/lib/safe/vault-write-destination';
 import type { SafeRole } from '@/lib/safe/config';
 import { VaultWriteDestinationSelect } from '@/components/morpho/VaultWriteDestinationSelect';
+import { TxErrorBanner } from '@/components/TxErrorBanner';
 
 export interface VaultWriteDestinationOptions {
   destination: VaultWriteDestination;
@@ -30,7 +31,7 @@ interface TxPreviewDialogProps {
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void | Promise<void>;
   isLoading?: boolean;
-  error?: Error | null;
+  error?: unknown;
   destinationOptions?: VaultWriteDestinationOptions | null;
 }
 
@@ -211,10 +212,10 @@ export function TxPreviewDialog({
           />
         )}
 
-        {error && (
-          <p className="border-t border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
-            {error.message?.slice(0, 400) ?? 'Transaction failed.'}
-          </p>
+        {error != null && (
+          <div className="border-t border-border/60 px-4 py-2">
+            <TxErrorBanner error={error} />
+          </div>
         )}
 
         <div className="flex flex-col-reverse gap-2 border-t border-slate-200 px-4 py-3 sm:flex-row sm:justify-end dark:border-slate-800">

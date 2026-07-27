@@ -2,6 +2,6 @@
 
 import { CreateMarketForm } from '@/components/morpho/CreateMarketForm';
 
-export default function CreateMarketPage() {
+export default function MarketsCreatePage() {
   return <CreateMarketForm />;
 }

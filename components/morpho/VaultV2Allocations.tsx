@@ -16,6 +16,7 @@ import {
 } from '@/lib/hooks/useVaultV2Governance';
 import { useVaultWrite } from '@/lib/hooks/useVaultWrite';
 import { TransactionButton } from '@/components/TransactionButton';
+import { TxErrorBanner } from '@/components/TxErrorBanner';
 import { TxPreviewDialog } from '@/components/morpho/TxPreviewDialog';
 import { buildAllocationRebalancePreview } from '@/lib/morpho/tx-preview';
 import type { TxPreview } from '@/lib/morpho/tx-preview';
@@ -33,7 +34,6 @@ import { ALLOCATION_SAFE_ROLE, type SafeRole } from '@/lib/safe/config';
 import { v2WriteConfigs } from '@/lib/onchain/vault-writes';
 import type { Address, Hex } from 'viem';
 import {
-  BaseError,
   getAddress,
   keccak256,
   parseUnits,
@@ -136,7 +136,9 @@ function MorphoAllocationLink({
   if (!href) {
     return <span className={className}>{children}</span>;
   }
-  const linkClass = className ?? 'font-medium text-foreground hover:text-foreground';
+  const linkClass =
+    className ??
+    'font-medium text-foreground underline-offset-2 transition-colors hover:text-blue-600 hover:underline dark:hover:text-blue-400';
   if (href.startsWith('/')) {
     return (
       <Link href={href} className={linkClass}>
@@ -164,23 +166,6 @@ function compareBigIntDesc(a: bigint, b: bigint): number {
 function compareBigIntAsc(a: bigint, b: bigint): number {
   if (a === b) return 0;
   return a < b ? -1 : 1;
-}
-
-function formatWriteError(error: unknown): string {
-  if (error instanceof BaseError) {
-    const msg = error.shortMessage || error.message;
-    if (msg.includes('0xace2a47e') || msg.toLowerCase().includes('transferreverted')) {
-      return 'Allocate failed: vault could not transfer tokens (not enough idle cash at that step). Min other markets first, then Max — or reduce the target amount.';
-    }
-    return msg;
-  }
-  if (error instanceof Error) {
-    if (error.message.includes('0xace2a47e')) {
-      return 'Allocate failed: vault could not transfer tokens (not enough idle cash at that step). Min other markets first, then Max — or reduce the target amount.';
-    }
-    return error.message;
-  }
-  return 'Transaction failed.';
 }
 
 /** Headroom under absolute and relative caps (if known). */
@@ -241,6 +226,28 @@ function formatEffAbsCap(
   return formatCapDisplayAmount(t.absoluteCapRaw, t.symbol, t.decimals);
 }
 
+/**
+ * Map a display-space edit amount back to on-chain booked allocation(id).
+ * Inputs show the same economic position as the Allocated column (incl. interest);
+ * planning deltas still use booked so accrued interest is not treated as deployable cash.
+ */
+function displayInputToBookedTarget(parsedDisplay: bigint, t: AllocTarget): bigint {
+  // Exact display match only — do not treat "same after 3dp USDC trim" as unchanged,
+  // or sub-0.001 USDC (and similar) edits become no-ops.
+  if (parsedDisplay === t.displayAssets) {
+    return t.currentAssets;
+  }
+  const next = t.currentAssets + (parsedDisplay - t.displayAssets);
+  return next < 0n ? 0n : next;
+}
+
+/** Inverse: booked planning target → display-space value for the edit input / Allocated column. */
+function bookedTargetToDisplayInput(bookedTarget: bigint, t: AllocTarget): bigint {
+  if (bookedTarget === t.currentAssets) return t.displayAssets;
+  const next = t.displayAssets + (bookedTarget - t.currentAssets);
+  return next < 0n ? 0n : next;
+}
+
 function resolveTargetAssetsFromInput(
   targetIdx: number,
   rawInput: string,
@@ -258,14 +265,15 @@ function resolveTargetAssetsFromInput(
     if (parsed.error) {
       return { assets: t.currentAssets, error: `Invalid percentage for ${t.label}` };
     }
+    // % mode is of planningTotalRaw (Σ booked). Treat as absolute booked target.
     return { assets: parsed.assets, error: null };
   }
   try {
-    const assets = parseHumanTokenInput(v, t.symbol, t.decimals);
-    if (assets < 0n) {
+    const parsedDisplay = parseHumanTokenInput(v, t.symbol, t.decimals);
+    if (parsedDisplay < 0n) {
       return { assets: t.currentAssets, error: `Negative amount for ${t.label}` };
     }
-    return { assets, error: null };
+    return { assets: displayInputToBookedTarget(parsedDisplay, t), error: null };
   } catch {
     return { assets: t.currentAssets, error: `Invalid number for ${t.label}` };
   }
@@ -674,7 +682,7 @@ export function VaultV2Allocations({
   const [rebalanceRefreshError, setRebalanceRefreshError] = useState<string | null>(null);
   const [inputMode, setInputMode] = useState<InputMode>('tokens');
   const [inputValues, setInputValues] = useState<string[]>([]);
-  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<unknown>(null);
   const [filters, setFilters] = usePersistedAllocationFilters(vaultAddress);
   /** Where unallocated remainder goes: 'auto' = implicit Idle, or a target index. */
   const [dustRecipientKey, setDustRecipientKey] = useState<DustRecipientChoice>('auto');
@@ -773,7 +781,13 @@ export function VaultV2Allocations({
 
     const caps = targetsWithCapsRef.current;
     setInputMode('tokens');
-    setInputValues(caps.map(() => ''));
+    // Prefill with full-precision display amounts (same economic position as Allocated).
+    // resolveTargetAssetsFromInput maps display → booked so unchanged rows are no-ops.
+    setInputValues(
+      caps.map((t) =>
+        formatAllocationEditInputExact(t.displayAssets, t.symbol, t.decimals, false)
+      )
+    );
     setDustRecipientKey('auto');
     setPreparedSubmit(null);
     setEditing(true);
@@ -781,8 +795,10 @@ export function VaultV2Allocations({
 
   const cancelEditing = useCallback(() => {
     setEditing(false);
+    setInputValues([]);
     setSubmitError(null);
     setRebalanceRefreshError(null);
+    setPreparedSubmit(null);
     multicallWrite.reset();
   }, [multicallWrite]);
 
@@ -833,8 +849,9 @@ export function VaultV2Allocations({
         }
         return resolvedAssets.map((raw, i) => {
           const t = targetsWithCaps[i]!;
-          if (raw === t.currentAssets) return '';
-          return formatAllocationEditInputExact(raw, t.symbol, t.decimals, false);
+          // Keep showing display-space amounts (unchanged booked → display).
+          const displaySpace = bookedTargetToDisplayInput(raw, t);
+          return formatAllocationEditInputExact(displaySpace, t.symbol, t.decimals, false);
         });
       });
       setInputMode(mode);
@@ -869,15 +886,16 @@ export function VaultV2Allocations({
           }
         }
 
-        const minTarget = t.isVaultIdle
+        const minBooked = t.isVaultIdle
           ? BigInt(0)
           : minTargetFromLiquidity(t.currentAssets, liquidity);
+        const minDisplay = bookedTargetToDisplayInput(minBooked, t);
 
         if (inputMode === 'percentage') {
-          values[targetIdx] = rawToPercentInput(minTarget, planningTotalRaw);
+          values[targetIdx] = rawToPercentInput(minBooked, planningTotalRaw);
         } else {
           values[targetIdx] = formatAllocationEditInputExact(
-            minTarget,
+            minDisplay,
             t.symbol,
             t.decimals,
             false
@@ -888,7 +906,7 @@ export function VaultV2Allocations({
         if (idleIdx >= 0 && targetIdx !== idleIdx) {
           // Freed booked amount returns to Idle (deployable basis).
           const freed =
-            t.currentAssets > minTarget ? t.currentAssets - minTarget : BigInt(0);
+            t.currentAssets > minBooked ? t.currentAssets - minBooked : BigInt(0);
           const deployableWithoutThis = computeDeployableIdle(
             targetsWithCaps.map((row) => ({
               isVaultIdle: row.isVaultIdle,
@@ -898,14 +916,15 @@ export function VaultV2Allocations({
             targetIdx
           );
           // deployableWithoutThis = idle + frees on other rows (this row excluded).
-          const idleFinal = deployableWithoutThis + freed;
+          const idleFinalBooked = deployableWithoutThis + freed;
+          const idleRow = targetsWithCaps[idleIdx]!;
+          const idleFinalDisplay = bookedTargetToDisplayInput(idleFinalBooked, idleRow);
 
           if (inputMode === 'percentage') {
-            values[idleIdx] = rawToPercentInput(idleFinal, planningTotalRaw);
+            values[idleIdx] = rawToPercentInput(idleFinalBooked, planningTotalRaw);
           } else {
-            const idleRow = targetsWithCaps[idleIdx]!;
             values[idleIdx] = formatAllocationEditInputExact(
-              idleFinal,
+              idleFinalDisplay,
               idleRow.symbol,
               idleRow.decimals,
               false
@@ -958,7 +977,7 @@ export function VaultV2Allocations({
             values[targetIdx] = rawToPercentInput(idleTarget, planningTotalRaw);
           } else {
             values[targetIdx] = formatAllocationEditInputExact(
-              idleTarget,
+              bookedTargetToDisplayInput(idleTarget, t),
               t.symbol,
               t.decimals,
               false
@@ -979,7 +998,7 @@ export function VaultV2Allocations({
           values[targetIdx] = rawToPercentInput(maxTarget, planningTotalRaw);
         } else {
           values[targetIdx] = formatAllocationEditInputExact(
-            maxTarget,
+            bookedTargetToDisplayInput(maxTarget, t),
             t.symbol,
             t.decimals,
             false
@@ -998,7 +1017,7 @@ export function VaultV2Allocations({
           } else {
             const idleRow = targetsWithCaps[idleIdx]!;
             nextValues[idleIdx] = formatAllocationEditInputExact(
-              idleTarget,
+              bookedTargetToDisplayInput(idleTarget, idleRow),
               idleRow.symbol,
               idleRow.decimals,
               false
@@ -1461,7 +1480,7 @@ export function VaultV2Allocations({
         await multicallWrite.write(v2WriteConfigs.multicall(vault, allCalls));
       }
     } catch (error) {
-      setSubmitError(formatWriteError(error));
+      setSubmitError(error);
     }
   }, [
     preparedSubmit,
@@ -1491,6 +1510,7 @@ export function VaultV2Allocations({
         setRebalancePreviewOpen(false);
         setPreparedSubmit(null);
         setEditing(false);
+        setInputValues([]);
         router.push(`/safe/${safeRole}`);
       } catch (error) {
         setQueueSafeError(
@@ -1539,7 +1559,10 @@ export function VaultV2Allocations({
     (targetIdx: number): { raw: bigint; pct: number; usd: number } => {
       const t = targetsWithCaps[targetIdx];
       if (!t) return { raw: BigInt(0), pct: 0, usd: 0 };
-      const raw = parseInputToRaw(targetIdx, inputValues[targetIdx] ?? '');
+      // parseInputToRaw returns booked targets; Allocated column stays in display-space
+      // (same economic units as view mode / the edit input).
+      const booked = parseInputToRaw(targetIdx, inputValues[targetIdx] ?? '');
+      const raw = bookedTargetToDisplayInput(booked, t);
       const pct =
         planningTotalRaw > BigInt(0)
           ? Number((raw * BigInt(10000)) / planningTotalRaw) / 100
@@ -1565,14 +1588,15 @@ export function VaultV2Allocations({
       const v = inputValues[targetIdx]?.trim() ?? '';
       if (!v) {
         return planningTotalRaw > BigInt(0)
-          ? Number((t.currentAssets * BigInt(10000)) / planningTotalRaw) / 100
+          ? Number((t.displayAssets * BigInt(10000)) / planningTotalRaw) / 100
           : 0;
       }
       if (inputMode === 'percentage') {
         const pct = parseFloat(v);
         return Number.isFinite(pct) ? pct : 0;
       }
-      const raw = parseInputToRaw(targetIdx, v);
+      const booked = parseInputToRaw(targetIdx, v);
+      const raw = bookedTargetToDisplayInput(booked, t);
       return planningTotalRaw > BigInt(0)
         ? Number((raw * BigInt(10000)) / planningTotalRaw) / 100
         : 0;
@@ -1645,7 +1669,16 @@ export function VaultV2Allocations({
     if (isDelistedTarget(t)) { showTarget.set(r.targetIdx, false); continue; }
 
     const entryVal = editing ? inputValues[r.targetIdx] ?? '' : '';
-    const isEdited = entryVal.trim() !== '';
+    const isEdited =
+      editing &&
+      entryVal.trim() !== '' &&
+      resolveTargetAssetsFromInput(
+        r.targetIdx,
+        entryVal,
+        inputMode,
+        targetsWithCaps,
+        planningTotalRaw
+      ).assets !== t.currentAssets;
     const isIdleRow = Boolean(t.isVaultIdle);
 
     let show = true;
@@ -1848,10 +1881,10 @@ export function VaultV2Allocations({
               <Input
                 type="text"
                 inputMode="decimal"
-                placeholder={formatRawAsInput(t.currentAssets, t)}
+                placeholder={formatRawAsInput(t.displayAssets, t)}
                 title={
                   t.displayAssets !== t.currentAssets
-                    ? `On-chain booked: ${formatAllocationEditInput(t.currentAssets, t.symbol, t.decimals)} ${t.symbol}. Display includes ${formatAllocationEditInput(t.displayAssets - t.currentAssets, t.symbol, t.decimals)} accrued interest (not deployable until rebalanced).`
+                    ? `Showing position incl. interest. On-chain booked: ${formatAllocationEditInput(t.currentAssets, t.symbol, t.decimals)} ${t.symbol}. Edits adjust the booked amount by the same delta (interest is not deployable until rebalanced).`
                     : undefined
                 }
                 value={inputValues[r.targetIdx] ?? ''}
@@ -1891,8 +1924,8 @@ export function VaultV2Allocations({
                 : `${formatRawTokenAmount(planningTotalRaw, vaultDecimals, vaultDisplayDecimals)} ${vaultSymbol}`}
               {editing && (
                 <span className="mt-1 block text-xs text-muted-foreground">
-                  Targets are on-chain booked amounts (empty row = current booked). Accrued interest
-                  shown in the allocation column is not deployable until rebalanced.
+                  Edit amounts match the Allocated column. Unchanged rows keep on-chain booked
+                  allocation; accrued interest is not treated as deployable cash.
                 </span>
               )}
             </CardDescription>
@@ -2028,20 +2061,18 @@ export function VaultV2Allocations({
               </div>
             )}
 
-            {submitError && (
-              <div className="flex items-start gap-2 rounded-md bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 p-3">
-                <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
-                <p className="text-xs text-red-700 dark:text-red-300">{submitError}</p>
-              </div>
+            {submitError != null && (
+              <TxErrorBanner
+                error={submitError}
+                onDismiss={() => setSubmitError(null)}
+              />
             )}
 
-            {multicallWrite.error && (
-              <div className="flex items-start gap-2 rounded-md bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 p-3">
-                <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
-                <p className="text-xs text-red-700 dark:text-red-300 break-all">
-                  {multicallWrite.error.message?.slice(0, 300)}
-                </p>
-              </div>
+            {multicallWrite.error != null && (
+              <TxErrorBanner
+                error={multicallWrite.error}
+                onDismiss={() => multicallWrite.reset()}
+              />
             )}
 
             <TransactionButton
@@ -2090,9 +2121,7 @@ export function VaultV2Allocations({
                   ? queueSafeError
                     ? new Error(queueSafeError)
                     : null
-                  : submitError
-                    ? new Error(submitError)
-                    : multicallWrite.error
+                  : submitError ?? multicallWrite.error
               }
             />
 

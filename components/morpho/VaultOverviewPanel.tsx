@@ -1,24 +1,26 @@
 'use client';
 
-import { useMemo } from 'react';
-import { KpiCard } from '@/components/KpiCard';
-import { cn } from '@/lib/utils';
+import type { ReactNode } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { formatFullUSD, formatPercentage, formatRawTokenAmount } from '@/lib/format/number';
-import {
-  getTokenDisplayDecimals,
-  resolveAssetDecimals,
-} from '@/lib/format/asset-decimals';
+import { AddressBadge } from '@/components/AddressBadge';
+import { formatFullUSD, formatPercentage } from '@/lib/format/number';
+import { formatMaxRateApr } from '@/lib/morpho/vault-v2-api';
 import type { VaultDetail } from '@/lib/hooks/useProtocolStats';
-import { VaultOverviewHistoryChart } from '@/components/morpho/VaultOverviewHistoryChart';
+import type { VaultV2GovernanceResponse } from '@/app/api/vaults/[id]/governance/route';
+import { VaultV2Roles } from '@/components/morpho/VaultV2Roles';
+import { VaultV2Adapters } from '@/components/morpho/VaultV2Adapters';
 
 interface VaultOverviewPanelProps {
   vault: VaultDetail;
   morphoUiUrl: string;
+  emergencyActionsUrl: string;
   vaultName: string;
   vaultSymbol: string;
   vaultAsset: string;
+  governance?: VaultV2GovernanceResponse | null;
+  risk?: import('@/app/api/vaults/[id]/risk/route').V2VaultRiskResponse | null;
 }
 
 function warningBadgeClass(level: string): string {
@@ -28,41 +30,26 @@ function warningBadgeClass(level: string): string {
   return 'border-emerald-500/30 text-emerald-700 dark:text-emerald-400';
 }
 
-function LiquidityBreakdownCell({
+function MetricRow({
   label,
-  usd,
-  underlying,
-  assetSymbol,
-  chainDecimals,
-  displayDecimals,
-  usdClassName,
+  description,
+  children,
 }: {
   label: string;
-  usd: number | null | undefined;
-  underlying: string | null | undefined;
-  assetSymbol: string;
-  chainDecimals: number;
-  displayDecimals: number;
-  usdClassName?: string;
+  description?: string;
+  children: ReactNode;
 }) {
-  let nativeLine: string | null = null;
-  if (underlying != null) {
-    try {
-      nativeLine = `${formatRawTokenAmount(BigInt(underlying), chainDecimals, displayDecimals)} ${assetSymbol}`;
-    } catch {
-      nativeLine = null;
-    }
-  }
-
   return (
-    <div>
-      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className={`text-sm font-semibold tabular-nums ${usdClassName ?? ''}`}>
-        {usd != null ? formatFullUSD(usd, 2) : '—'}
-      </p>
-      {nativeLine && (
-        <p className="mt-0.5 text-[11px] tabular-nums text-muted-foreground">{nativeLine}</p>
-      )}
+    <div className="flex flex-col gap-1 border-b border-border/60 py-3 last:border-0 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+      <div className="min-w-0 sm:max-w-[45%]">
+        <p className="text-sm font-medium text-foreground">{label}</p>
+        {description && (
+          <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
+        )}
+      </div>
+      <div className="text-sm font-semibold tabular-nums text-foreground sm:text-right">
+        {children}
+      </div>
     </div>
   );
 }
@@ -70,191 +57,175 @@ function LiquidityBreakdownCell({
 export function VaultOverviewPanel({
   vault,
   morphoUiUrl,
+  emergencyActionsUrl,
   vaultName,
   vaultSymbol,
   vaultAsset,
+  governance,
+  risk,
 }: VaultOverviewPanelProps) {
   const analytics = vault.analytics;
   const warnings = vault.warnings ?? [];
-  const chainDecimals = resolveAssetDecimals(vaultAsset, vault.assetDecimals);
-  const displayDecimals = getTokenDisplayDecimals(vaultAsset, chainDecimals);
-
-  const overviewKpis = useMemo(() => {
-    const items: Array<{
-      key: string;
-      title: string;
-      value: number | string | null;
-      subtitle: string;
-      format: 'usd' | 'number' | 'percentage';
-    }> = [
-      {
-        key: 'apy',
-        title: 'Net APY',
-        value: vault.apy,
-        subtitle:
-          vault.apyBase != null && vault.apy !== vault.apyBase
-            ? `Base ${formatPercentage(vault.apyBase, 2)}`
-            : 'After fees & rewards',
-        format: 'percentage',
-      },
-      {
-        key: 'depositors',
-        title: 'Depositors',
-        value: vault.depositors,
-        subtitle: 'Unique addresses',
-        format: 'number',
-      },
-      {
-        key: 'perf-fee',
-        title: 'Perf. fee',
-        value:
-          vault.parameters?.performanceFeePercent ??
-          (vault.parameters?.performanceFeeBps != null
-            ? vault.parameters.performanceFeeBps / 100
-            : null),
-        subtitle: 'Curator rate',
-        format: 'percentage',
-      },
-    ];
-
-    if (analytics?.managementFeePercent != null) {
-      items.push({
-        key: 'mgmt-fee',
-        title: 'Mgmt fee',
-        value: analytics.managementFeePercent,
-        subtitle: 'Annual management',
-        format: 'percentage',
-      });
-    }
-
-    items.push({
-      key: 'revenue',
-      title: 'Revenue',
-      value: vault.revenueAllTime,
-      subtitle: 'All time (statements)',
-      format: 'usd',
-    });
-
-    return items;
-  }, [vault, analytics?.managementFeePercent]);
-
-  const kpiGridClass = cn(
-    'grid auto-rows-fr gap-2 sm:gap-3',
-    // Narrow: one column (4×1 / 5×1)
-    'grid-cols-1',
-    // Mobile landscape / phablet: 2×2
-    'min-[440px]:grid-cols-2',
-    // Desktop: single row
-    overviewKpis.length <= 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-5'
-  );
+  const perfFee =
+    vault.parameters?.performanceFeePercent ??
+    (vault.parameters?.performanceFeeBps != null
+      ? vault.parameters.performanceFeeBps / 100
+      : null);
+  const mgmtFee = analytics?.managementFeePercent ?? null;
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardContent className="pt-4 pb-4">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0">
-              <a
-                href={morphoUiUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="text-lg font-semibold text-slate-900 hover:text-blue-600 dark:text-slate-100 dark:hover:text-blue-400 break-words"
-              >
-                {vaultName}
-              </a>
-              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                <Badge variant="outline" className="text-xs">
-                  {vaultSymbol}
-                </Badge>
-                <Badge variant="outline" className="text-xs">
-                  {vaultAsset}
-                </Badge>
-                <Badge variant="secondary" className="text-xs uppercase">
-                  V2
-                </Badge>
-              </div>
-            </div>
-            {warnings.length > 0 && (
-              <div className="flex max-w-md flex-wrap justify-end gap-1">
-                {warnings.slice(0, 4).map((w, i) => (
-                  <Badge
-                    key={`${w.type}-${i}`}
-                    variant="outline"
-                    className={`text-[10px] font-normal ${warningBadgeClass(w.level)}`}
-                  >
-                    {w.type.replace(/_/g, ' ')}
-                  </Badge>
-                ))}
-              </div>
-            )}
+    <div className="space-y-6">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <a
+            href={morphoUiUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="text-xl font-semibold text-foreground hover:text-blue-600 dark:hover:text-blue-400 break-words"
+          >
+            {vaultName}
+          </a>
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            <Badge variant="outline" className="text-xs">
+              {vaultSymbol}
+            </Badge>
+            <Badge variant="outline" className="text-xs">
+              {vaultAsset}
+            </Badge>
+            <Badge variant="secondary" className="text-xs uppercase">
+              V2
+            </Badge>
           </div>
-        </CardContent>
-      </Card>
-
-      <div className={kpiGridClass}>
-        {overviewKpis.map((kpi, index) => (
-          <KpiCard
-            key={kpi.key}
-            compact
-            className={cn(
-              'min-h-[5.25rem]',
-              // Odd count on 2-col mobile: last tile spans full width
-              overviewKpis.length % 2 === 1 &&
-                index === overviewKpis.length - 1 &&
-                'min-[440px]:max-lg:col-span-2 lg:col-span-1'
-            )}
-            title={kpi.title}
-            value={kpi.value}
-            subtitle={kpi.subtitle}
-            format={kpi.format}
-          />
-        ))}
+        </div>
+        {warnings.length > 0 && (
+          <div className="flex max-w-md flex-wrap justify-end gap-1">
+            {warnings.slice(0, 4).map((w, i) => (
+              <Badge
+                key={`${w.type}-${i}`}
+                variant="outline"
+                className={`text-[10px] font-normal ${warningBadgeClass(w.level)}`}
+              >
+                {w.type.replace(/_/g, ' ')}
+              </Badge>
+            ))}
+          </div>
+        )}
       </div>
 
-      {vault.tvl != null && (
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-base font-semibold text-foreground">Vault State</h2>
+          <p className="text-xs text-muted-foreground">
+            Metrics, fees, risk, roles, and adapters for this vault.
+          </p>
+        </div>
+
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Liquidity breakdown</CardTitle>
+            <CardTitle className="text-sm">Metrics</CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
-            <div className="grid gap-4 sm:grid-cols-3">
-              <LiquidityBreakdownCell
-                label="Total TVL"
-                usd={vault.tvl}
-                underlying={analytics?.totalAssetsUnderlying}
-                assetSymbol={vaultAsset}
-                chainDecimals={chainDecimals}
-                displayDecimals={displayDecimals}
-              />
-              <LiquidityBreakdownCell
-                label="Liquidity"
-                usd={analytics?.liquidityUsd}
-                underlying={analytics?.liquidityUnderlying}
-                assetSymbol={vaultAsset}
-                chainDecimals={chainDecimals}
-                displayDecimals={displayDecimals}
-                usdClassName="text-emerald-700 dark:text-emerald-400"
-              />
-              <LiquidityBreakdownCell
-                label="Idle (vault)"
-                usd={analytics?.idleAssetsUsd}
-                underlying={analytics?.idleAssetsUnderlying}
-                assetSymbol={vaultAsset}
-                chainDecimals={chainDecimals}
-                displayDecimals={displayDecimals}
-              />
-            </div>
-            {analytics?.deployedPercent != null && (
-              <p className="mt-3 text-[11px] text-muted-foreground">
-                ~{analytics.deployedPercent.toFixed(1)}% of TVL is deployed to strategies. Liquidity is
-                Morpho&apos;s withdrawable estimate; idle is cash held in the vault.
-              </p>
-            )}
+            <MetricRow
+              label="Total Assets"
+              description="Total value of all assets currently held in this vault"
+            >
+              {vault.tvl != null ? formatFullUSD(vault.tvl, 2) : '—'}
+            </MetricRow>
+            <MetricRow
+              label="APY"
+              description="Instant APY weighted across all allocations, including idle liquidity"
+            >
+              {vault.apy != null ? formatPercentage(vault.apy, 2) : '—'}
+            </MetricRow>
           </CardContent>
         </Card>
-      )}
 
-      <VaultOverviewHistoryChart vaultAddress={vault.address} />
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Fees</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <MetricRow
+              label="Performance Fee"
+              description="Percentage of interest earned by the vault, charged on harvest"
+            >
+              {perfFee != null ? formatPercentage(perfFee, 2) : '0%'}
+            </MetricRow>
+            <MetricRow
+              label="Performance Fee Recipient"
+              description="Wallet address that receives the performance fee payments"
+            >
+              {governance?.performanceFeeRecipient ? (
+                <AddressBadge address={governance.performanceFeeRecipient} truncate />
+              ) : (
+                '—'
+              )}
+            </MetricRow>
+            <MetricRow
+              label="Management Fee"
+              description="Annual fee charged continuously on total vault assets"
+            >
+              {mgmtFee != null ? formatPercentage(mgmtFee, 2) : '0%'}
+            </MetricRow>
+            <MetricRow
+              label="Management Fee Recipient"
+              description="Wallet address that receives the management fee payments"
+            >
+              {governance?.managementFeeRecipient ? (
+                <AddressBadge address={governance.managementFeeRecipient} truncate />
+              ) : (
+                '—'
+              )}
+            </MetricRow>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Risk Parameters</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <MetricRow
+              label="Max Rate"
+              description="Cap how fast the vault's assets grow to avoid yield spikes"
+            >
+              {formatMaxRateApr(governance?.maxRate)}
+            </MetricRow>
+          </CardContent>
+        </Card>
+
+        <VaultV2Roles vaultAddress={vault.address} preloadedData={governance} />
+
+        <VaultV2Adapters
+          vaultAddress={vault.address}
+          preloadedData={governance}
+          preloadedRisk={risk}
+          assetSymbol={vaultAsset}
+          assetDecimals={vault.assetDecimals}
+        />
+      </section>
+
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-base font-semibold text-foreground">Emergency Actions</h2>
+          <p className="text-xs text-muted-foreground">
+            Close deposits, hard/safe market removal, sentinel lockdown, and allocator
+            compromised flows on Morpho Curator.
+          </p>
+        </div>
+        <Card>
+          <CardContent className="flex flex-col gap-3 pt-6 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-muted-foreground">
+              Execute emergency actions for this vault on Morpho Curator.
+            </p>
+            <Button variant="outline" asChild>
+              <a href={emergencyActionsUrl} target="_blank" rel="noopener noreferrer">
+                Open Emergency Actions
+              </a>
+            </Button>
+          </CardContent>
+        </Card>
+      </section>
     </div>
   );
 }

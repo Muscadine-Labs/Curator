@@ -4,6 +4,125 @@ Append-only session log. Newest first. Keep entries short; link files.
 
 ---
 
+## 2026-07-27 — Pre-prod: repay inputs + decimals safety
+
+- Market manage amount fields full-width (input row, buttons below).
+- Decimals: prefer on-chain/API in `resolveAssetDecimals`; DAI known = 18
+  (was wrongly 6) so Max→parseUnits stays consistent.
+
+---
+
+## 2026-07-27 — Market positions: borrow + summary
+
+- `/markets/positions`: borrow against collateral (`executeBorrowAssets`);
+  position card under Blue market alert shows pair + Market/Morpho links,
+  LLTV, collateral, debt, supply (`MarketPositionBox`).
+
+---
+
+## 2026-07-27 — Remove middleware + Morpho path aliases
+
+- Deleted `middleware.ts` (legacy `/morpho/create-market` + `/morpho/transact`
+  redirects). Use `/markets/create`, `/vaults/transact`, `/markets/positions`.
+- Dropped unused `/vaults/:chainId/:address/*` next.config aliases.
+
+---
+
+## 2026-07-27 — Drop unused Morpho `/vaults/:chainId/:address` redirects
+
+- Removed inbound Morpho Curator path aliases from `next.config.ts` (unused;
+  catalog is `/vaults`, ops pages are `/vault/[address]/*`).
+
+---
+
+## 2026-07-27 — Vault tab order + tiny realloc + link hover
+
+- Tabs: Overview → Analytics → Allocation → Caps → Timelocks → Sentinel.
+- Allocation market links: blue underline on hover.
+- Tiny realloc: stop treating sub-display-dp edits as no-ops (USDC was
+  effectively blocked below 0.001); exact display match only for unchanged.
+
+---
+
+## 2026-07-27 — Delete legacy morpho routes + bugfixes
+
+- Removed `app/morpho/create-market` and `app/morpho/transact` pages; middleware
+  redirects bookmarks (query-aware for market tab).
+- Fixed: MarketPositionBox URL load waits for RPC; repay uses max approve + 1%
+  buffer; vault Morpho app link uses chain slug.
+
+---
+
+## 2026-07-27 — App IA: top nav + area sidebars
+
+- Topbar: Overview · Vaults · Markets · Curator · Business (`lib/nav/areas.ts`).
+- Sidebar is area-scoped (vault tree only under Vaults).
+- Routes: `/vaults`, `/vaults/transact`, `/markets/create`, `/markets/positions`.
+- Legacy `/morpho/create-market` + `/morpho/transact` redirect/compat.
+
+---
+
+## 2026-07-27 — Blue market position manager + hub polish
+
+- `/morpho/transact`: Vault | Blue market tabs — repay+withdraw collateral, supply,
+  withdraw supply (`MarketPositionBox`, `market-bootstrap` exit helpers).
+- Create-market keeps one-time dead deposit + seed; links to position manager.
+- Morpho Tools hub: same compact row style as External links; Muscadine realloc bot
+  forks under Automation bots.
+
+---
+
+## 2026-07-27 — Create-market bootstrap + sidebar
+
+- Dead deposit + optional rate seed stay on `/morpho/create-market` after create
+  (`MarketBootstrapPanel`, `lib/morpho/market-bootstrap.ts`).
+- Sidebar Curator Tools: Morpho Tools → Morpho Markets → Multisig; denser vault rows.
+- TODO Today cleared.
+
+---
+
+## 2026-07-27 — Overview Roles/Adapters density
+
+- Roles & Adapters match Metrics/Fees row cards (no nested boxes / card-table toggle).
+- Dropped fee recipient addresses from Roles (already in Fees).
+- Files: `VaultV2Roles.tsx`, `VaultV2Adapters.tsx`, `VaultOverviewPanel.tsx`.
+
+---
+
+## 2026-07-27 — Allocation edit Allocated-column jump + dead code
+
+- **Rebalance:** Allocated column / % stay in display-space while planning uses
+  booked (`bookedTargetToDisplayInput`); unchanged inputs treat format round-trip
+  (USDC 3dp) as no-op. Prefill keeps full display precision.
+- **Dust recipient:** still wired (`DustRecipientSelect` → `applyPlanningDust`;
+  auto → Idle).
+- **Dead code removed:** unused AllocationListView helpers; `maxTargetForRow`,
+  `clampPlanToFundableIdle`; `buildUnwrapWalletWethBundle`; `ORACLE_PRICE_SCALE`.
+
+---
+
+## 2026-07-27 — Dep refresh + sharp GHSA-f88m-g3jw-g9cj
+
+- Bumped in-range deps (next/react/viem/recharts/radix/tanstack/…).
+- **Held:** wagmi 2 (RainbowKit peer), ESLint 9, TypeScript 6.
+- Override `sharp>=0.35.3` (Dependabot #98 / libvips CVEs); Next still optional-deps `^0.34.5`.
+- Fixed recharts 3.10 `labelFormatter` ReactNode typing in ChartFees/Inflows/Revenue.
+
+---
+
+## 2026-07-27 — Allocation edit fix + Morpho vault routes + Safe audit
+
+- **Allocation:** Rebalance inputs show display amounts (Allocated column); planning
+  maps `booked + (input − display)`. Cancel/Safe-queue clear `inputValues`.
+  Files: `VaultV2Allocations.tsx`, CLAUDE §3 display/booked, AGENTS.
+- **Routes:** `/vault/[address]/allocation|caps|timelocks|sentinel|analytics` via
+  `VaultPageShell`; Morpho `/vaults/:chainId/:address/*` redirects in `next.config.ts`.
+- **Safe:** Curator role Safe configured; public catalog listing paused by Safe →
+  TODO Later (Custom App works). Manifest description refreshed.
+- USDC test vault + Overview/Analytics + `/morpho/transact` from prior session.
+
+---
+
 ## 2026-07-14 — Post-review fixes (create-market sticky success, Sentinel placeholder)
 
 - Create-market: set market id only on success; clear success UI when MarketParams change.

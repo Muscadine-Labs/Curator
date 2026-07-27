@@ -4,17 +4,27 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { Shield, X, FileText, LayoutGrid, Book, ChevronDown, ChevronRight, LineChart, Users, Wrench } from 'lucide-react';
+import {
+  Book,
+  FileText,
+  LayoutGrid,
+  LineChart,
+  Plus,
+  Shield,
+  Users,
+  Wrench,
+  ArrowDownUp,
+  X,
+  ChevronDown,
+  ChevronRight,
+} from 'lucide-react';
 import { getVaultCategory } from '@/lib/config/vaults';
 import { useVaultList, SIDEBAR_VAULT_LIST_FILTERS } from '@/lib/hooks/useProtocolStats';
-import { useCuratorAuth } from '@/lib/auth/CuratorAuthContext';
 import { Button } from '@/components/ui/button';
 import { SIDEBAR_NETWORKS } from '@/lib/constants';
 import type { VaultWithData } from '@/lib/hooks/useProtocolStats';
-
-const navBase = [
-  { label: 'Overview', href: '/', icon: Shield },
-];
+import { resolveCuratorNavArea, type CuratorNavArea } from '@/lib/nav/areas';
+import { cn } from '@/lib/utils';
 
 type VaultSectionType = 'prime' | 'frontier' | 'vineyard' | 'test';
 
@@ -23,10 +33,10 @@ type VaultSection = { type: VaultSectionType; label: string; vaults: VaultWithDa
 const SECTION_ORDER: VaultSectionType[] = ['prime', 'frontier', 'vineyard', 'test'];
 
 const SECTION_LABELS: Record<VaultSectionType, string> = {
-  prime: 'V2 Prime Vaults',
-  frontier: 'V2 Frontier Vaults',
-  vineyard: 'V2 Vineyard Vaults',
-  test: 'V2 Test',
+  prime: 'Prime',
+  frontier: 'Frontier',
+  vineyard: 'Vineyard',
+  test: 'Test',
 };
 
 function vaultSectionType(vault: VaultWithData): VaultSectionType {
@@ -46,14 +56,12 @@ function vaultSectionType(vault: VaultWithData): VaultSectionType {
 function getSectionsForNetwork(vaults: VaultWithData[], chainId: number): VaultSection[] {
   const byChain = vaults.filter((v) => v.chainId === chainId);
   const sections: VaultSection[] = [];
-
   for (const type of SECTION_ORDER) {
     const matched = byChain.filter((v) => vaultSectionType(v) === type);
     if (matched.length > 0) {
       sections.push({ type, label: SECTION_LABELS[type], vaults: matched });
     }
   }
-
   return sections;
 }
 
@@ -61,19 +69,57 @@ type SidebarProps = {
   onClose?: () => void;
 };
 
+function NavLink({
+  href,
+  label,
+  icon: Icon,
+  active,
+  onClick,
+}: {
+  href: string;
+  label: string;
+  icon: typeof Shield;
+  active: boolean;
+  onClick?: () => void;
+}) {
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      className={cn(
+        'flex min-h-[36px] w-full touch-manipulation items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition',
+        active
+          ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
+          : 'text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'
+      )}
+    >
+      <Icon className="h-4 w-4 shrink-0" />
+      <span className="truncate min-w-0">{label}</span>
+    </Link>
+  );
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="px-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+      {children}
+    </p>
+  );
+}
+
 export function Sidebar({ onClose }: SidebarProps) {
   const pathname = usePathname();
-  const { role } = useCuratorAuth();
+  const area = resolveCuratorNavArea(pathname);
   const { data: vaults = [], isLoading } = useVaultList(SIDEBAR_VAULT_LIST_FILTERS);
-  const [expandedNetworks, setExpandedNetworks] = useState<Set<number>>(() =>
-    new Set(SIDEBAR_NETWORKS.map((n) => n.chainId))
+  const [expandedNetworks, setExpandedNetworks] = useState<Set<number>>(
+    () => new Set(SIDEBAR_NETWORKS.map((n) => n.chainId))
   );
 
   const isActive = (href: string) =>
     pathname === href || (href !== '/' && pathname.startsWith(href));
 
   const handleLinkClick = () => {
-    if (onClose) onClose();
+    onClose?.();
   };
 
   const toggleNetwork = (chainId: number) => {
@@ -114,26 +160,75 @@ export function Sidebar({ onClose }: SidebarProps) {
         )}
       </div>
 
-      <nav className="flex-1 space-y-6 overflow-y-auto p-4 text-sm touch-manipulation">
+      <nav className="flex-1 space-y-4 overflow-y-auto p-4 text-sm touch-manipulation">
+        <AreaSidebar
+          area={area}
+          pathname={pathname}
+          isActive={isActive}
+          onLinkClick={handleLinkClick}
+          vaults={vaults}
+          isLoading={isLoading}
+          expandedNetworks={expandedNetworks}
+          toggleNetwork={toggleNetwork}
+        />
+      </nav>
+    </aside>
+  );
+}
+
+function AreaSidebar({
+  area,
+  pathname,
+  isActive,
+  onLinkClick,
+  vaults,
+  isLoading,
+  expandedNetworks,
+  toggleNetwork,
+}: {
+  area: CuratorNavArea;
+  pathname: string;
+  isActive: (href: string) => boolean;
+  onLinkClick: () => void;
+  vaults: VaultWithData[];
+  isLoading: boolean;
+  expandedNetworks: Set<number>;
+  toggleNetwork: (chainId: number) => void;
+}) {
+  if (area === 'overview') {
+    return (
+      <div className="space-y-1">
+        <SectionLabel>Overview</SectionLabel>
+        <NavLink
+          href="/"
+          label="Protocol"
+          icon={Shield}
+          active={pathname === '/'}
+          onClick={onLinkClick}
+        />
+      </div>
+    );
+  }
+
+  if (area === 'vaults') {
+    return (
+      <div className="space-y-4">
         <div className="space-y-1">
-          <p className="px-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-            Explore
-          </p>
-          {navBase.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={handleLinkClick}
-              className={`flex min-h-[44px] w-full touch-manipulation items-center gap-2 rounded-lg px-2 py-2 transition ${
-                isActive(item.href)
-                  ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
-                  : 'text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'
-              }`}
-            >
-              <item.icon className="h-4 w-4 shrink-0" />
-              {item.label}
-            </Link>
-          ))}
+          <SectionLabel>Vaults</SectionLabel>
+          <NavLink
+            href="/vaults"
+            label="All vaults"
+            icon={LayoutGrid}
+            active={pathname === '/vaults'}
+            onClick={onLinkClick}
+          />
+          <NavLink
+            href="/vaults/transact"
+            label="Transact"
+            icon={ArrowDownUp}
+            active={isActive('/vaults/transact')}
+            onClick={onLinkClick}
+          />
         </div>
 
         {SIDEBAR_NETWORKS.filter(
@@ -141,13 +236,12 @@ export function Sidebar({ onClose }: SidebarProps) {
         ).map((network) => {
           const sections = getSectionsForNetwork(vaults, network.chainId);
           const isExpanded = expandedNetworks.has(network.chainId);
-
           return (
             <div key={network.chainId} className="space-y-1">
               <button
                 type="button"
                 onClick={() => toggleNetwork(network.chainId)}
-                className="flex min-h-[44px] w-full cursor-pointer touch-manipulation items-center gap-2 rounded-lg px-2 py-2 text-left text-slate-700 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                className="flex min-h-[36px] w-full cursor-pointer touch-manipulation items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
               >
                 {isExpanded ? (
                   <ChevronDown className="h-4 w-4 shrink-0" />
@@ -157,45 +251,44 @@ export function Sidebar({ onClose }: SidebarProps) {
                 <span className="font-medium">{network.name}</span>
               </button>
               {isExpanded && (
-                <div className="ml-4 space-y-4 border-l border-slate-200 pl-2 dark:border-slate-700">
+                <div className="ml-3 space-y-2 border-l border-slate-200 pl-2 dark:border-slate-700">
                   {isLoading ? (
-                    <div className="px-2 py-2 text-slate-500 dark:text-slate-400">Loading...</div>
+                    <div className="px-2 py-1.5 text-xs text-slate-500">Loading…</div>
                   ) : (
                     sections.map((section) => (
-                      <div key={section.type} className="space-y-2">
-                        <p className="px-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                          {section.label}
-                        </p>
-                        <div className="space-y-1">
-                          {section.vaults.map((vault) => {
-                            const href = `/vault/${vault.address}`;
-                            const active = isActive(href);
-
-                            return (
-                              <Link
-                                key={vault.address}
-                                href={href}
-                                onClick={handleLinkClick}
-                                className={`flex min-h-[44px] w-full touch-manipulation items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${
-                                  active
-                                    ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
-                                    : ''
-                                }`}
+                      <div key={section.type} className="space-y-0.5">
+                        <SectionLabel>{section.label}</SectionLabel>
+                        {section.vaults.map((vault) => {
+                          const href = `/vault/${vault.address}`;
+                          const active = isActive(href);
+                          return (
+                            <Link
+                              key={vault.address}
+                              href={href}
+                              onClick={onLinkClick}
+                              className={cn(
+                                'flex min-h-[36px] w-full touch-manipulation items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition',
+                                active
+                                  ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
+                                  : 'text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'
+                              )}
+                            >
+                              <span
+                                className={cn(
+                                  'inline-flex h-4 w-4 shrink-0 items-center justify-center rounded text-[10px] font-semibold',
+                                  section.type === 'frontier'
+                                    ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-300'
+                                    : 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300'
+                                )}
                               >
-                                <span
-                                  className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
-                                    section.type === 'frontier'
-                                      ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-300'
-                                      : 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300'
-                                  }`}
-                                >
-                                  {(vault.asset ?? 'U').slice(0, 1)}
-                                </span>
-                                <span className="truncate min-w-0">{vault.name ?? 'Unknown Vault'}</span>
-                              </Link>
-                            );
-                          })}
-                        </div>
+                                {(vault.asset ?? 'U').slice(0, 1)}
+                              </span>
+                              <span className="truncate min-w-0">
+                                {vault.name ?? 'Unknown Vault'}
+                              </span>
+                            </Link>
+                          );
+                        })}
                       </div>
                     ))
                   )}
@@ -204,93 +297,85 @@ export function Sidebar({ onClose }: SidebarProps) {
             </div>
           );
         })}
+      </div>
+    );
+  }
 
-        {role === 'admin' && (
-          <div className="space-y-2">
-            <p className="px-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-              Curator Tools
-            </p>
-            <div className="space-y-1">
-              <Link
-                href="/markets"
-                onClick={handleLinkClick}
-                className={`flex min-h-[44px] w-full touch-manipulation items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${
-                  isActive('/markets') || pathname.startsWith('/market/')
-                    ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
-                    : ''
-                }`}
-              >
-                <LineChart className="h-4 w-4 shrink-0" />
-                <span className="truncate min-w-0">Morpho Markets</span>
-              </Link>
-              <Link
-                href="/safe"
-                onClick={handleLinkClick}
-                className={`flex min-h-[44px] w-full touch-manipulation items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${
-                  isActive('/safe') || pathname.startsWith('/safe/')
-                    ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
-                    : ''
-                }`}
-              >
-                <Users className="h-4 w-4 shrink-0" />
-                <span className="truncate min-w-0">Multisig Safe</span>
-              </Link>
-              <Link
-                href="/morpho"
-                onClick={handleLinkClick}
-                className={`flex min-h-[44px] w-full touch-manipulation items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${
-                  isActive('/morpho') || pathname.startsWith('/morpho/')
-                    ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
-                    : ''
-                }`}
-              >
-                <Wrench className="h-4 w-4 shrink-0" />
-                <span className="truncate min-w-0">Morpho Tools</span>
-              </Link>
-            </div>
-          </div>
-        )}
+  if (area === 'markets') {
+    return (
+      <div className="space-y-1">
+        <SectionLabel>Markets</SectionLabel>
+        <NavLink
+          href="/markets"
+          label="Browse"
+          icon={LineChart}
+          active={pathname === '/markets'}
+          onClick={onLinkClick}
+        />
+        <NavLink
+          href="/markets/create"
+          label="Create market"
+          icon={Plus}
+          active={isActive('/markets/create')}
+          onClick={onLinkClick}
+        />
+        <NavLink
+          href="/markets/positions"
+          label="Positions"
+          icon={ArrowDownUp}
+          active={isActive('/markets/positions')}
+          onClick={onLinkClick}
+        />
+      </div>
+    );
+  }
 
-        {role === 'admin' && (
-          <div className="space-y-2">
-            <p className="px-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-              Business
-            </p>
-            <div className="space-y-1">
-              <Link
-                href="/monthly-statement"
-                onClick={handleLinkClick}
-                className={`flex min-h-[44px] w-full touch-manipulation items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${
-                  isActive('/monthly-statement') ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900' : ''
-                }`}
-              >
-                <FileText className="h-4 w-4 shrink-0" />
-                <span className="truncate min-w-0">Monthly Statement</span>
-              </Link>
-              <Link
-                href="/muscadine-ledger"
-                onClick={handleLinkClick}
-                className={`flex min-h-[44px] w-full touch-manipulation items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${
-                  isActive('/muscadine-ledger') ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900' : ''
-                }`}
-              >
-                <Book className="h-4 w-4 shrink-0" />
-                <span className="truncate min-w-0">Muscadine Ledger</span>
-              </Link>
-              <Link
-                href="/muscadine-frontends"
-                onClick={handleLinkClick}
-                className={`flex min-h-[44px] w-full touch-manipulation items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${
-                  isActive('/muscadine-frontends') ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900' : ''
-                }`}
-              >
-                <LayoutGrid className="h-4 w-4 shrink-0" />
-                <span className="truncate min-w-0">Muscadine Pages</span>
-              </Link>
-            </div>
-          </div>
-        )}
-      </nav>
-    </aside>
+  if (area === 'curator') {
+    return (
+      <div className="space-y-1">
+        <SectionLabel>Curator</SectionLabel>
+        <NavLink
+          href="/morpho"
+          label="Morpho Tools"
+          icon={Wrench}
+          active={pathname === '/morpho' || pathname.startsWith('/morpho/')}
+          onClick={onLinkClick}
+        />
+        <NavLink
+          href="/safe"
+          label="Multisig Safe"
+          icon={Users}
+          active={isActive('/safe')}
+          onClick={onLinkClick}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1">
+      <SectionLabel>Business</SectionLabel>
+      <NavLink
+        href="/monthly-statement"
+        label="Monthly Statement"
+        icon={FileText}
+        active={isActive('/monthly-statement')}
+        onClick={onLinkClick}
+      />
+      <NavLink
+        href="/muscadine-ledger"
+        label="Muscadine Ledger"
+        icon={Book}
+        active={isActive('/muscadine-ledger')}
+        onClick={onLinkClick}
+      />
+      <NavLink
+        href="/muscadine-frontends"
+        label="Muscadine Pages"
+        icon={LayoutGrid}
+        active={isActive('/muscadine-frontends')}
+        onClick={onLinkClick}
+      />
+    </div>
   );
 }

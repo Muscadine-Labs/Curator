@@ -214,8 +214,11 @@ Getting those semantics wrong is the #1 source of reverts.
   sets `allocationAssets` / UI `displayAssets` to `max(Morpho position supply,
   on-chain allocation(id))` so accrued interest shows between rebalances; write
   planning uses on-chain `bookedAllocationAssets` / `currentAssets` only. Always
-  emit `bookedAllocationAssets` as a string (including `"0"`). Post-wallet
-  rebalance: await risk + governance refetch, exit edit mode, reset write hook.
+  emit `bookedAllocationAssets` as a string (including `"0"`). **Rebalance
+  inputs** show display amounts (same as Allocated column); resolve via
+  `booked + (input − display)` so unchanged rows are no-ops. Min/Max write
+  display-space values. Post-wallet rebalance: await risk + governance refetch,
+  exit edit mode, reset write hook.
 - **Idle (vault cash)** — V2 holds unallocated assets in the vault contract.
   **Deployable idle** comes from Morpho GraphQL `idleAssets` / `idleAssetsUsd`
   (via `overlay-v2-onchain-caps.ts`), **not** from `totalAssets − Σ allocation(id)`.
@@ -279,8 +282,9 @@ Query (`useVaultV2Complete` → BFF + on-chain hooks). Keep the `[address]` segm
 **dynamic**; do not add `generateStaticParams` or SSG — TVL, allocations, caps,
 and risk change continuously and hooks refetch on tab switch and post-tx.
 
-**Tab order** (includes Risk): Overview → Risk → Roles → Adapters → Caps →
-Timelocks → Allocation → Sentinel → Emergency.
+**Tab order**: Overview → Analytics → Allocation → Caps →
+Timelocks → Sentinel. Overview holds roles/adapters/emergency;
+Analytics combines risk + liquidity/history/holders/txs.
 
 1. `useVaultV2Complete` fans out to:
    - `useVault(address)` for base data
@@ -396,11 +400,12 @@ from `lib/config/vaults.ts` with:
 `?includeAll=true` includes test vaults (`excludeFromBusinessViews`); default list
 is business vaults only.
 
-**Sidebar** (`components/layout/Sidebar.tsx`) uses `useVaultList({ includeAll: true })`.
-Section order under each network (Base only today): **V2 Prime → V2 Frontier → V2
-Vineyard → V2 Test**. All sidebar vault links route to `/vault/{address}`. Legacy
-page paths (`/curator/*`, `/overview/*`, `/vault/v2/*`) and API paths
-(`/api/curator/markets`, `/api/vaults/v2/*`) **301 redirect** via `next.config.ts`.
+**Top nav + Sidebar** — Topbar areas: Overview · Vaults · Markets · Curator ·
+Business (`lib/nav/areas.ts`). Sidebar is **area-scoped**. Under **Vaults**: All
+vaults (`/vaults`), Transact (`/vaults/transact`), then network vault trees
+(Prime → Frontier → Vineyard → Test) via `useVaultList` sidebar filters. Legacy
+page/API paths still **redirect** via `next.config.ts`. Catalog is `/vaults`;
+vault ops are `/vault/[address]/*`; user deposit/withdraw is `/vaults/transact`.
 
 Ethereum appears in `SIDEBAR_NETWORKS` but has no configured vaults — expand
 **Base**, not Ethereum, to see vault links.
@@ -644,13 +649,10 @@ the treasury dashboard without restoring the tx-classification pipeline in
 
 ### 4.7 Curator Morpho Markets browser
 
-**Routes** — `/markets` (list) and `/market/blue/[id]?chainId=` (detail). Legacy
-page paths (`/curator/*`, `/overview/*`, `/vault/v2/*`) and API paths
-(`/api/curator/markets`, `/api/vaults/v2/*`) **301 redirect** in `next.config.ts`.
-Sidebar
-**Curator Tools** order: **Morpho Markets** (`LineChart`) → **Multisig Safe**
-(`Users`) → **Morpho Tools** (`Wrench`) (`components/layout/Sidebar.tsx`).
-Business section: `/monthly-statement`, `/muscadine-ledger`, `/muscadine-frontends`.
+**Routes** — `/markets` (list), `/markets/create`, `/markets/positions`, and
+`/market/blue/[id]?chainId=` (detail). Markets sidebar: Browse · Create · Positions.
+Curator top-nav area holds Morpho Tools (`/morpho`) + Multisig Safe. Business area:
+`/monthly-statement`, `/muscadine-ledger`, `/muscadine-frontends`.
 
 **BFF** — `GET /api/markets` and `GET /api/markets/[marketId]`
 (`lib/morpho/curator-markets.ts`). Networks (same as top-bar wallet): Base,
@@ -1005,6 +1007,12 @@ npm run build
 - **Pin ESLint 9** — `eslint@^9.39.4` and `@eslint/js@^9.39.4`. Do **not** upgrade to
   ESLint 10 while using `eslint-config-next`; transitive plugins (`eslint-plugin-react`,
   etc.) still break on removed ESLint 10 APIs.
+- **Pin wagmi 2** — `@rainbow-me/rainbowkit` still peers `wagmi@^2.9.0`. Do not
+  upgrade to wagmi 3 until RainbowKit supports it.
+- **Pin TypeScript 6** — `typescript-eslint` peers `typescript <6.1.0` for the
+  tooling path used by `eslint-config-next`; stay on `typescript@^6.0.x` (not 7).
+- **`sharp` override** — Next still optional-deps `sharp@^0.34.5`; override to
+  `>=0.35.3` for GHSA-f88m-g3jw-g9cj (libvips CVEs).
 - **`eslint.config.mjs`** — official Next.js flat config:
   `eslint-config-next/core-web-vitals` + `eslint-config-next/typescript` (lints all
   `.ts`/`.tsx`, not just `.js`).
@@ -1077,7 +1085,9 @@ npm run build
 | Curator markets BFF + scoring    | `lib/morpho/curator-markets.ts`, `app/api/markets/` |
 | Markets browser UI               | `components/morpho/CuratorMarketsBrowser.tsx`, `app/markets/page.tsx` |
 | Market detail + oracle panel     | `app/market/blue/[id]/page.tsx`, `components/morpho/MarketOraclePanel.tsx`, `lib/morpho/oracle-price.ts` |
-| Create Blue market (Base)        | `app/morpho/create-market/`, `components/morpho/CreateMarketForm.tsx`, `lib/morpho/blue-create-market.ts` |
+| Create Blue market               | `app/markets/create/`, `components/morpho/CreateMarketForm.tsx`, `lib/morpho/blue-create-market.ts` |
+| Vault / market transact          | `app/vaults/transact/`, `app/markets/positions/` |
+| Nav areas                        | `lib/nav/areas.ts`, `components/layout/Topbar.tsx`, `Sidebar.tsx` |
 | Oracle Portal link               | `MORPHO_ORACLE_PORTAL_URL` in `lib/constants/links.ts` → https://oracles.morpho.dev/ |
 | Brain / session loop             | `docs/brain/`, `.cursor/rules/muscadine-brain.mdc`, `.cursor/mcp.json` |
 | V2 on-chain allocation overlay   | `lib/morpho/overlay-v2-onchain-caps.ts` |
@@ -1108,8 +1118,8 @@ npm run build
 
 ## 13. Multisig Safe (Curator)
 
-`/safe` manages Muscadine role Safes on Base. Default tab: `/safe/allocator`. Sidebar **Curator Tools**: **Morpho Markets** →
-**Multisig Safe** → **Morpho Tools** (Safe is second, not first).
+`/safe` manages Muscadine role Safes on Base. Default tab: `/safe/allocator`. Under
+top-nav **Curator**: Morpho Tools → Multisig Safe.
 
 ### 13.1 Role Safes (`lib/safe/config.ts`)
 
@@ -1330,7 +1340,7 @@ High-value targets if Jest returns: `lib/morpho/cap-decrease-input.ts`,
 
 ---
 
-## 18. Create Morpho Blue Market (`/morpho/create-market`)
+## 18. Create Morpho Blue Market (`/markets/create`)
 
 UI counterpart to `morpho-markets-scripts` `deploy:markets` (`createMarket`). **No
 server private keys** — the connected wallet signs on the **selected top-bar
@@ -1352,16 +1362,17 @@ network** (Base, Ethereum, HyperEVM, Robinhood, Polygon).
    `idToMarketParams(marketId)` is already occupied.
 6. Call `Morpho.createMarket(marketParams)` via `useVaultWrite` on the selected chain.
    Success UI shows market id + Morpho app / Curator / explorer links (Curator detail
-   may lag until Morpho indexes).
+   may lag until Morpho indexes). **Stay on the page** for bootstrap steps.
+7. **Dead deposit** — approve loan token + `supply(…, shares=1e9, onBehalf=dEaD)`.
+8. **Seed rate (optional)** — supply loan assets, `supplyCollateral`, borrow ~90% of
+   seed supply (AdaptiveCurve target) using oracle price for collateral sizing.
+9. **Exit / manage later** — `/markets/positions?market=<id>`: repay by
+   shares + withdrawCollateral, add/withdraw loan supply, add collateral. Dead
+   deposit is never withdrawn from Curator UI. Vault user deposit/withdraw is
+   `/vaults/transact`.
 
 Deployments (Morpho / AdaptiveCurveIRM / chainlinkOracleFactory) live in
 `lib/morpho/create-market-deployments.ts` (sourced from morpho-ts).
-
-### Not in UI yet
-
-Dead deposit and rate seeding remain in `morpho-markets-scripts`. Creating a market
-does not allocate vault liquidity. Feed-building stays on the Oracle Portal (we
-only consume its Safe payload / resulting address).
 
 ### Key files
 
@@ -1370,14 +1381,18 @@ only consume its Safe payload / resulting address).
 - `lib/morpho/blue-create-market.ts` — `computeMarketId`, oracle lookup, ABI
 - `lib/morpho/oracle-safe-payload.ts` — parse portal Gnosis Safe JSON + receipt event
 - `lib/morpho/erc20-token-meta.ts` — on-chain ERC-20 name/symbol/decimals
+- `lib/morpho/market-bootstrap.ts` — dead deposit + rate seed + exit/manage helpers
+- `lib/nav/areas.ts` — top-nav area resolution
 - `components/morpho/CreateMarketForm.tsx` — form + validation + tx
+- `components/morpho/MarketBootstrapPanel.tsx` — post-create dead deposit / seed UI
+- `components/morpho/MarketPositionBox.tsx` — `/markets/positions`
 - `components/NetworkSwitcher.tsx` — top-bar select
-- `app/morpho/create-market/page.tsx` — route
-- Hub entry: `app/morpho/page.tsx`
+- `app/markets/create/page.tsx` — route
+- Hub entry: `app/morpho/page.tsx` (Curator top-nav area)
 
 ---
 
-_Last updated: 2026-07-14 (v1.4.0). When you change reallocation logic, allocation
+_Last updated: 2026-07-27. When you change reallocation logic, allocation
 list/filters (§5), caps/adapters display, V2 idData/Sentinel (§3.2, §4.2), tx
 preview, client fetch/cache (§4.3), app/API route paths (§2, §4.7, `next.config.ts`
 redirects), Morpho GraphQL field names (§4.4.1), Curator markets browser (§4.7),

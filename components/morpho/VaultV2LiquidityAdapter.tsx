@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { AllocationPill } from '@/components/morpho/AllocationListView';
 import { TxPreviewDialog } from '@/components/morpho/TxPreviewDialog';
+import { TxErrorBanner } from '@/components/TxErrorBanner';
 import { useVaultWrite } from '@/lib/hooks/useVaultWrite';
 import { v2WriteConfigs } from '@/lib/onchain/vault-writes';
 import { formatAllocationTableAmount } from '@/lib/format/allocation-display';
@@ -389,9 +390,11 @@ export function VaultV2LiquidityAdapter({
               </div>
 
               {submitError ? (
-                <p className="text-xs text-red-600 dark:text-red-400 break-all">
-                  {submitError.slice(0, 300)}
-                </p>
+                <TxErrorBanner
+                  error={submitError}
+                  onDismiss={() => setSubmitError(null)}
+                  className="text-xs"
+                />
               ) : null}
 
               <Button
