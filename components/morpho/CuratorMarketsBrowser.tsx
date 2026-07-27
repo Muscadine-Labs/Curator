@@ -257,7 +257,7 @@ export function CuratorMarketsBrowser() {
       </div>
 
       <p className="text-xs text-slate-500 dark:text-slate-400">
-        Network follows the top-bar network toggle ({networkName}). Sorted by{' '}
+        Network follows the Account → Network toggle ({networkName}). Sorted by{' '}
         {SORTABLE_COLUMNS.find((c) => c.key === sortKey)?.label.toLowerCase() ?? 'market size'}{' '}
         ({sortDir === 'desc' ? 'high → low' : 'low → high'}). Tap a column header to re-sort.
         Rows highlighted in blue have a Muscadine vault market cap enabled.

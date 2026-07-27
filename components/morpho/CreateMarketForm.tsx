@@ -616,7 +616,7 @@ export function CreateMarketForm() {
           <AlertTitle>Unsupported network</AlertTitle>
           <AlertDescription>
             No Morpho Blue / AdaptiveCurveIRM / oracle factory addresses are configured for{' '}
-            {networkName}. Switch the top-bar network to Base, Ethereum, HyperEVM, Robinhood, or
+            {networkName}. Switch Account → Network to Base, Ethereum, HyperEVM, Robinhood, or
             Polygon.
           </AlertDescription>
         </Alert>
@@ -627,7 +627,7 @@ export function CreateMarketForm() {
   return (
     <AppShell
       title="Create Morpho Market"
-      description={`Paste token + oracle addresses, validate on-chain, then call Morpho Blue createMarket on ${networkName}. Use the top-bar network toggle (works without a wallet).`}
+      description={`Paste token + oracle addresses, validate on-chain, then call Morpho Blue createMarket on ${networkName}. Set network under Account (works without a wallet).`}
       backHref="/markets"
       backLabel="Markets"
       actions={
@@ -672,7 +672,7 @@ export function CreateMarketForm() {
                 oracles.morpho.dev
               </a>
               . We call MorphoChainlinkOracleV2Factory on {networkName} and auto-fill the address.
-              Payload chainId must match the top-bar network ({chainId}).
+              Payload chainId must match Account → Network ({chainId}).
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -958,7 +958,7 @@ export function CreateMarketForm() {
               {networkName}. Gas only — no tokens required.
               {!isWalletOnSelectedChain ? (
                 <span className="mt-1 block text-amber-700 dark:text-amber-400">
-                  Connect a wallet on {networkName} (or flip the top-bar network) to create.
+                  Connect a wallet on {networkName} (or flip Account → Network) to create.
                 </span>
               ) : null}
             </CardDescription>

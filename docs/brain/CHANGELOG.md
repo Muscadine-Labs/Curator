@@ -4,11 +4,11 @@ Append-only session log. Newest first. Keep entries short; link files.
 
 ---
 
-## 2026-07-27 — Pre-prod: repay inputs + decimals safety
+## 2026-07-27 — Mobile shell polish
 
-- Market manage amount fields full-width (input row, buttons below).
-- Decimals: prefer on-chain/API in `resolveAssetDecimals`; DAI known = 18
-  (was wrongly 6) so Max→parseUnits stays consistent.
+- AppShell: sticky topbar, `min-w-0` content column, safe-area bottom, clamped
+  page descriptions on small screens.
+- Account sheet: z-index above sidebar, body scroll lock while open.
 
 ---
 

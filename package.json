@@ -1,6 +1,6 @@
 {
   "name": "curator",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "license": "MIT",
   "private": true,
   "engines": {
@@ -74,7 +74,7 @@
     "defu": ">=6.1.5",
     "flatted": ">=3.4.2",
     "socket.io-parser": ">=4.2.6",
-    "js-yaml": "4.2.0",
+    "js-yaml": "4.3.0",
     "anymatch": {
       "picomatch": "2.3.2"
     },
