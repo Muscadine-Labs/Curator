@@ -1,6 +1,6 @@
 # Muscadine Curator
 
-Next.js dashboard for Muscadine vaults on Morpho. Built on Base network.
+Next.js dashboard for Muscadine vaults on Morpho.
 
 ## Quick Start (macOS)
 
