@@ -5,7 +5,7 @@ Running task list for agents and humans. Work **Today** top-to-bottom unless dir
 ---
 
 ## Today
-
+- On the vault overview, it has the amount of $ a vault has, but also include the token amounts. I care more about token amounts than $ amounts.
 
 ---
 
