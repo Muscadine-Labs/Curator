@@ -115,6 +115,7 @@ const ADAPTER_LIMIT = VAULT_V2_GRAPHQL_ADAPTER_LIMIT;
 const POSITION_LIMIT = VAULT_V2_GRAPHQL_POSITION_LIMIT;
 const CAPS_LIMIT = VAULT_V2_GRAPHQL_CAPS_LIMIT;
 
+// Risk query market.state: do not add sizeUsd / totalLiquidityUsd / supplyAssets (Morpho complexity).
 const VAULT_V2_RISK_QUERY = gql`
   query VaultV2Risk($address: String!, $chainId: Int!, $adapterLimit: Int!, $positionLimit: Int!, $capLimit: Int!) {
     vault: vaultV2ByAddress(address: $address, chainId: $chainId) {

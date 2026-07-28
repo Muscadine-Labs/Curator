@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import Link from 'next/link';
 import { AppShell } from '@/components/layout/AppShell';
 import { Card, CardContent } from '@/components/ui/card';
@@ -11,7 +12,11 @@ import {
   SIDEBAR_VAULT_LIST_FILTERS,
   type VaultWithData,
 } from '@/lib/hooks/useProtocolStats';
-import { formatFullUSD, formatPercentage } from '@/lib/format/number';
+import { formatPercentage } from '@/lib/format/number';
+import {
+  resolveTokenDisplayProps,
+} from '@/lib/format/asset-decimals';
+import { TokenUsdValue } from '@/components/morpho/TokenUsdValue';
 import { SIDEBAR_NETWORKS } from '@/lib/constants';
 
 const CATEGORY_ORDER = ['prime', 'frontier', 'vineyard', 'test'] as const;
@@ -22,6 +27,26 @@ const CATEGORY_LABEL: Record<(typeof CATEGORY_ORDER)[number], string> = {
   vineyard: 'Vineyard',
   test: 'Test',
 };
+
+function VaultListTvl({ vault }: { vault: VaultWithData }) {
+  const assetSymbol = vault.asset ?? 'UNKNOWN';
+  const { chainDecimals, displayDecimals } = resolveTokenDisplayProps(
+    assetSymbol,
+    vault.assetDecimals
+  );
+  return (
+    <div className="mb-0.5">
+      <TokenUsdValue
+        underlying={vault.totalAssetsUnderlying}
+        usd={vault.tvl}
+        assetSymbol={assetSymbol}
+        chainDecimals={chainDecimals}
+        displayDecimals={displayDecimals}
+        align="right"
+      />
+    </div>
+  );
+}
 
 function categoryOf(vault: VaultWithData): (typeof CATEGORY_ORDER)[number] {
   if (
@@ -40,15 +65,19 @@ function categoryOf(vault: VaultWithData): (typeof CATEGORY_ORDER)[number] {
 export default function VaultsCatalogPage() {
   const { data: vaults = [], isLoading } = useVaultList(SIDEBAR_VAULT_LIST_FILTERS);
 
-  const byNetwork = SIDEBAR_NETWORKS.map((network) => {
-    const list = vaults.filter((v) => v.chainId === network.chainId);
-    const groups = CATEGORY_ORDER.map((type) => ({
-      type,
-      label: CATEGORY_LABEL[type],
-      vaults: list.filter((v) => categoryOf(v) === type),
-    })).filter((g) => g.vaults.length > 0);
-    return { network, groups };
-  }).filter((n) => n.groups.length > 0);
+  const byNetwork = useMemo(
+    () =>
+      SIDEBAR_NETWORKS.map((network) => {
+        const list = vaults.filter((v) => v.chainId === network.chainId);
+        const groups = CATEGORY_ORDER.map((type) => ({
+          type,
+          label: CATEGORY_LABEL[type],
+          vaults: list.filter((v) => categoryOf(v) === type),
+        })).filter((g) => g.vaults.length > 0);
+        return { network, groups };
+      }).filter((n) => n.groups.length > 0),
+    [vaults]
+  );
 
   return (
     <AppShell
@@ -106,9 +135,7 @@ export default function VaultsCatalogPage() {
                             </span>
                           </span>
                           <span className="shrink-0 text-right text-xs tabular-nums text-muted-foreground">
-                            <span className="block text-sm font-medium text-foreground">
-                              {vault.tvl != null ? formatFullUSD(vault.tvl, 2) : '—'}
-                            </span>
+                            <VaultListTvl vault={vault} />
                             {vault.apy != null ? formatPercentage(vault.apy, 2) : '—'} APY
                           </span>
                         </Link>

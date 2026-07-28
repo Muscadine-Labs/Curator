@@ -16,12 +16,8 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCuratorMarkets } from '@/lib/hooks/useCuratorMarkets';
 import type { CuratorMarketListItem } from '@/lib/morpho/curator-markets';
-import {
-  formatCompactUSD,
-  formatPercentage,
-  formatRawTokenAmount,
-} from '@/lib/format/number';
-import { getTokenDisplayDecimals } from '@/lib/format/asset-decimals';
+import { formatCompactUSD, formatPercentage } from '@/lib/format/number';
+import { formatMarketTokenAmount } from '@/components/morpho/TokenUsdValue';
 import { formatLltvPill } from '@/components/morpho/AllocationListView';
 import { curatorBlueMarketHref } from '@/lib/morpho/morpho-app-links';
 import { useCuratorNetwork } from '@/lib/network/CuratorNetworkContext';
@@ -105,23 +101,12 @@ function SortableHead({
   );
 }
 
-function formatLoanTokenAmount(
-  raw: string | null,
-  symbol: string,
-  loanDecimals: number | null
-): string | null {
-  if (raw == null || raw === '') return null;
-  const decimals = loanDecimals ?? 18;
-  const display = getTokenDisplayDecimals(symbol, decimals);
-  return `${formatRawTokenAmount(raw, decimals, display)} ${symbol}`;
-}
-
 function MetricCell({ primary, secondary }: { primary: ReactNode; secondary?: ReactNode }) {
   return (
     <div className="text-right tabular-nums">
-      <div>{primary}</div>
+      <div className="font-medium">{primary}</div>
       {secondary != null && (
-        <div className="text-xs text-slate-500 dark:text-slate-400">{secondary}</div>
+        <div className="text-xs font-normal text-muted-foreground">{secondary}</div>
       )}
     </div>
   );
@@ -307,16 +292,18 @@ export function CuratorMarketsBrowser() {
             {!loading &&
               sorted.map((market) => {
                 const muscadine = market.muscadineVaults.length > 0;
-                const sizeToken = formatLoanTokenAmount(
-                  market.supplyAssets,
-                  market.loanSymbol,
-                  market.loanDecimals
-                );
-                const liqToken = formatLoanTokenAmount(
-                  market.liquidityAssets,
-                  market.loanSymbol,
-                  market.loanDecimals
-                );
+                const sizeToken =
+                  formatMarketTokenAmount(
+                    market.supplyAssets,
+                    market.loanSymbol,
+                    market.loanDecimals
+                  ) ?? '—';
+                const liqToken =
+                  formatMarketTokenAmount(
+                    market.liquidityAssets,
+                    market.loanSymbol,
+                    market.loanDecimals
+                  ) ?? '—';
                 return (
                   <TableRow
                     key={market.marketId}
@@ -341,14 +328,22 @@ export function CuratorMarketsBrowser() {
                     <TableCell>{formatLltvPill(market.lltv) ?? '—'}</TableCell>
                     <TableCell>
                       <MetricCell
-                        primary={formatCompactUSD(market.sizeUsd ?? 0)}
-                        secondary={sizeToken ?? undefined}
+                        primary={sizeToken}
+                        secondary={
+                          market.sizeUsd != null
+                            ? formatCompactUSD(market.sizeUsd)
+                            : undefined
+                        }
                       />
                     </TableCell>
                     <TableCell>
                       <MetricCell
-                        primary={formatCompactUSD(market.totalLiquidityUsd ?? 0)}
-                        secondary={liqToken ?? undefined}
+                        primary={liqToken}
+                        secondary={
+                          market.totalLiquidityUsd != null
+                            ? formatCompactUSD(market.totalLiquidityUsd)
+                            : undefined
+                        }
                       />
                     </TableCell>
                     <TableCell className="text-right">

@@ -5,6 +5,8 @@ import { Info } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { formatAddress, formatCompactUSD, formatPercentage } from '@/lib/format/number';
+import { resolveTokenDisplayProps } from '@/lib/format/asset-decimals';
+import { TokenUsdValue } from '@/components/morpho/TokenUsdValue';
 import type { MarketRiskScores } from '@/lib/morpho/compute-blue-market-risk';
 import { isMarketIdle } from '@/lib/morpho/compute-blue-market-risk';
 import type { BlueMarketData } from '@/lib/morpho/blue-market-data';
@@ -57,6 +59,10 @@ export function MarketRiskDetailCard({
   const vaultTotalUsd = vaultTotalUsdOverride ?? market.vaultTotalAssetsUsd ?? 0;
   const marketTotalSupplyUsd =
     market.marketTotalSupplyUsd ?? market.state?.supplyAssetsUsd ?? 0;
+  const marketDisplaySizeUsd =
+    market.state?.sizeUsd ?? market.marketTotalSupplyUsd ?? market.state?.supplyAssetsUsd ?? null;
+  const marketDisplayLiquidityUsd =
+    market.state?.totalLiquidityUsd ?? market.state?.liquidityAssetsUsd ?? null;
 
   const vaultAllocationPercent =
     vaultTotalUsd > 0 ? (vaultSupplyUsd / vaultTotalUsd) * 100 : 0;
@@ -70,6 +76,8 @@ export function MarketRiskDetailCard({
   const collateralAsset = market.collateralAsset;
   const loanSymbol = loanAsset?.symbol?.toUpperCase() || '';
   const collateralSymbol = collateralAsset?.symbol?.toUpperCase() || '';
+  const { chainDecimals: loanChainDecimals, displayDecimals: loanDisplayDecimals } =
+    resolveTokenDisplayProps(loanAsset?.symbol, loanAsset?.decimals ?? 18);
 
   const isSameAsset =
     loanAsset &&
@@ -262,11 +270,30 @@ export function MarketRiskDetailCard({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 pt-2 border-t">
-            <Metric label="Total Market Size" value={formatCompactUSD(marketTotalSupplyUsd)} />
-            <Metric
-              label="Total Liquidity"
-              value={formatCompactUSD(market.state?.liquidityAssetsUsd ?? 0)}
-            />
+            <div>
+              <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">Total Market Size</p>
+              <TokenUsdValue
+                underlying={market.state?.supplyAssets ?? null}
+                usd={marketDisplaySizeUsd}
+                assetSymbol={loanAsset?.symbol ?? 'LOAN'}
+                chainDecimals={loanChainDecimals}
+                displayDecimals={loanDisplayDecimals}
+                compactUsd
+                align="left"
+              />
+            </div>
+            <div>
+              <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">Total Liquidity</p>
+              <TokenUsdValue
+                underlying={market.state?.liquidityAssets ?? null}
+                usd={marketDisplayLiquidityUsd}
+                assetSymbol={loanAsset?.symbol ?? 'LOAN'}
+                chainDecimals={loanChainDecimals}
+                displayDecimals={loanDisplayDecimals}
+                compactUsd
+                align="left"
+              />
+            </div>
             <Metric
               label="Supply APR"
               value={

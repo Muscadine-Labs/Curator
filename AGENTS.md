@@ -35,11 +35,10 @@ npm run build   # next build
   allocate/deallocate adapter `data` is `encodeMarketParamsData(market)` for Morpho
   Blue markets only. Never pass bare addresses or raw MarketParams as cap `idData`.
 - **V2 vault routes** (Morpho-style segments under `/vault/[address]/…`):
-  Overview (`/vault/[address]`) → `/analytics` → `/allocation` → `/caps` → `/timelocks` →
-  `/sentinel`. Overview mirrors Morpho Curator (metrics, fees,
-  risk params, roles, adapters, emergency link). Analytics combines risk grades
-  with liquidity breakdown, history, holders, and transactions. Pending actions
-  embed in Caps; Sentinel is the only tab with sentinel writes (decrease caps,
+  Overview (`/vault/[address]`) → `/analytics` (Risk Analytics) → `/allocation` → `/caps` → `/timelocks` →
+  `/sentinel`. Overview: metrics (token + USD), history chart, fees, roles, adapters.
+  Risk Analytics: market risk grades, holders, transactions. Emergency actions on Sentinel (bottom).
+  Pending actions embed in Caps; Sentinel is the only tab with sentinel writes (decrease caps,
   deallocate).
 - **Allocation edit amounts** — Rebalance inputs show **display** (Allocated
   column / Morpho supply). Planning maps display → booked via
@@ -99,10 +98,11 @@ npm run build   # next build
   `VaultPageShell` (`'use client'` + React Query); keep **dynamic** (no
   SSG/`generateStaticParams` for vault addresses).
 - **Curator Morpho Markets** — `/markets` (default: listed only, sort market size
-  desc) and `/market/blue/[id]`; use `sizeUsd` / `totalLiquidityUsd` for size/
-  liquidity columns (§4.7). `MarketOraclePanel` shows oracle price, spot gap,
-  feed bounds, freshness, and block-explorer link. Allocation tab market names
-  link in-app via `curatorBlueMarketHref`. Vault Risk tab uses the same helper.
+  desc) and `/market/blue/[id]`; use `sizeUsd` / `totalLiquidityUsd` for sort
+  columns; display token primary + USD secondary via `TokenUsdValue` (§4.7).
+  `MarketOraclePanel` shows oracle price, spot gap, feed bounds, freshness, and
+  block-explorer link. Allocation tab market names link in-app via
+  `curatorBlueMarketHref`. Vault Risk Analytics tab uses the same helper.
   Sidebar Curator area: Morpho Tools + Multisig Safe. Markets area: Browse /
   Create / Positions. Vaults area: All vaults + Transact + vault tree.
 - **Oracle freshness** — `resolveMarketOracleAddress` accepts `oracleAddress` or

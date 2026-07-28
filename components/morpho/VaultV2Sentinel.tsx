@@ -86,6 +86,7 @@ interface VaultV2SentinelProps {
   preloadedPending?: VaultV2PendingResponse | null;
   assetSymbol?: string | null;
   assetDecimals?: number | null;
+  emergencyActionsUrl?: string;
 }
 
 type DeallocateRow = {
@@ -163,6 +164,7 @@ export function VaultV2Sentinel({
   preloadedPending,
   assetSymbol,
   assetDecimals,
+  emergencyActionsUrl,
 }: VaultV2SentinelProps) {
   const { data: fetchedGov, isLoading: govLoading } = useVaultV2Governance(vaultAddress);
   const { data: fetchedRisk, isLoading: riskLoading } = useVaultV2Risk(vaultAddress, {
@@ -301,6 +303,29 @@ export function VaultV2Sentinel({
         sentinels={governance.sentinels}
       />
 
+      {emergencyActionsUrl ? (
+        <section className="space-y-3">
+          <div>
+            <h2 className="text-base font-semibold text-foreground">Emergency Actions</h2>
+            <p className="text-xs text-muted-foreground">
+              Close deposits, hard/safe market removal, sentinel lockdown, and allocator
+              compromised flows on Morpho Curator.
+            </p>
+          </div>
+          <Card>
+            <CardContent className="flex flex-col gap-3 pt-6 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-muted-foreground">
+                Execute emergency actions for this vault on Morpho Curator.
+              </p>
+              <Button variant="outline" asChild>
+                <a href={emergencyActionsUrl} target="_blank" rel="noopener noreferrer">
+                  Open Emergency Actions
+                </a>
+              </Button>
+            </CardContent>
+          </Card>
+        </section>
+      ) : null}
     </div>
   );
 }

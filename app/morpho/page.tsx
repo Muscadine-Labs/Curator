@@ -178,7 +178,7 @@ export default function MorphoCuratorPage() {
           <div>
             <h2 className="text-sm font-semibold text-foreground">Automation bots</h2>
             <p className="text-xs text-muted-foreground">
-              Morpho open-source bots, plus Muscadine forks of the Vault V2 reallocation bot.
+              Morpho curator bots monorepo and Muscadine Vault V2 reallocation fork.
             </p>
           </div>
           <Card className="border-border/70">

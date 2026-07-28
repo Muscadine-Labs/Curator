@@ -98,18 +98,20 @@ export function SignInSheet({ open, onClose }: SignInSheetProps) {
 
         <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <div className="flex flex-col gap-5">
-            <div className="space-y-2">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                Network
-              </p>
-              <NetworkSwitcher fullWidth />
-            </div>
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:gap-3">
+              <div className="min-w-0 space-y-2 sm:flex-1">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                  Network
+                </p>
+                <NetworkSwitcher fullWidth />
+              </div>
 
-            <div className="space-y-2">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                Wallet
-              </p>
-              <ConnectWalletButton fullWidth />
+              <div className="min-w-0 space-y-2 sm:flex-1">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                  Wallet
+                </p>
+                <ConnectWalletButton fullWidth />
+              </div>
             </div>
 
             {isAuthenticated ? (

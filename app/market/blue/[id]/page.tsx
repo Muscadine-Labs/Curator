@@ -11,45 +11,44 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { MarketRiskDetailCard } from '@/components/morpho/MarketRiskDetailCard';
 import { MarketOraclePanel } from '@/components/morpho/MarketOraclePanel';
 import { useCuratorMarketDetail } from '@/lib/hooks/useCuratorMarkets';
-import type { MarketBadDebtAmount } from '@/lib/morpho/curator-markets';
-import { BASE_CHAIN_ID, CURATOR_MARKET_NETWORKS, parseCuratorMarketChainId } from '@/lib/constants';
 import { morphoMarketHref } from '@/lib/morpho/morpho-app-links';
 import { asBlueMarketData } from '@/lib/morpho/blue-market-data';
-import {
-  formatCompactUSD,
-  formatFullUSD,
-  formatPercentage,
-  formatRawTokenAmount,
-} from '@/lib/format/number';
+import { formatPercentage } from '@/lib/format/number';
 import { formatLltvPill } from '@/components/morpho/AllocationListView';
+import { TokenUsdValue } from '@/components/morpho/TokenUsdValue';
+import { resolveTokenDisplayProps } from '@/lib/format/asset-decimals';
+import { BASE_CHAIN_ID, CURATOR_MARKET_NETWORKS, parseCuratorMarketChainId } from '@/lib/constants';
 
-function formatMorphoTokenAmount(usd: number | null, symbol: string): string {
-  if (usd == null || usd === 0) return `0 ${symbol}`;
-  const compact = new Intl.NumberFormat('en-US', {
-    notation: 'compact',
-    maximumFractionDigits: 2,
-  }).format(usd);
-  return `${compact} ${symbol}`;
-}
-
-function formatBadDebtUsd(value: MarketBadDebtAmount | null | undefined): string {
-  if (value?.usd == null) return '—';
-  return formatFullUSD(value.usd);
-}
-
-function formatBadDebtUnderlying(
-  value: MarketBadDebtAmount | null | undefined,
-  loanSymbol: string,
-  loanDecimals: number
-): string {
-  if (!value?.underlying) return '—';
-  try {
-    const raw = BigInt(value.underlying);
-    if (raw === 0n) return `0 ${loanSymbol}`;
-    return `${formatRawTokenAmount(raw, loanDecimals, 6)} ${loanSymbol}`;
-  } catch {
-    return '—';
-  }
+function MarketMetric({
+  label,
+  underlying,
+  usd,
+  assetSymbol,
+  decimals,
+  compactUsd = false,
+}: {
+  label: string;
+  underlying: string | null | undefined;
+  usd: number | null | undefined;
+  assetSymbol: string;
+  decimals: number;
+  compactUsd?: boolean;
+}) {
+  const { chainDecimals, displayDecimals } = resolveTokenDisplayProps(assetSymbol, decimals);
+  return (
+    <div>
+      <p className="text-xs text-slate-500">{label}</p>
+      <TokenUsdValue
+        underlying={underlying}
+        usd={usd}
+        assetSymbol={assetSymbol}
+        chainDecimals={chainDecimals}
+        displayDecimals={displayDecimals}
+        compactUsd={compactUsd}
+        align="left"
+      />
+    </div>
+  );
 }
 
 export default function CuratorBlueMarketPage() {
@@ -92,10 +91,15 @@ export default function CuratorBlueMarketPage() {
             ? { usd: market.realizedBadDebt.usd }
             : null,
         state: {
+          sizeUsd: market.sizeUsd,
+          totalLiquidityUsd: market.totalLiquidityUsd,
           supplyAssetsUsd: market.supplyAssetsUsd,
+          supplyAssets: market.supplyAssets,
           borrowAssetsUsd: market.borrowAssetsUsd,
+          borrowAssets: market.borrowAssets,
           collateralAssetsUsd: market.collateralAssetsUsd,
-          liquidityAssets: null,
+          collateralAssets: market.collateralAssets,
+          liquidityAssets: market.liquidityAssets,
           liquidityAssetsUsd: market.liquidityAssetsUsd,
           utilization: market.utilization,
           supplyApy: market.supplyApy,
@@ -181,32 +185,49 @@ export default function CuratorBlueMarketPage() {
                 <p className="text-xs text-slate-500">LLTV</p>
                 <p className="font-medium">{formatLltvPill(market.lltv) ?? '—'}</p>
               </div>
-              <div>
-                <p className="text-xs text-slate-500">Market size</p>
-                <p className="font-medium">{formatCompactUSD(market.sizeUsd ?? 0)}</p>
-                <p className="text-xs text-slate-500">
-                  {formatMorphoTokenAmount(market.sizeUsd, market.loanSymbol)}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-500">Liquidity</p>
-                <p className="font-medium">{formatCompactUSD(market.totalLiquidityUsd ?? 0)}</p>
-                <p className="text-xs text-slate-500">
-                  Available: {formatCompactUSD(market.liquidityAssetsUsd ?? 0)}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-500">Supply</p>
-                <p className="font-medium">{formatCompactUSD(market.supplyAssetsUsd ?? 0)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-500">Borrow</p>
-                <p className="font-medium">{formatCompactUSD(market.borrowAssetsUsd ?? 0)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-500">Collateral</p>
-                <p className="font-medium">{formatCompactUSD(market.collateralAssetsUsd ?? 0)}</p>
-              </div>
+              <MarketMetric
+                label="Market size"
+                underlying={market.supplyAssets}
+                usd={market.sizeUsd}
+                assetSymbol={market.loanSymbol}
+                decimals={market.loanDecimals ?? 18}
+              />
+              <MarketMetric
+                label="Total liquidity"
+                underlying={null}
+                usd={market.totalLiquidityUsd}
+                assetSymbol={market.loanSymbol}
+                decimals={market.loanDecimals ?? 18}
+                compactUsd
+              />
+              <MarketMetric
+                label="Available liquidity"
+                underlying={market.liquidityAssets}
+                usd={market.liquidityAssetsUsd}
+                assetSymbol={market.loanSymbol}
+                decimals={market.loanDecimals ?? 18}
+              />
+              <MarketMetric
+                label="Supply"
+                underlying={market.supplyAssets}
+                usd={market.supplyAssetsUsd}
+                assetSymbol={market.loanSymbol}
+                decimals={market.loanDecimals ?? 18}
+              />
+              <MarketMetric
+                label="Borrow"
+                underlying={market.borrowAssets}
+                usd={market.borrowAssetsUsd}
+                assetSymbol={market.loanSymbol}
+                decimals={market.loanDecimals ?? 18}
+              />
+              <MarketMetric
+                label="Collateral"
+                underlying={market.collateralAssets}
+                usd={market.collateralAssetsUsd}
+                assetSymbol={market.collateralSymbol}
+                decimals={market.collateralDecimals ?? 18}
+              />
               <div>
                 <p className="text-xs text-slate-500">Utilization</p>
                 <p className="font-medium">
@@ -249,32 +270,20 @@ export default function CuratorBlueMarketPage() {
                   {market.listed ? 'Listed' : 'Not listed'}
                 </Badge>
               </div>
-              <div>
-                <p className="text-xs text-slate-500">Realized bad debt</p>
-                <p className="font-medium tabular-nums">
-                  {formatBadDebtUsd(market.realizedBadDebt)}
-                </p>
-                <p className="text-xs text-slate-500 tabular-nums">
-                  {formatBadDebtUnderlying(
-                    market.realizedBadDebt,
-                    market.loanSymbol,
-                    market.loanDecimals ?? 18
-                  )}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-500">Unrealized bad debt</p>
-                <p className="font-medium tabular-nums">
-                  {formatBadDebtUsd(market.unrealizedBadDebt)}
-                </p>
-                <p className="text-xs text-slate-500 tabular-nums">
-                  {formatBadDebtUnderlying(
-                    market.unrealizedBadDebt,
-                    market.loanSymbol,
-                    market.loanDecimals ?? 18
-                  )}
-                </p>
-              </div>
+              <MarketMetric
+                label="Realized bad debt"
+                underlying={market.realizedBadDebt?.underlying}
+                usd={market.realizedBadDebt?.usd}
+                assetSymbol={market.loanSymbol}
+                decimals={market.loanDecimals ?? 18}
+              />
+              <MarketMetric
+                label="Unrealized bad debt"
+                underlying={market.unrealizedBadDebt?.underlying}
+                usd={market.unrealizedBadDebt?.usd}
+                assetSymbol={market.loanSymbol}
+                decimals={market.loanDecimals ?? 18}
+              />
               <div className="sm:col-span-2 lg:col-span-4">
                 <p className="text-xs text-slate-500">Market ID</p>
                 <p className="font-mono text-xs break-all text-slate-700 dark:text-slate-300">

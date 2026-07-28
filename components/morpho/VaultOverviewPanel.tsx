@@ -2,20 +2,21 @@
 
 import type { ReactNode } from 'react';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AddressBadge } from '@/components/AddressBadge';
-import { formatFullUSD, formatPercentage } from '@/lib/format/number';
+import { formatPercentage } from '@/lib/format/number';
+import { resolveTokenDisplayProps } from '@/lib/format/asset-decimals';
 import { formatMaxRateApr } from '@/lib/morpho/vault-v2-api';
 import type { VaultDetail } from '@/lib/hooks/useProtocolStats';
 import type { VaultV2GovernanceResponse } from '@/app/api/vaults/[id]/governance/route';
+import { VaultOverviewHistoryChart } from '@/components/morpho/VaultOverviewHistoryChart';
+import { TokenUsdValue } from '@/components/morpho/TokenUsdValue';
 import { VaultV2Roles } from '@/components/morpho/VaultV2Roles';
 import { VaultV2Adapters } from '@/components/morpho/VaultV2Adapters';
 
 interface VaultOverviewPanelProps {
   vault: VaultDetail;
   morphoUiUrl: string;
-  emergencyActionsUrl: string;
   vaultName: string;
   vaultSymbol: string;
   vaultAsset: string;
@@ -57,7 +58,6 @@ function MetricRow({
 export function VaultOverviewPanel({
   vault,
   morphoUiUrl,
-  emergencyActionsUrl,
   vaultName,
   vaultSymbol,
   vaultAsset,
@@ -66,6 +66,10 @@ export function VaultOverviewPanel({
 }: VaultOverviewPanelProps) {
   const analytics = vault.analytics;
   const warnings = vault.warnings ?? [];
+  const { chainDecimals, displayDecimals } = resolveTokenDisplayProps(
+    vaultAsset,
+    vault.assetDecimals
+  );
   const perfFee =
     vault.parameters?.performanceFeePercent ??
     (vault.parameters?.performanceFeeBps != null
@@ -116,7 +120,7 @@ export function VaultOverviewPanel({
         <div>
           <h2 className="text-base font-semibold text-foreground">Vault State</h2>
           <p className="text-xs text-muted-foreground">
-            Metrics, fees, risk, roles, and adapters for this vault.
+            Metrics, history, fees, roles, and adapters for this vault.
           </p>
         </div>
 
@@ -127,9 +131,39 @@ export function VaultOverviewPanel({
           <CardContent className="pt-0">
             <MetricRow
               label="Total Assets"
-              description="Total value of all assets currently held in this vault"
+              description="Total assets currently held in this vault"
             >
-              {vault.tvl != null ? formatFullUSD(vault.tvl, 2) : '—'}
+              <TokenUsdValue
+                underlying={analytics?.totalAssetsUnderlying}
+                usd={vault.tvl}
+                assetSymbol={vaultAsset}
+                chainDecimals={chainDecimals}
+                displayDecimals={displayDecimals}
+              />
+            </MetricRow>
+            <MetricRow
+              label="Liquidity"
+              description="Morpho's withdrawable estimate across allocations"
+            >
+              <TokenUsdValue
+                underlying={analytics?.liquidityUnderlying}
+                usd={analytics?.liquidityUsd}
+                assetSymbol={vaultAsset}
+                chainDecimals={chainDecimals}
+                displayDecimals={displayDecimals}
+              />
+            </MetricRow>
+            <MetricRow
+              label="Idle"
+              description="Cash held in the vault (not deployed to strategies)"
+            >
+              <TokenUsdValue
+                underlying={analytics?.idleAssetsUnderlying}
+                usd={analytics?.idleAssetsUsd}
+                assetSymbol={vaultAsset}
+                chainDecimals={chainDecimals}
+                displayDecimals={displayDecimals}
+              />
             </MetricRow>
             <MetricRow
               label="APY"
@@ -137,8 +171,18 @@ export function VaultOverviewPanel({
             >
               {vault.apy != null ? formatPercentage(vault.apy, 2) : '—'}
             </MetricRow>
+            {analytics?.deployedPercent != null && (
+              <MetricRow
+                label="Deployed"
+                description="Share of TVL currently allocated to strategies"
+              >
+                {`${analytics.deployedPercent.toFixed(1)}%`}
+              </MetricRow>
+            )}
           </CardContent>
         </Card>
+
+        <VaultOverviewHistoryChart vaultAddress={vault.address} />
 
         <Card>
           <CardHeader className="pb-2">
@@ -203,28 +247,6 @@ export function VaultOverviewPanel({
           assetSymbol={vaultAsset}
           assetDecimals={vault.assetDecimals}
         />
-      </section>
-
-      <section className="space-y-3">
-        <div>
-          <h2 className="text-base font-semibold text-foreground">Emergency Actions</h2>
-          <p className="text-xs text-muted-foreground">
-            Close deposits, hard/safe market removal, sentinel lockdown, and allocator
-            compromised flows on Morpho Curator.
-          </p>
-        </div>
-        <Card>
-          <CardContent className="flex flex-col gap-3 pt-6 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-muted-foreground">
-              Execute emergency actions for this vault on Morpho Curator.
-            </p>
-            <Button variant="outline" asChild>
-              <a href={emergencyActionsUrl} target="_blank" rel="noopener noreferrer">
-                Open Emergency Actions
-              </a>
-            </Button>
-          </CardContent>
-        </Card>
       </section>
     </div>
   );

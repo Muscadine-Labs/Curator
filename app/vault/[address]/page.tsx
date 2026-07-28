@@ -7,7 +7,6 @@ export default function VaultOverviewPage() {
   const {
     vault,
     morphoUiUrl,
-    emergencyActionsUrl,
     vaultName,
     vaultSymbol,
     vaultAsset,
@@ -19,7 +18,6 @@ export default function VaultOverviewPage() {
     <VaultOverviewPanel
       vault={vault}
       morphoUiUrl={morphoUiUrl}
-      emergencyActionsUrl={emergencyActionsUrl}
       vaultName={vaultName}
       vaultSymbol={vaultSymbol}
       vaultAsset={vaultAsset}

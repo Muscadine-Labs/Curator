@@ -282,9 +282,10 @@ Query (`useVaultV2Complete` → BFF + on-chain hooks). Keep the `[address]` segm
 **dynamic**; do not add `generateStaticParams` or SSG — TVL, allocations, caps,
 and risk change continuously and hooks refetch on tab switch and post-tx.
 
-**Tab order**: Overview → Analytics → Allocation → Caps →
-Timelocks → Sentinel. Overview holds roles/adapters/emergency;
-Analytics combines risk + liquidity/history/holders/txs.
+**Tab order**: Overview → Risk Analytics → Allocation → Caps →
+Timelocks → Sentinel. Overview holds metrics, history chart, fees, roles, and
+adapters; Risk Analytics holds market risk grades, holders, and transactions;
+Sentinel holds emergency actions at the bottom.
 
 1. `useVaultV2Complete` fans out to:
    - `useVault(address)` for base data
@@ -313,10 +314,11 @@ Analytics combines risk + liquidity/history/holders/txs.
      APY/utilization GraphQL values are **decimals**; multiply by 100 before
      `formatPercentage`.
    - **Idle** — vault cash row; no on-chain cap; no direct writes.
-7. **Risk** — `VaultRiskV2.tsx` on the **Risk** tab: vault headline score, idle
-   row, and per-market `MarketRiskDetailCard` (links to Curator market pages).
+7. **Risk Analytics** — `VaultAnalyticsPanel` on the **Risk Analytics** tab:
+   market risk grades (`VaultRiskV2`), holders, and transactions. Liquidity
+   metrics and the history chart live on **Overview**.
 8. **Sentinel** — `VaultV2Sentinel.tsx` (Morpho Curator–style; **only tab with
-   sentinel writes**). Sections:
+   sentinel writes**). **Emergency Actions** link at the bottom. Sections:
    - **Allocation Overview** — stacked bar + per-target token amounts and `%`.
    - **Vault Pending Actions** — embedded `VaultV2Pending` with **Revoke** per row
      (`allowRevoke`). Each item has a stable `rowId` (list index) so per-row tx
@@ -336,7 +338,8 @@ Analytics combines risk + liquidity/history/holders/txs.
      **Min** fills withdrawable liquidity (`minTargetFromLiquidity` — same rule
      as Allocations Min: leaves illiquid remainder). Uses booked on-chain
      allocation (not display). Token parse via `parseHumanTokenInput`.
-9. **Emergency tab** — links to Morpho Curator emergency actions:
+9. **Emergency actions** — bottom of **Sentinel** tab (not Overview). Links to
+   Morpho Curator emergency actions:
    `https://curator.morpho.org/vaults/{chainId}/{vaultAddress}/emergency-actions`
 10. Submits use `v2WriteConfigs.allocate/deallocate` wrapped in
    `v2WriteConfigs.multicall` when multiple moves are planned.
@@ -414,6 +417,9 @@ Ethereum appears in `SIDEBAR_NETWORKS` but has no configured vaults — expand
 
 **Overview** — `VaultOverviewPanel` + `GET /api/vaults/[id]` (`app/api/vaults/[id]/route.ts`).
 
+- **Metrics card** — token amount **primary**, USD **secondary** via
+  `TokenUsdValue` (`components/morpho/TokenUsdValue.tsx`): Total Assets, Liquidity,
+  Idle. Deployed % when available. History chart on Overview (not Risk Analytics).
 - **TVL** — V1: `vault.state.totalAssetsUsd`; V2: `vaultV2.totalAssetsUsd`.
 - **Liquidity (withdrawable)** — Morpho-computed amount users can actually redeem.
   - V1: `vault.liquidity { usd, underlying }` (vault root, not `state`).
@@ -438,7 +444,7 @@ Ethereum appears in `SIDEBAR_NETWORKS` but has no configured vaults — expand
 - Response flag `liquidityHistoricalAvailable` is always `false`. Do **not** synthesize
   liquidity from TVL, idle, or `realAssetsUsd`.
 - The history chart **does not offer a Liquidity metric** (removed — no indexed
-  timeseries). Spot withdrawable liquidity stays on the overview breakdown card.
+  timeseries). Spot withdrawable liquidity stays on the **Overview** metrics card.
 - History metrics (`MetricModeFilter`): **TVL** (label for tokens supplied),
   **Price per share**, **APY**.
 - **Price per share** uses `UsdTokenModeFilter`: **Tokens** = underlying per share;
@@ -495,10 +501,12 @@ V1 list query must not use removed `VaultState` APY fields (`weeklyNetApy` /
 - V2 risk API (`/api/vaults/[id]/risk`) exposes `idleAssets`, `idleAssetsUsd`,
   and per-market scores for **MorphoMarketV1Adapter** positions only.
   `MetaMorphoAdapter` GraphQL rows are **skipped** (Curator vaults do not allocate
-  through wrapped MetaMorpho vaults). **GraphQL complexity** — the risk query requests
+  **GraphQL complexity** — the risk query requests
   `oracle.data.baseFeedOne` on **positions only** (not all four feeds, not on caps);
-  cap-only markets rely on on-chain `BASE_FEED_*` fallback. Do not expand oracle
-  fragments on caps without checking Morpho complexity limits.
+  cap-only markets rely on on-chain `BASE_FEED_*` fallback. **Do not add**
+  `sizeUsd`, `totalLiquidityUsd`, or `supplyAssets` to `market.state` in
+  `app/api/vaults/[id]/risk/route.ts` — it triggers Morpho “Query is too complex”.
+  Risk UI falls back to `supplyAssetsUsd` / `liquidityAssetsUsd` for USD display.
 
 ### 4.5 Risk management scoring (V1 & V2)
 
@@ -660,15 +668,24 @@ Ethereum, HyperEVM, Robinhood, Polygon (`CURATOR_MARKET_NETWORKS`). `/markets`
 mirrors the wallet chain (no independent network `<select>`). List query uses
 `orderBy: SizeUsd` server-side; client re-sorts via column headers.
 
-**Market size / liquidity (USD + loan token):**
+**Market size / liquidity (token + USD):**
 
-| UI | Primary | Secondary |
-| -- | ------- | --------- |
-| Market size | `state.sizeUsd` | `supplyAssets` (loan token) |
-| Liquidity | `state.totalLiquidityUsd` | `liquidityAssets` (loan token) |
+Display via `TokenUsdValue` / `formatMarketTokenAmount` — **token primary**, USD
+muted secondary. Sort/rank columns still use Morpho `sizeUsd` / `totalLiquidityUsd`.
+
+| UI | Token (primary) | USD (secondary) |
+| -- | --------------- | --------------- |
+| Market size (browser + risk card) | `supplyAssets` (loan) | `sizeUsd` |
+| Liquidity (browser + risk card) | `liquidityAssets` (loan) | `totalLiquidityUsd` |
+| Market detail — total liquidity | — (USD only) | `totalLiquidityUsd` |
+| Market detail — available liquidity | `liquidityAssets` (loan) | `liquidityAssetsUsd` |
+| Supply / borrow / collateral (detail) | paired `*Assets` | paired `*AssetsUsd` |
 
 Do **not** label a USD number as a token amount. Token lines use
-`formatRawTokenAmount` + `getTokenDisplayDecimals`.
+`formatRawTokenAmount` + `getTokenDisplayDecimals` (or `formatMarketTokenAmount`).
+
+Vault share % in `MarketRiskDetailCard` still uses `supplyAssetsUsd` internally
+(not `sizeUsd`).
 
 **List defaults** — filter **Listed** only; sort **Market size** high → low.
 Muscadine rows (blue highlight) = business vault with allocatable market cap on
@@ -1068,7 +1085,7 @@ npm run build
 | Write hook                       | `lib/hooks/useVaultWrite.ts`                             |
 | V2 data hook                     | `lib/hooks/useVaultV2Complete.ts`                        |
 | V2 caps API                      | `app/api/vaults/[id]/governance/route.ts`             |
-| Vault overview + history chart   | `components/morpho/VaultOverviewPanel.tsx`, `VaultOverviewHistoryChart.tsx` |
+| Vault overview + history chart   | `components/morpho/VaultOverviewPanel.tsx`, `VaultOverviewHistoryChart.tsx`, `TokenUsdValue.tsx` |
 | Vault history BFF                | `app/api/vaults/[id]/history/route.ts`, `lib/morpho/vault-history.ts` |
 | Treasury monthly statement       | `app/api/monthly-statement-morphoql/route.ts`, `lib/morpho/compute-treasury-statement.ts`, `lib/morpho/treasury-statement.ts`, `app/monthly-statement/page.tsx` |
 | V2 cap market enrichment         | `lib/morpho/fetch-markets-by-id.ts` (`enrichMarketCapParams`, `enrichCollateralCapSymbols`) |

@@ -67,7 +67,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
           aria-label="Account"
         >
           <UserRound className="h-4 w-4 shrink-0" />
-          <span className="hidden sm:inline">Account</span>
+          <span>Account</span>
           <span
             className={cn(
               'max-w-[3.75rem] truncate text-[10px] font-normal sm:max-w-[6rem] sm:text-xs',

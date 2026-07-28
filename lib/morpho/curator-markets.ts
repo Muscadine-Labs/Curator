@@ -42,6 +42,10 @@ export type CuratorMarketListItem = {
   liquidityAssetsUsd: number | null;
   /** Raw available loan liquidity (token units as decimal string). */
   liquidityAssets: string | null;
+  /** Raw borrow assets (loan token units). */
+  borrowAssets: string | null;
+  /** Raw collateral assets (collateral token units). */
+  collateralAssets: string | null;
   /** Rolling average net supply APY (Morpho `avgNetSupplyApy`, ≈ recent net rate). */
   avgNetSupplyApy: number | null;
   netSupplyApy: number | null;
@@ -198,7 +202,9 @@ const MARKET_DETAIL_QUERY = gql`
         supplyApy
         borrowApy
         borrowAssetsUsd
+        borrowAssets
         collateralAssetsUsd
+        collateralAssets
       }
       realizedBadDebt {
         usd
@@ -277,7 +283,9 @@ type GraphMarketItem = {
     supplyApy?: number | null;
     borrowApy?: number | null;
     borrowAssetsUsd?: number | null;
+    borrowAssets?: string | number | null;
     collateralAssetsUsd?: number | null;
+    collateralAssets?: string | number | null;
   } | null;
   realizedBadDebt?: { usd?: number | null; underlying?: string | number | null } | null;
   badDebt?: { usd?: number | null; underlying?: string | number | null } | null;
@@ -355,6 +363,13 @@ function parseBadDebtAmount(
   };
 }
 
+function toUnderlyingString(
+  value: string | number | null | undefined
+): string | null {
+  if (value == null || value === '') return null;
+  return String(value);
+}
+
 function graphMarketToListItem(
   item: GraphMarketItem,
   chainId: number,
@@ -377,17 +392,13 @@ function graphMarketToListItem(
     collateralAddress: item.collateralAsset?.address ?? null,
     sizeUsd: item.state?.sizeUsd ?? null,
     supplyAssetsUsd: item.state?.supplyAssetsUsd ?? null,
-    supplyAssets:
-      item.state?.supplyAssets != null && item.state.supplyAssets !== ''
-        ? String(item.state.supplyAssets)
-        : null,
+    supplyAssets: toUnderlyingString(item.state?.supplyAssets),
     loanDecimals: item.loanAsset?.decimals ?? null,
     totalLiquidityUsd: item.state?.totalLiquidityUsd ?? null,
     liquidityAssetsUsd: item.state?.liquidityAssetsUsd ?? null,
-    liquidityAssets:
-      item.state?.liquidityAssets != null && item.state.liquidityAssets !== ''
-        ? String(item.state.liquidityAssets)
-        : null,
+    liquidityAssets: toUnderlyingString(item.state?.liquidityAssets),
+    borrowAssets: toUnderlyingString(item.state?.borrowAssets),
+    collateralAssets: toUnderlyingString(item.state?.collateralAssets),
     avgNetSupplyApy: item.state?.avgNetSupplyApy ?? null,
     netSupplyApy: item.state?.netSupplyApy ?? null,
     utilization: item.state?.utilization ?? null,
@@ -451,10 +462,15 @@ export async function fetchCuratorMarketDetail(
         : null,
     state: item.state
       ? {
+          sizeUsd: item.state.sizeUsd ?? null,
           supplyAssetsUsd: item.state.supplyAssetsUsd ?? null,
+          supplyAssets: toUnderlyingString(item.state.supplyAssets),
           borrowAssetsUsd: item.state.borrowAssetsUsd ?? null,
+          borrowAssets: toUnderlyingString(item.state.borrowAssets),
           collateralAssetsUsd: item.state.collateralAssetsUsd ?? null,
-          liquidityAssets: null,
+          collateralAssets: toUnderlyingString(item.state.collateralAssets),
+          totalLiquidityUsd: item.state.totalLiquidityUsd ?? null,
+          liquidityAssets: toUnderlyingString(item.state.liquidityAssets),
           liquidityAssetsUsd: item.state.liquidityAssetsUsd ?? null,
           utilization: item.state.utilization ?? null,
           supplyApy: item.state.supplyApy ?? null,

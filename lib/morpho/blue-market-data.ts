@@ -48,9 +48,16 @@ export type BlueMarketData = {
     usd: number | null;
   } | null;
   state: {
+    /** Morpho `sizeUsd` — total market size (sort/ranking column). */
+    sizeUsd?: number | null;
     supplyAssetsUsd: number | null;
+    supplyAssets?: string | null;
     borrowAssetsUsd: number | null;
+    borrowAssets?: string | null;
     collateralAssetsUsd: number | null;
+    collateralAssets?: string | null;
+    /** Morpho `totalLiquidityUsd` — total market liquidity (sort/ranking column). */
+    totalLiquidityUsd?: number | null;
     liquidityAssets: string | null;
     liquidityAssetsUsd: number | null;
     utilization: number | null;

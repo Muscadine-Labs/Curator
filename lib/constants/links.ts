@@ -68,28 +68,17 @@ export const MORPHO_ORACLE_PORTAL_URL = 'https://oracles.morpho.dev/';
 
 export const MORPHO_AUTOMATION_BOTS: readonly MorphoAutomationBot[] = [
   {
-    title: 'Morpho Liquidation Bot',
-    description: 'Easily configurable liquidation bot for Morpho Blue.',
-    body: 'Monitors and executes liquidations on Morpho Blue markets, helping maintain protocol health and providing liquidation opportunities.',
-    href: 'https://github.com/morpho-org/morpho-blue-liquidation-bot',
-  },
-  {
-    title: 'Morpho Vault V2 Reallocation Bot',
-    description: 'Reallocation bot for Morpho Vault V2 protocol.',
-    body: 'Handles reallocation for Morpho Vault V2, managing asset distribution across markets to optimize capital efficiency and maintain target allocations.',
-    href: 'https://github.com/morpho-org/vault-v2-reallocation-bot',
+    title: 'Morpho Bots',
+    description:
+      'Morpho curator bots monorepo — Blue liquidation, Midnight bots, and shared bot-kit runtime.',
+    body: 'Unified bun workspaces monorepo for Morpho off-chain curator bots: blue-liquidation, midnight-liquidation, kill-switch, and shared packages (@repo/bot-kit, @repo/swaps, @repo/contracts).',
+    href: 'https://github.com/morpho-org/morpho-bots',
   },
   {
     title: 'Muscadine Vault V2 Reallocation Bot',
     description:
       'Muscadine fork of Morpho’s Vault V2 reallocation bot — Docker / config-driven.',
-    body: 'Muscadine-Labs fork of morpho-org/vault-v2-reallocation-bot with runtime CONFIG_PATH support for Docker and StartOS.',
+    body: 'Muscadine-Labs fork of morpho-org/vault-v2-reallocation-bot with runtime CONFIG_PATH support for Docker.',
     href: 'https://github.com/Muscadine-Labs/vault-v2-reallocation-bot',
-  },
-  {
-    title: 'Muscadine Vault V2 Reallocation Bot (StartOS)',
-    description: 'StartOS package for the Muscadine Vault V2 reallocation bot.',
-    body: 'StartOS packaging for Muscadine’s Morpho Vault V2 reallocation bot fork.',
-    href: 'https://github.com/Muscadine-Labs/vault-v2-reallocation-bot-startos',
   },
 ];

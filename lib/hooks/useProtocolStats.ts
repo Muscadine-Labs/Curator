@@ -42,6 +42,8 @@ export interface VaultWithData {
   version?: 'v2';
   listCategory?: 'prime' | 'vineyard' | 'frontier' | 'test' | null;
   tvl: number | null;
+  /** Raw total assets in vault asset units (Morpho `totalAssets`). */
+  totalAssetsUnderlying?: string | null;
   apy: number | null;
   depositors: number;
   revenueAllTime: number | null;

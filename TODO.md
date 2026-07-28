@@ -5,7 +5,6 @@ Running task list for agents and humans. Work **Today** top-to-bottom unless dir
 ---
 
 ## Today
-- On the vault overview, it has the amount of $ a vault has, but also include the token amounts. I care more about token amounts than $ amounts.
 
 ---
 
@@ -16,3 +15,5 @@ Running task list for agents and humans. Work **Today** top-to-bottom unless dir
 ---
 
 ## Done
+
+- [x] Vault + markets: token amount primary, USD secondary for dollar metrics (2026-07-28).

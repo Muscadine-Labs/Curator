@@ -36,7 +36,7 @@ const CATEGORY_BADGE: Record<string, string> = {
 /** Morpho-style vault segments (path under `/vault/[address]/…`). */
 export const VAULT_NAV_SEGMENTS = [
   { segment: '', label: 'Overview', refreshOnEnter: true },
-  { segment: 'analytics', label: 'Analytics', refreshOnEnter: false },
+  { segment: 'analytics', label: 'Risk Analytics', refreshOnEnter: false },
   { segment: 'allocation', label: 'Allocation', refreshOnEnter: true },
   { segment: 'caps', label: 'Caps', refreshOnEnter: true },
   { segment: 'timelocks', label: 'Timelocks', refreshOnEnter: false },

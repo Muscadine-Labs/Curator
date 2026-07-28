@@ -70,6 +70,7 @@ export async function GET(request: Request) {
               listed
               asset { address symbol decimals }
               performanceFee
+              totalAssets
               totalAssetsUsd
               avgNetApy
               positions(first: ${GRAPHQL_FIRST_LIMIT}) {
@@ -78,7 +79,7 @@ export async function GET(request: Request) {
             }
           }
         `;
-        const result = await morphoGraphQLClient.request<{ vaultV2ByAddress?: { address: string; name: string; symbol?: string; listed?: boolean; asset?: { address?: string; symbol?: string; decimals?: number }; performanceFee?: number; totalAssetsUsd?: number; apy?: number; avgNetApy?: number; positions?: { items?: Array<{ user?: { address?: string } | null } | null> | null } | null } | null }>(v2Query, { address, chainId: BASE_CHAIN_ID });
+        const result = await morphoGraphQLClient.request<{ vaultV2ByAddress?: { address: string; name: string; symbol?: string; listed?: boolean; asset?: { address?: string; symbol?: string; decimals?: number }; performanceFee?: number; totalAssets?: string | number | null; totalAssetsUsd?: number; apy?: number; avgNetApy?: number; positions?: { items?: Array<{ user?: { address?: string } | null } | null> | null } | null } | null }>(v2Query, { address, chainId: BASE_CHAIN_ID });
         
         // graphql-request returns data directly: { vaultV2ByAddress: { ... } }
         // Access the property directly - it will be null if vault doesn't exist, or an object if it does
@@ -160,6 +161,7 @@ export async function GET(request: Request) {
           name: v.name ?? 'Unknown Vault',
           symbol: v.symbol ?? v.asset?.symbol ?? 'UNKNOWN',
           asset: v.asset?.symbol ?? 'UNKNOWN',
+          assetDecimals: v.asset?.decimals ?? null,
           chainId,
           scanUrl: `${getScanUrlForChain(chainId)}/address/${v.address}`,
           performanceFeeBps:
@@ -168,6 +170,10 @@ export async function GET(request: Request) {
           riskTier: 'medium' as const,
           createdAt: new Date().toISOString(),
           tvl: v.totalAssetsUsd ?? null,
+          totalAssetsUnderlying:
+            v.totalAssets != null && v.totalAssets !== ''
+              ? String(v.totalAssets)
+              : null,
           apy: v.avgNetApy != null ? v.avgNetApy * 100 :
                v.apy != null ? v.apy * 100 : null,
           depositors: depositorCounts[v.address.toLowerCase()] ?? 0,

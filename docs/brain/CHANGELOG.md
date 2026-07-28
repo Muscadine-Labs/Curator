@@ -4,6 +4,53 @@ Append-only session log. Newest first. Keep entries short; link files.
 
 ---
 
+## 2026-07-28 — Morpho hub: automation bots list
+
+- `/morpho` Automation bots: morpho-bots monorepo first, Muscadine realloc fork second;
+  removed standalone liquidation and Morpho realloc bot links.
+
+## 2026-07-28 — Morpho hub: remove StartOS bot link
+
+- `/morpho` Automation bots: removed Muscadine Vault V2 Reallocation Bot (StartOS) entry;
+  Muscadine Docker fork link remains.
+
+---
+
+## 2026-07-28 — v1.5.2: token-primary vault + markets display
+
+- Release **1.5.2**: vault overview + markets show token amounts primary, USD secondary.
+- Vault tabs: liquidity/history on Overview; Risk Analytics tab; emergency actions on Sentinel.
+- Vault catalog (`/vaults`): TVL rows use `TokenUsdValue` + GraphQL `totalAssets`.
+- Risk API: reverted extra market `state` fields that exceeded Morpho query complexity.
+- Shared `TokenUsdValue` component; Morpho `sizeUsd` / `totalLiquidityUsd` for display columns.
+
+---
+
+## 2026-07-28 — Markets/vault display polish
+
+- Aligned `MarketRiskDetailCard` USD fields with Morpho columns (`sizeUsd`,
+  `totalLiquidityUsd`); vault share % still uses `supplyAssetsUsd`.
+- Market detail: split total liquidity (USD) vs available liquidity (token + USD).
+- `TokenUsdValue`: USD-only primary when no underlying; no fake `$0.00`.
+- Docs: §4.2 vault tabs, §4.4 overview metrics, §4.7 token-primary table.
+
+---
+
+## 2026-07-28 — Markets token amounts
+
+- Markets browser + Blue market detail: token amount primary, USD muted secondary
+  (`CuratorMarketsBrowser`, `app/market/blue/[id]/page.tsx`, `MarketRiskDetailCard`).
+- GraphQL: `supplyAssets`, `borrowAssets`, `collateralAssets`, `liquidityAssets` on list + detail.
+
+---
+
+## 2026-07-28 — Vault overview token amounts
+
+- Overview Metrics (Total Assets / Liquidity / Idle): token amount primary,
+  USD muted secondary (`VaultOverviewPanel`).
+
+---
+
 ## 2026-07-27 — Mobile shell polish
 
 - AppShell: sticky topbar, `min-w-0` content column, safe-area bottom, clamped

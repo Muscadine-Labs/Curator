@@ -56,3 +56,15 @@ export function getTokenDisplayDecimals(
   if (known != null) return Math.min(known, 6);
   return Math.min(Math.max(chainDecimals, 0), 6);
 }
+
+/** Chain + UI display decimals for token formatting (`TokenUsdValue`, tables). */
+export function resolveTokenDisplayProps(
+  symbol: string | null | undefined,
+  apiDecimals?: number | null
+): { chainDecimals: number; displayDecimals: number } {
+  const chainDecimals = resolveAssetDecimals(symbol, apiDecimals ?? undefined);
+  return {
+    chainDecimals,
+    displayDecimals: getTokenDisplayDecimals(symbol, chainDecimals),
+  };
+}
