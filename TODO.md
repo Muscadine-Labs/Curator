@@ -11,7 +11,7 @@ Running task list for agents and humans. Work **Today** top-to-bottom unless dir
 ## Later
 
 - [ ] Email alerts when vault/market issues arise.
-- [ ] Upgrade risk scoring (Liquidation Headroom, Utilization, Coverage Ratio, Oracle Freshness) — review params for V1/V2; Utilization + oracle freshness required.
+- [ ] Upgrade risk scoring (Liquidation Headroom, Utilization, Coverage Ratio, Oracle Freshness) — review params for V1/V2; Utilization + oracle freshness required. Look at top documentations like https://docs.kpk.io/vaults/
 ---
 
 ## Done
