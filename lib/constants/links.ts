@@ -75,10 +75,10 @@ export const MORPHO_AUTOMATION_BOTS: readonly MorphoAutomationBot[] = [
     href: 'https://github.com/morpho-org/morpho-bots',
   },
   {
-    title: 'Muscadine Vault V2 Reallocation Bot',
+    title: 'Morpho Vault V2 Reallocation Bot',
     description:
-      'Muscadine fork of Morpho’s Vault V2 reallocation bot — Docker / config-driven.',
-    body: 'Muscadine-Labs fork of morpho-org/vault-v2-reallocation-bot with runtime CONFIG_PATH support for Docker.',
-    href: 'https://github.com/Muscadine-Labs/vault-v2-reallocation-bot',
+      'Morpho’s Vault V2 reallocation bot.',
+    body: 'Morpho-org/vault-v2-reallocation-bot.',
+    href: 'https://github.com/morpho-org/vault-v2-reallocation-bot',
   },
 ];
