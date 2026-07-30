@@ -13,6 +13,8 @@ import { VaultOverviewHistoryChart } from '@/components/morpho/VaultOverviewHist
 import { TokenUsdValue } from '@/components/morpho/TokenUsdValue';
 import { VaultV2Roles } from '@/components/morpho/VaultV2Roles';
 import { VaultV2Adapters } from '@/components/morpho/VaultV2Adapters';
+import { VaultHolders } from '@/components/morpho/VaultHolders';
+import { VaultTransactions } from '@/components/morpho/VaultTransactions';
 
 interface VaultOverviewPanelProps {
   vault: VaultDetail;
@@ -120,7 +122,7 @@ export function VaultOverviewPanel({
         <div>
           <h2 className="text-base font-semibold text-foreground">Vault State</h2>
           <p className="text-xs text-muted-foreground">
-            Metrics, history, fees, roles, and adapters for this vault.
+            Metrics, history, holders, recent activity, fees, roles, and adapters.
           </p>
         </div>
 
@@ -182,7 +184,31 @@ export function VaultOverviewPanel({
           </CardContent>
         </Card>
 
-        <VaultOverviewHistoryChart vaultAddress={vault.address} />
+        <VaultHolders
+          vaultAddress={vault.address}
+          chainId={vault.chainId}
+          assetDecimals={vault.assetDecimals}
+          assetSymbol={vaultAsset}
+          pageSize={10}
+          collapsible
+          defaultOpen={false}
+        />
+
+        <VaultTransactions
+          vaultAddress={vault.address}
+          chainId={vault.chainId}
+          assetDecimals={vault.assetDecimals}
+          assetSymbol={vaultAsset}
+          pageSize={10}
+          collapsible
+          defaultOpen={false}
+        />
+
+        <VaultOverviewHistoryChart
+          vaultAddress={vault.address}
+          collapsible
+          defaultOpen={false}
+        />
 
         <Card>
           <CardHeader className="pb-2">

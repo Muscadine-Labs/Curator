@@ -39,14 +39,17 @@ async function fetchVaultHistory(vaultAddress: string): Promise<VaultHistoryResp
   return normalizeVaultHistoryResponse(json);
 }
 
-export function useVaultHistory(vaultAddress: string | null | undefined) {
+export function useVaultHistory(
+  vaultAddress: string | null | undefined,
+  options?: { enabled?: boolean }
+) {
   return useQuery({
     queryKey: ['vault-history', vaultAddress, 'v2-share-price'],
     queryFn: () => {
       if (!vaultAddress) throw new Error('Vault address is required');
       return fetchVaultHistory(vaultAddress);
     },
-    enabled: Boolean(vaultAddress),
+    enabled: Boolean(vaultAddress) && (options?.enabled ?? true),
     ...INDEXED_VAULT_QUERY_OPTIONS,
   });
 }

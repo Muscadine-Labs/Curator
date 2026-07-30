@@ -4,6 +4,19 @@ Append-only session log. Newest first. Keep entries short; link files.
 
 ---
 
+## 2026-07-30 — Overview: collapsible holders / txs / history
+
+- Moved holders + recent txs from Risk Analytics onto Overview Vault State.
+- Order under Vault State: Holders → Recent Transactions → History (all
+  collapsible, default closed). Holders/txs show 10 per page with bottom
+  arrows; History filters visible immediately on expand.
+- Risk Analytics is market risk grades only.
+
+## 2026-07-30 — Morpho hub: three automation bots
+
+- `/morpho` Automation bots: Muscadine vault bots, morpho-bots, vault-v2-reallocation-bot
+  (`lib/constants/links.ts`).
+
 ## 2026-07-28 — Morpho hub: automation bots list
 
 - `/morpho` Automation bots: morpho-bots monorepo first, Muscadine realloc fork second;

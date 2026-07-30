@@ -23,14 +23,18 @@ async function fetchVaultTransactions(
   return res.json();
 }
 
-export function useVaultTransactions(vaultAddress: string | null | undefined, first = 100) {
+export function useVaultTransactions(
+  vaultAddress: string | null | undefined,
+  first = 100,
+  options?: { enabled?: boolean }
+) {
   return useQuery({
     queryKey: ['vault-transactions', vaultAddress, first],
     queryFn: () => {
       if (!vaultAddress) throw new Error('Vault address is required');
       return fetchVaultTransactions(vaultAddress, first);
     },
-    enabled: Boolean(vaultAddress),
+    enabled: Boolean(vaultAddress) && (options?.enabled ?? true),
     ...INDEXED_VAULT_QUERY_OPTIONS,
   });
 }

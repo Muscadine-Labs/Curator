@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { Users, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { CollapsibleCard } from '@/components/ui/collapsible-card';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Table,
@@ -37,6 +38,9 @@ interface VaultHoldersProps {
    */
   assetDecimals?: number | null;
   assetSymbol?: string | null;
+  /** Collapse behind a chevron header (default closed). */
+  collapsible?: boolean;
+  defaultOpen?: boolean;
 }
 
 export function VaultHolders({
@@ -46,8 +50,14 @@ export function VaultHolders({
   pageSize = 10,
   assetDecimals,
   assetSymbol,
+  collapsible = false,
+  defaultOpen = false,
 }: VaultHoldersProps) {
-  const { data, isLoading, error } = useVaultHolders(vaultAddress, limit);
+  const [open, setOpen] = useState(defaultOpen);
+  const fetchEnabled = !collapsible || open;
+  const { data, isLoading, error } = useVaultHolders(vaultAddress, limit, {
+    enabled: fetchEnabled,
+  });
   const scanUrl = getScanUrlForChain(chainId);
 
   const holders = useMemo(() => data?.holders ?? [], [data?.holders]);
@@ -68,6 +78,138 @@ export function VaultHolders({
   const rangeStart = holders.length === 0 ? 0 : safePage * pageSize + 1;
   const rangeEnd = Math.min(holders.length, (safePage + 1) * pageSize);
 
+  const titleMeta = (
+    <Badge variant="secondary" className="text-xs font-normal">
+      {!fetchEnabled
+        ? '10 / page'
+        : isLoading
+          ? '…'
+          : `${formatNumber(totalHolders)} total`}
+    </Badge>
+  );
+
+  const body = !fetchEnabled ? null : isLoading ? (
+    <div className="space-y-2">
+      <Skeleton className="h-10 w-full" />
+      <Skeleton className="h-10 w-full" />
+      <Skeleton className="h-10 w-full" />
+    </div>
+  ) : error ? (
+    <p className="text-sm text-red-600 dark:text-red-400">
+      Failed to load holders: {error instanceof Error ? error.message : 'Unknown error'}
+    </p>
+  ) : pagedHolders.length === 0 ? (
+    <p className="text-sm text-muted-foreground">No holders yet.</p>
+  ) : (
+    <>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-12">#</TableHead>
+            <TableHead>Address</TableHead>
+            <TableHead className="text-right">
+              Assets{symbol ? ` (${symbol})` : ''}
+            </TableHead>
+            <TableHead className="text-right">USD</TableHead>
+            <TableHead className="w-10" />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {pagedHolders.map((h, i) => {
+            const rank = safePage * pageSize + i + 1;
+            return (
+              <TableRow key={h.address}>
+                <TableCell className="text-xs text-muted-foreground">{rank}</TableCell>
+                <TableCell>
+                  <Link
+                    href={`${scanUrl}/address/${h.address}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-mono text-xs text-blue-600 hover:underline dark:text-blue-400"
+                  >
+                    {formatAddress(h.address, 8, 6)}
+                  </Link>
+                </TableCell>
+                <TableCell className="text-right font-mono text-xs">
+                  {h.assets
+                    ? formatRawTokenAmount(h.assets, decimals, displayDecimals)
+                    : '—'}
+                </TableCell>
+                <TableCell className="text-right font-mono text-xs">
+                  {h.assetsUsd != null ? formatFullUSD(h.assetsUsd) : '—'}
+                </TableCell>
+                <TableCell>
+                  <a
+                    href={`${scanUrl}/address/${h.address}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+                    aria-label="View on explorer"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+
+      {(holders.length > pageSize || totalPages > 1) && (
+        <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+          <span>
+            Showing {rangeStart}–{rangeEnd} of {holders.length}
+          </span>
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={safePage === 0}
+              aria-label="Previous page"
+              className="h-7 w-7 p-0"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </Button>
+            <span className="tabular-nums">
+              {safePage + 1} / {totalPages}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+              disabled={safePage >= totalPages - 1}
+              aria-label="Next page"
+              className="h-7 w-7 p-0"
+            >
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+
+  if (collapsible) {
+    return (
+      <CollapsibleCard
+        title={
+          <>
+            <Users className="h-4 w-4" />
+            Holders
+          </>
+        }
+        titleMeta={titleMeta}
+        defaultOpen={defaultOpen}
+        onOpenChange={setOpen}
+      >
+        {body}
+      </CollapsibleCard>
+    );
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -76,118 +218,10 @@ export function VaultHolders({
             <Users className="h-5 w-5" />
             Holders
           </CardTitle>
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary" className="text-xs">
-              {isLoading ? '…' : `${formatNumber(totalHolders)} total`}
-            </Badge>
-          </div>
+          <div className="flex items-center gap-2">{titleMeta}</div>
         </div>
       </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <div className="space-y-2">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-          </div>
-        ) : error ? (
-          <p className="text-sm text-red-600 dark:text-red-400">
-            Failed to load holders: {error instanceof Error ? error.message : 'Unknown error'}
-          </p>
-        ) : pagedHolders.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No holders yet.</p>
-        ) : (
-          <>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12">#</TableHead>
-                  <TableHead>Address</TableHead>
-                  <TableHead className="text-right">
-                    Assets{symbol ? ` (${symbol})` : ''}
-                  </TableHead>
-                  <TableHead className="text-right">USD</TableHead>
-                  <TableHead className="w-10" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {pagedHolders.map((h, i) => {
-                  const rank = safePage * pageSize + i + 1;
-                  return (
-                    <TableRow key={h.address}>
-                      <TableCell className="text-xs text-muted-foreground">{rank}</TableCell>
-                      <TableCell>
-                        <Link
-                          href={`${scanUrl}/address/${h.address}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="font-mono text-xs text-blue-600 hover:underline dark:text-blue-400"
-                        >
-                          {formatAddress(h.address, 8, 6)}
-                        </Link>
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-xs">
-                        {h.assets
-                          ? formatRawTokenAmount(h.assets, decimals, displayDecimals)
-                          : '—'}
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-xs">
-                        {h.assetsUsd != null ? formatFullUSD(h.assetsUsd) : '—'}
-                      </TableCell>
-                      <TableCell>
-                        <a
-                          href={`${scanUrl}/address/${h.address}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
-                          aria-label="View on explorer"
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" />
-                        </a>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-
-            {holders.length > pageSize && (
-              <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
-                <span>
-                  Showing {rangeStart}–{rangeEnd} of {holders.length}
-                </span>
-                <div className="flex items-center gap-1">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPage((p) => Math.max(0, p - 1))}
-                    disabled={safePage === 0}
-                    aria-label="Previous page"
-                    className="h-7 w-7 p-0"
-                  >
-                    <ChevronLeft className="h-3.5 w-3.5" />
-                  </Button>
-                  <span className="tabular-nums">
-                    {safePage + 1} / {totalPages}
-                  </span>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                    disabled={safePage >= totalPages - 1}
-                    aria-label="Next page"
-                    className="h-7 w-7 p-0"
-                  >
-                    <ChevronRight className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </div>
-            )}
-          </>
-        )}
-      </CardContent>
+      <CardContent>{body}</CardContent>
     </Card>
   );
 }

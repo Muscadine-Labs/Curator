@@ -283,9 +283,9 @@ Query (`useVaultV2Complete` → BFF + on-chain hooks). Keep the `[address]` segm
 and risk change continuously and hooks refetch on tab switch and post-tx.
 
 **Tab order**: Overview → Risk Analytics → Allocation → Caps →
-Timelocks → Sentinel. Overview holds metrics, history chart, fees, roles, and
-adapters; Risk Analytics holds market risk grades, holders, and transactions;
-Sentinel holds emergency actions at the bottom.
+Timelocks → Sentinel. Overview holds metrics, collapsible holders → recent txs →
+history (10 per page with arrows, default closed), fees, roles, and adapters; Risk Analytics
+holds market risk grades; Sentinel holds emergency actions at the bottom.
 
 1. `useVaultV2Complete` fans out to:
    - `useVault(address)` for base data
@@ -315,8 +315,9 @@ Sentinel holds emergency actions at the bottom.
      `formatPercentage`.
    - **Idle** — vault cash row; no on-chain cap; no direct writes.
 7. **Risk Analytics** — `VaultAnalyticsPanel` on the **Risk Analytics** tab:
-   market risk grades (`VaultRiskV2`), holders, and transactions. Liquidity
-   metrics and the history chart live on **Overview**.
+   market risk grades (`VaultRiskV2`) only. Holders, recent transactions (newest
+   first, 10/page with arrows), then the history chart live on **Overview**
+   (collapsible, default closed).
 8. **Sentinel** — `VaultV2Sentinel.tsx` (Morpho Curator–style; **only tab with
    sentinel writes**). **Emergency Actions** link at the bottom. Sections:
    - **Allocation Overview** — stacked bar + per-target token amounts and `%`.

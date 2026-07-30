@@ -68,6 +68,13 @@ export const MORPHO_ORACLE_PORTAL_URL = 'https://oracles.morpho.dev/';
 
 export const MORPHO_AUTOMATION_BOTS: readonly MorphoAutomationBot[] = [
   {
+    title: 'Muscadine Vault Bots',
+    description:
+      'Muscadine Vault v2 allocator + sentinel bots on Base (private fork).',
+    body: 'Muscadine-Labs/muscadine-vault-bots — allocator and sentinel bots with liquidityAwareUtilBand and rankedYieldWithGuards strategies.',
+    href: 'https://github.com/Muscadine-Labs/muscadine-vault-bots',
+  },
+  {
     title: 'Morpho Bots',
     description:
       'Morpho curator bots monorepo — Blue liquidation, Midnight bots, and shared bot-kit runtime.',
@@ -77,8 +84,8 @@ export const MORPHO_AUTOMATION_BOTS: readonly MorphoAutomationBot[] = [
   {
     title: 'Morpho Vault V2 Reallocation Bot',
     description:
-      'Morpho’s Vault V2 reallocation bot.',
-    body: 'Morpho-org/vault-v2-reallocation-bot.',
+      'Official Morpho Vault v2 reallocation bot (RPC + Morpho API).',
+    body: 'Morpho-org/vault-v2-reallocation-bot — equilizeUtilizations and apyRange strategies for Vault v2 reallocations.',
     href: 'https://github.com/morpho-org/vault-v2-reallocation-bot',
   },
 ];

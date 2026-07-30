@@ -36,8 +36,9 @@ npm run build   # next build
   Blue markets only. Never pass bare addresses or raw MarketParams as cap `idData`.
 - **V2 vault routes** (Morpho-style segments under `/vault/[address]/…`):
   Overview (`/vault/[address]`) → `/analytics` (Risk Analytics) → `/allocation` → `/caps` → `/timelocks` →
-  `/sentinel`. Overview: metrics (token + USD), history chart, fees, roles, adapters.
-  Risk Analytics: market risk grades, holders, transactions. Emergency actions on Sentinel (bottom).
+  `/sentinel`. Overview: metrics (token + USD), collapsible holders → recent txs → history
+  (10 per page with arrows, default closed), fees, roles, adapters.
+  Risk Analytics: market risk grades. Emergency actions on Sentinel (bottom).
   Pending actions embed in Caps; Sentinel is the only tab with sentinel writes (decrease caps,
   deallocate).
 - **Allocation edit amounts** — Rebalance inputs show **display** (Allocated

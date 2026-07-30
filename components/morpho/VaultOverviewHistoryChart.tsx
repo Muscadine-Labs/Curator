@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { CollapsibleCard } from '@/components/ui/collapsible-card';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   LineChart,
@@ -34,6 +35,9 @@ import {
 
 interface VaultOverviewHistoryChartProps {
   vaultAddress: string;
+  /** Collapse behind a chevron header (default closed). */
+  collapsible?: boolean;
+  defaultOpen?: boolean;
 }
 
 const METRIC_TITLES: Record<VaultHistoryMetric, string> = {
@@ -111,8 +115,14 @@ function formatSharePriceAxis(
 
 export function VaultOverviewHistoryChart({
   vaultAddress,
+  collapsible = false,
+  defaultOpen = false,
 }: VaultOverviewHistoryChartProps) {
-  const { data, isLoading, error } = useVaultHistory(vaultAddress);
+  const [open, setOpen] = useState(defaultOpen);
+  const fetchEnabled = !collapsible || open;
+  const { data, isLoading, error } = useVaultHistory(vaultAddress, {
+    enabled: fetchEnabled,
+  });
   const [metric, setMetric] = useState<VaultHistoryMetric>('supplied');
   const [range, setRange] = useState<TimeRange>('all');
   const [amountUnit, setAmountUnit] = useState<AmountUnit>('token');
@@ -200,31 +210,86 @@ export function VaultOverviewHistoryChart({
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">History</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Skeleton className="h-52 w-full" />
-        </CardContent>
-      </Card>
-    );
-  }
+  const chartFilters = (
+    <div className="flex flex-wrap items-center gap-2">
+      <MetricModeFilter value={metric} onChange={setMetric} />
+      {showUnitToggle && (
+        <UsdTokenModeFilter value={amountUnit} onChange={setAmountUnit} />
+      )}
+      <TimeRangeFilter value={range} onChange={setRange} />
+    </div>
+  );
 
-  if (error) {
+  const chartBody = !fetchEnabled ? null : isLoading ? (
+    <Skeleton className="h-52 w-full" />
+  ) : error ? (
+    <p className="text-sm text-red-600 dark:text-red-400">
+      {error instanceof Error ? error.message : 'Failed to load history'}
+    </p>
+  ) : chartPoints.length === 0 ? (
+    <div className="flex h-52 items-center justify-center text-sm text-muted-foreground">
+      No historical data for this range
+    </div>
+  ) : (
+    <ResponsiveContainer width="100%" height={240}>
+      <LineChart data={chartPoints} margin={{ top: 8, right: 12, left: 4, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+        <XAxis
+          dataKey="date"
+          tickFormatter={formatXAxisLabel}
+          tick={{ fontSize: 10 }}
+          minTickGap={32}
+          axisLine={false}
+          tickLine={false}
+        />
+        <YAxis
+          domain={yDomain}
+          tickFormatter={(v) => yAxisFormatter(Number(v))}
+          tick={{ fontSize: 10 }}
+          width={72}
+          tickCount={5}
+          axisLine={false}
+          tickLine={false}
+        />
+        <Tooltip
+          content={({ active, payload, label }) => {
+            if (!active || !payload?.[0]) return null;
+            const entry = payload[0].payload as { value: number; raw?: string };
+            const value = entry.value;
+            const raw = entry.raw ?? String(value);
+            return (
+              <div className="rounded-lg border bg-background p-2 shadow-md">
+                <p className="mb-1 text-xs font-medium">
+                  {new Date(label as string).toLocaleDateString()}
+                </p>
+                <p className="text-xs">{formatTooltipValue(value, raw)}</p>
+              </div>
+            );
+          }}
+        />
+        <Line
+          type="monotone"
+          dataKey="value"
+          stroke="#3b82f6"
+          strokeWidth={2}
+          dot={false}
+        />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+
+  const title = data ? METRIC_TITLES[metric] : 'History';
+
+  if (collapsible) {
     return (
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">History</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-red-600 dark:text-red-400">
-            {error instanceof Error ? error.message : 'Failed to load history'}
-          </p>
-        </CardContent>
-      </Card>
+      <CollapsibleCard
+        title="History"
+        headerRight={fetchEnabled ? chartFilters : undefined}
+        defaultOpen={defaultOpen}
+        onOpenChange={setOpen}
+      >
+        {chartBody}
+      </CollapsibleCard>
     );
   }
 
@@ -232,71 +297,11 @@ export function VaultOverviewHistoryChart({
     <Card>
       <CardHeader className="pb-2">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle className="text-sm">
-            {data ? METRIC_TITLES[metric] : 'History'}
-          </CardTitle>
-          <div className="flex flex-wrap items-center gap-2">
-            <MetricModeFilter value={metric} onChange={setMetric} />
-            {showUnitToggle && (
-              <UsdTokenModeFilter value={amountUnit} onChange={setAmountUnit} />
-            )}
-            <TimeRangeFilter value={range} onChange={setRange} />
-          </div>
+          <CardTitle className="text-sm">{title}</CardTitle>
+          {chartFilters}
         </div>
       </CardHeader>
-      <CardContent className="pt-0">
-        {chartPoints.length === 0 ? (
-          <div className="flex h-52 items-center justify-center text-sm text-muted-foreground">
-            No historical data for this range
-          </div>
-        ) : (
-          <ResponsiveContainer width="100%" height={240}>
-            <LineChart data={chartPoints} margin={{ top: 8, right: 12, left: 4, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis
-                dataKey="date"
-                tickFormatter={formatXAxisLabel}
-                tick={{ fontSize: 10 }}
-                minTickGap={32}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                domain={yDomain}
-                tickFormatter={(v) => yAxisFormatter(Number(v))}
-                tick={{ fontSize: 10 }}
-                width={72}
-                tickCount={5}
-                axisLine={false}
-                tickLine={false}
-              />
-              <Tooltip
-                content={({ active, payload, label }) => {
-                  if (!active || !payload?.[0]) return null;
-                  const entry = payload[0].payload as { value: number; raw?: string };
-                  const value = entry.value;
-                  const raw = entry.raw ?? String(value);
-                  return (
-                    <div className="rounded-lg border bg-background p-2 shadow-md">
-                      <p className="mb-1 text-xs font-medium">
-                        {new Date(label as string).toLocaleDateString()}
-                      </p>
-                      <p className="text-xs">{formatTooltipValue(value, raw)}</p>
-                    </div>
-                  );
-                }}
-              />
-              <Line
-                type="monotone"
-                dataKey="value"
-                stroke="#3b82f6"
-                strokeWidth={2}
-                dot={false}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        )}
-      </CardContent>
+      <CardContent className="pt-0">{chartBody}</CardContent>
     </Card>
   );
 }

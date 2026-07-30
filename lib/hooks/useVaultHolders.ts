@@ -23,14 +23,18 @@ async function fetchVaultHolders(
   return res.json();
 }
 
-export function useVaultHolders(vaultAddress: string | null | undefined, first = 500) {
+export function useVaultHolders(
+  vaultAddress: string | null | undefined,
+  first = 500,
+  options?: { enabled?: boolean }
+) {
   return useQuery({
     queryKey: ['vault-holders', vaultAddress, first],
     queryFn: () => {
       if (!vaultAddress) throw new Error('Vault address is required');
       return fetchVaultHolders(vaultAddress, first);
     },
-    enabled: Boolean(vaultAddress),
+    enabled: Boolean(vaultAddress) && (options?.enabled ?? true),
     ...INDEXED_VAULT_QUERY_OPTIONS,
   });
 }
