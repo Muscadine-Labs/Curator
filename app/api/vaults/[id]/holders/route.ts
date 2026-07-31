@@ -126,7 +126,8 @@ export async function GET(
         shares: h.shares != null ? String(h.shares) : null,
         assets: h.assets != null ? String(h.assets) : null,
         assetsUsd: h.assetsUsd ?? null,
-      }));
+      }))
+      .sort((a, b) => (b.assetsUsd ?? 0) - (a.assetsUsd ?? 0));
 
     const response: VaultHoldersResponse = {
       vaultAddress,

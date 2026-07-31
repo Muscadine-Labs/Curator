@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
@@ -11,6 +11,10 @@ import { useRevenueSource, type RevenueSource } from '@/lib/RevenueSourceContext
 import { sumTreasuryRevenueYtd, sumTreasuryRevenueYtdFromDaily } from '@/lib/morpho/treasury-statement';
 import { apiFetch } from '@/lib/data/api-fetch';
 import { STATEMENT_QUERY_OPTIONS } from '@/lib/data/query-config';
+import {
+  ProtocolStatsDetail,
+  type ProtocolStatKey,
+} from '@/components/overview/ProtocolStatsDetail';
 
 // Lazy load chart components to reduce initial bundle size
 const ChartTvl = dynamic(() => import('@/components/ChartTvl').then(mod => ({ default: mod.ChartTvl })), {
@@ -44,6 +48,11 @@ interface MonthlyStatementResponse {
 export default function Home() {
   const { data: stats, isLoading } = useProtocolStats();
   const { revenueSource, setRevenueSource } = useRevenueSource();
+  const [selectedStat, setSelectedStat] = useState<ProtocolStatKey | null>(null);
+
+  const toggleStat = (key: ProtocolStatKey) => {
+    setSelectedStat((prev) => (prev === key ? null : key));
+  };
 
   const { data: monthlyData, isLoading: isTreasuryLoading } = useQuery<MonthlyStatementResponse>({
     queryKey: ['monthly-statement', 'wallet-balance'],
@@ -134,7 +143,16 @@ export default function Home() {
             <p className="col-span-full text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
               Protocol
             </p>
-            <KpiCard title="TVL" value={stats?.totalDeposited || 0} isLoading={isLoading} format="usd_full" compact className="border-0 bg-muted/40 shadow-none py-2" />
+            <KpiCard
+              title="TVL"
+              value={stats?.totalDeposited || 0}
+              isLoading={isLoading}
+              format="usd_full"
+              compact
+              className="border-0 bg-muted/40 shadow-none py-2"
+              onClick={() => toggleStat('tvl')}
+              selected={selectedStat === 'tvl'}
+            />
             <KpiCard
               title="Total Fees"
               value={stats?.totalInterestGenerated || 0}
@@ -142,8 +160,19 @@ export default function Home() {
               format="usd_full"
               compact
               className="border-0 bg-muted/40 shadow-none py-2"
+              onClick={() => toggleStat('fees')}
+              selected={selectedStat === 'fees'}
             />
-            <KpiCard title="Users" value={stats?.users || 0} isLoading={isLoading} format="number" compact className="border-0 bg-muted/40 shadow-none py-2" />
+            <KpiCard
+              title="Users"
+              value={stats?.users || 0}
+              isLoading={isLoading}
+              format="number"
+              compact
+              className="border-0 bg-muted/40 shadow-none py-2"
+              onClick={() => toggleStat('users')}
+              selected={selectedStat === 'users'}
+            />
             <KpiCard
               title="Active Vaults"
               value={stats?.activeVaults || 0}
@@ -151,8 +180,16 @@ export default function Home() {
               format="number"
               compact
               className="border-0 bg-muted/40 shadow-none py-2"
+              onClick={() => toggleStat('vaults')}
+              selected={selectedStat === 'vaults'}
             />
           </div>
+
+          {selectedStat && (
+            <div className="border-t border-border/60 pt-3">
+              <ProtocolStatsDetail selected={selectedStat} stats={stats} />
+            </div>
+          )}
 
           <div className="border-t border-border/60" />
 

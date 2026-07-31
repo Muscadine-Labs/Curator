@@ -247,8 +247,8 @@ export function VaultTransactions({
       </Table>
 
       {filtered.length > pageSize && (
-        <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
-          <span>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+          <span className="min-w-0">
             Showing {rangeStart}–{rangeEnd} of {filtered.length}
           </span>
           <div className="flex items-center gap-1">
@@ -259,11 +259,11 @@ export function VaultTransactions({
               onClick={() => setPage((p) => Math.max(0, p - 1))}
               disabled={safePage === 0}
               aria-label="Previous page"
-              className="h-7 w-7 p-0"
+              className="h-9 w-9 touch-manipulation p-0 sm:h-7 sm:w-7"
             >
               <ChevronLeft className="h-3.5 w-3.5" />
             </Button>
-            <span className="tabular-nums">
+            <span className="min-w-[3.5rem] text-center tabular-nums">
               {safePage + 1} / {totalPages}
             </span>
             <Button
@@ -273,7 +273,7 @@ export function VaultTransactions({
               onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
               disabled={safePage >= totalPages - 1}
               aria-label="Next page"
-              className="h-7 w-7 p-0"
+              className="h-9 w-9 touch-manipulation p-0 sm:h-7 sm:w-7"
             >
               <ChevronRight className="h-3.5 w-3.5" />
             </Button>

@@ -51,7 +51,9 @@ npm run build   # next build
   dead deposit/seed — `/markets/create` (Morpho app link after create).
   Vault transact holdings — any Morpho vault via indexed positions API.
   Top nav: Overview · Vaults · Markets · Curator · Business; sidebar is
-  area-scoped (`lib/nav/areas.ts`).
+  area-scoped (`lib/nav/areas.ts`). Curator area: Morpho Tools · Bots ·
+  Multisig Safe. Overview Protocol KPIs open drill-downs (Users: holdings +
+  combined txs). Bots (`/morpho/bots`) watches allocator/sentinel EOA activity.
 - **Tx preview** — Allocation and Sentinel confirm writes through
   `TxPreviewDialog` + `lib/morpho/tx-preview.ts` before the wallet signs.
 - **V2 pending revoke** — per-row `rowId` + `activeRowId`; never key tx state by
@@ -86,7 +88,7 @@ npm run build   # next build
   `lib/morpho/graphql-client.ts`. See `CLAUDE.md` §4.4.1.
 - **App routes** — `/` (Overview), `/vaults`, `/vault/[address]/*`,
   `/vaults/transact`, `/markets`, `/markets/create`, `/markets/positions`,
-  `/market/blue/[id]`, `/safe`, `/morpho` (Curator tools hub),
+  `/market/blue/[id]`,   `/safe`, `/morpho` (Curator tools hub), `/morpho/bots` (bot watch + repos),
   `/monthly-statement`, `/muscadine-ledger`, `/muscadine-frontends`.
   Old `/morpho/create-market` and `/morpho/transact` pages are gone (use
   `/markets/create`, `/vaults/transact`, `/markets/positions`). Vault pages live
@@ -94,7 +96,9 @@ npm run build   # next build
 - **BFF routes (no `/curator` or `/v2` in API paths)** — `GET /api/markets`,
   `GET /api/markets/[marketId]`; on-chain vault reads at
   `GET /api/vaults/[id]/risk`, `…/governance`, `…/pending` (alongside
-  `…/history`, `…/holders`, etc.).
+  `…/history`, `…/holders`, etc.); protocol drill-downs at
+  `GET /api/protocol-users`, `GET /api/protocol-transactions`; bot watch at
+  `GET /api/bots/activity`.
 - **Vault pages** — `app/vault/[address]/{page,allocation,caps,…}` via
   `VaultPageShell` (`'use client'` + React Query); keep **dynamic** (no
   SSG/`generateStaticParams` for vault addresses).

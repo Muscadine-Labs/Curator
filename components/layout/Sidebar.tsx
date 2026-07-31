@@ -13,6 +13,7 @@ import {
   Shield,
   Users,
   Wrench,
+  Bot,
   ArrowDownUp,
   X,
   ChevronDown,
@@ -338,7 +339,14 @@ function AreaSidebar({
           href="/morpho"
           label="Morpho Tools"
           icon={Wrench}
-          active={pathname === '/morpho' || pathname.startsWith('/morpho/')}
+          active={pathname === '/morpho'}
+          onClick={onLinkClick}
+        />
+        <NavLink
+          href="/morpho/bots"
+          label="Bots"
+          icon={Bot}
+          active={isActive('/morpho/bots')}
           onClick={onLinkClick}
         />
         <NavLink

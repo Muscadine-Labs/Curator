@@ -15,6 +15,9 @@ interface KpiCardProps {
   format?: 'usd' | 'usd_full' | 'number' | 'percentage' | 'raw';
   compact?: boolean;
   className?: string;
+  /** When set, the card is a button that opens a protocol-stat drill-down. */
+  onClick?: () => void;
+  selected?: boolean;
 }
 
 export function KpiCard({
@@ -26,6 +29,8 @@ export function KpiCard({
   format = 'usd',
   compact = false,
   className,
+  onClick,
+  selected = false,
 }: KpiCardProps) {
   const formatValue = (val: number | string | null) => {
     if (val === null || val === undefined) return 'N/A';
@@ -44,9 +49,16 @@ export function KpiCard({
     }
   };
 
+  const interactiveClass = onClick
+    ? cn(
+        'cursor-pointer transition-colors hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        selected && 'ring-2 ring-ring bg-muted/60'
+      )
+    : undefined;
+
   if (isLoading) {
     return (
-      <Card className={cn(compact ? 'py-3 gap-2 h-full' : 'h-full', className)}>
+      <Card className={cn(compact ? 'py-3 gap-2 h-full' : 'h-full', className, interactiveClass)}>
         <CardHeader
           className={cn(
             'flex flex-row items-center justify-between space-y-0',
@@ -71,8 +83,8 @@ export function KpiCard({
     );
   }
 
-  return (
-    <Card className={cn(compact ? 'py-3 gap-2 h-full flex flex-col' : 'h-full flex flex-col', className)}>
+  const body = (
+    <>
       <CardHeader
         className={cn(
           'flex flex-row items-center justify-between space-y-0 shrink-0',
@@ -101,7 +113,41 @@ export function KpiCard({
         {subtitle && (
           <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{subtitle}</p>
         )}
+        {onClick && (
+          <p className="mt-1 hidden text-[10px] text-muted-foreground/80 sm:block">
+            {selected ? 'Click to close' : 'Click for details'}
+          </p>
+        )}
       </CardContent>
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <Card
+        role="button"
+        tabIndex={0}
+        onClick={onClick}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onClick();
+          }
+        }}
+        className={cn(
+          compact ? 'py-3 gap-2 h-full flex flex-col' : 'h-full flex flex-col',
+          className,
+          interactiveClass
+        )}
+      >
+        {body}
+      </Card>
+    );
+  }
+
+  return (
+    <Card className={cn(compact ? 'py-3 gap-2 h-full flex flex-col' : 'h-full flex flex-col', className)}>
+      {body}
     </Card>
   );
 }

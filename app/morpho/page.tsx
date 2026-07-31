@@ -57,6 +57,12 @@ const IN_APP_TOOLS: readonly HubLink[] = [
     href: '/safe',
     icon: Users,
   },
+  {
+    title: 'Bots',
+    description: 'Watch allocator / sentinel EOA activity and open automation bot repos.',
+    href: '/morpho/bots',
+    icon: Bot,
+  },
 ];
 
 const EXTERNAL_TOOLS: readonly HubLink[] = [
@@ -179,6 +185,7 @@ export default function MorphoCuratorPage() {
             <h2 className="text-sm font-semibold text-foreground">Automation bots</h2>
             <p className="text-xs text-muted-foreground">
               Muscadine vault bots, Morpho bots monorepo, and Morpho Vault V2 reallocation bot.
+              Live activity watch is under Curator → Bots.
             </p>
           </div>
           <Card className="border-border/70">

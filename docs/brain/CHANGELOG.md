@@ -4,6 +4,36 @@ Append-only session log. Newest first. Keep entries short; link files.
 
 ---
 
+## 2026-07-31 — Bot market labels via GraphQL + repos on Morpho Tools
+
+- Bots activity labels markets as `cbBTC/USDC (86%)` via Morpho GraphQL
+  (`marketById` / assets lookup) from decoded allocate/deallocate/liquidity calldata.
+- Automation bot GitHub links restored on `/morpho`; `/morpho/bots` is activity-only.
+
+## 2026-07-31 — Bots: Allocator + Sentinel boxes, all role holders
+
+- `/morpho/bots`: separate Allocator and Sentinel panels; watches every on-chain
+  allocator/sentinel (Bot EOA labeled **Bot**, Safes labeled); decodes
+  liquidity-adapter market switches from calldata.
+
+## 2026-07-31 — Top Holders pagination + mobile polish
+
+- Vault overview Holders → **Top Holders**: USD-sorted, 10/page arrows like
+  transactions, mobile card rows, larger touch targets.
+- Protocol Users drill-down + bots watch: mobile card layouts; fixed nested
+  link-in-button a11y on bot activity rows; drop zero/burn addresses from
+  protocol users.
+
+## 2026-07-31 — Protocol stats drill-down + Curator Bots page
+
+- Overview Protocol KPIs (TVL / Fees / Users / Active Vaults) are clickable;
+  Users shows paginated holders with per-vault token+$ and combined latest txs
+  (`/api/protocol-users`, `/api/protocol-transactions`,
+  `components/overview/ProtocolStatsDetail.tsx`).
+- Curator sidebar **Bots** at `/morpho/bots`: watch allocator/sentinel EOA
+  (default `0xf35B…B333`) with allocate/deallocate legs, APY delta, risk note
+  (`/api/bots/activity`); automation bot repo links moved here from `/morpho`.
+
 ## 2026-07-30 — Overview: collapsible holders / txs / history
 
 - Moved holders + recent txs from Risk Analytics onto Overview Vault State.
