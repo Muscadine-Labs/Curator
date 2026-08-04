@@ -6,6 +6,9 @@ Running task list for agents and humans. Work **Today** top-to-bottom unless dir
 
 ## Today
 
+- new features like /curator/bots load really slowly, same with on overview on users for users and transactions load slowly, is there a bug or is that just how long it loads?. 
+- on /markets support now morpho midnight though grapgh ql. 
+
 ---
 
 ## Later
