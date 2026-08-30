@@ -250,6 +250,7 @@ function mapV2VaultDetail(
     asset: mv.asset?.symbol ?? 'UNKNOWN',
     assetDecimals: mv.asset?.decimals ?? null,
     tvl: tvlUsd,
+    totalAssetsUnderlying,
     apy: apyPct,
     apyBase: mv.apy != null ? mv.apy * 100 : null,
     apyBoosted: mv.avgNetApy != null ? mv.avgNetApy * 100 : null,

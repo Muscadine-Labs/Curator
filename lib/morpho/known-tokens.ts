@@ -43,7 +43,7 @@ const ASSET_META_QUERY = gql`
   }
 `;
 
-export function knownTokenMeta(address: string): KnownTokenMeta | null {
+function knownTokenMeta(address: string): KnownTokenMeta | null {
   return KNOWN[address.toLowerCase()] ?? gqlCache.get(address.toLowerCase()) ?? null;
 }
 

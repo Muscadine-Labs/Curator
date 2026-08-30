@@ -34,6 +34,7 @@ type VaultListGql = {
   totalAssets?: string | number | null;
   totalAssetsUsd?: number;
   apy?: number;
+  netApy?: number;
   avgNetApy?: number;
   idleAssets?: string | number | null;
   liquidity?: string | number | null;
@@ -61,6 +62,7 @@ const VAULT_LIST_SELECTION = `
   totalAssets
   totalAssetsUsd
   apy
+  netApy
   avgNetApy
   idleAssets
   liquidity
@@ -243,7 +245,13 @@ export async function GET(request: Request) {
               ? String(v.totalAssets)
               : null,
           apy:
-            v.apy != null ? v.apy * 100 : v.avgNetApy != null ? v.avgNetApy * 100 : null,
+            v.netApy != null
+              ? v.netApy * 100
+              : v.avgNetApy != null
+                ? v.avgNetApy * 100
+                : v.apy != null
+                  ? v.apy * 100
+                  : null,
           depositors: depositorCounts[v.address!.toLowerCase()] ?? 0,
           revenueAllTime: treasuryRevenueAllTimeForVault(revenueByVault, v.address!),
           feesAllTime: null,

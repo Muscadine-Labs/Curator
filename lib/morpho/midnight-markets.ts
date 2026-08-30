@@ -88,7 +88,7 @@ function sumAssets(levels: MidnightBookLevel[] | undefined): bigint {
 }
 
 /** WAD price → annualized rate. Midnight: (1/price − 1) × year / TTM. */
-export function midnightPriceToApr(
+function midnightPriceToApr(
   priceWad: string | null | undefined,
   ttmSeconds: number
 ): number | null {
@@ -103,7 +103,7 @@ export function midnightPriceToApr(
   }
 }
 
-export function formatTenorLabel(ttmSeconds: number): string {
+function formatTenorLabel(ttmSeconds: number): string {
   if (ttmSeconds <= 0) return 'Matured';
   const days = Math.round(ttmSeconds / 86400);
   if (days < 14) return `${days}d`;
@@ -164,7 +164,7 @@ export function formatMidnightMaturityUtc(maturitySec: number): string {
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
-export function isZeroAddress(addr: string | null | undefined): boolean {
+function isZeroAddress(addr: string | null | undefined): boolean {
   if (!addr) return true;
   return addr.toLowerCase() === ZERO_ADDRESS;
 }

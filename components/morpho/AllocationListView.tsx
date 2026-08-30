@@ -44,7 +44,7 @@ interface AllocationListShellProps {
   className?: string;
 }
 
-export function AllocationListShell({ children, className }: AllocationListShellProps) {
+function AllocationListShell({ children, className }: AllocationListShellProps) {
   return <CuratorTableShell className={cn('overflow-x-auto', className)}>{children}</CuratorTableShell>;
 }
 

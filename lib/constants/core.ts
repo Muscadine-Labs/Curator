@@ -108,6 +108,9 @@ export const ETH_GAS_RESERVE = 0.0001;
 
 export const EXTERNAL_API_TIMEOUT_MS = 60000;
 export const RATE_LIMIT_REQUESTS_PER_MINUTE = 60;
+/** Login is stricter than other BFFs — unauthenticated and password-guessable. */
+export const AUTH_LOGIN_MAX_ATTEMPTS = 10;
+export const AUTH_LOGIN_WINDOW_MS = 15 * MINUTE_MS;
 
 export const getDaysAgoTimestamp = (days: number): number => {
   return Math.floor((Date.now() - days * DAY_MS) / MILLISECONDS_PER_SECOND);

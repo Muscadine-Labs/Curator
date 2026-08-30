@@ -14,7 +14,7 @@ const UINT128_MAX = (1n << 128n) - 1n;
 const UINT256_MAX = (1n << 256n) - 1n;
 
 /** Morpho Vault V2 treats uint128 max (and similarly huge values) as uncapped. */
-export function isInfiniteCapValue(value: string | bigint): boolean {
+function isInfiniteCapValue(value: string | bigint): boolean {
   try {
     const raw = typeof value === 'bigint' ? value : BigInt(value);
     return raw === UINT128_MAX || raw === UINT256_MAX || raw >= 10n ** 30n;

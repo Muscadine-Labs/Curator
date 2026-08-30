@@ -30,6 +30,8 @@ Copy `.env.example` → `.env.local`. See that file for the full list.
 | `NEXT_PUBLIC_APP_URL` | No | App origin (wallet metadata) |
 | `NEXT_PUBLIC_SAFE_API_KEY` | No | Safe Transaction Service |
 | `CURATOR_ADMIN_PASSWORD` | No | Admin auth |
+| `CURATOR_SESSION_SECRET` | **Yes in production** | HMAC for `curator_session` (not the admin password) |
+| `CURATOR_SESSION_VERSION` | No | Bump to invalidate all sessions |
 | `MORPHO_API_URL`, `NEXT_PUBLIC_VAULT_*` | No | Overrides |
 
 ---
@@ -881,7 +883,9 @@ components.
 - Curator tools routes: `/markets`, `/market/blue/[id]`, `/midnight/[id]`, `/safe`, `/curator`,
   `/monthly-statement`, etc. Entire app is behind `AuthGuard` in `app/providers.tsx`.
 - Server auth: `POST /api/auth/verify` sets an HttpOnly `curator_session`
-  cookie (HMAC). `proxy.ts` requires it on `/api/*` except
+  cookie (HMAC). IP rate-limited (`AUTH_LOGIN_MAX_ATTEMPTS` / 15 min).
+  Production requires `CURATOR_SESSION_SECRET`. Bump `CURATOR_SESSION_VERSION`
+  to invalidate sessions. `proxy.ts` requires the cookie on `/api/*` except
   `/api/auth/verify`, `/api/auth/me`, `/api/auth/logout`.
   `GET /api/auth/me` is the session check. LocalStorage is not a session.
   Each BFF also calls `unauthorizedUnlessAdmin` (proxy is not an auth

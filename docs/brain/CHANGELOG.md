@@ -4,6 +4,12 @@ Append-only session log. Newest first. Keep entries short; link files.
 
 ---
 
+## 2026-08-29 — AI review: bugs, deps, dead code
+
+- Caps relative rings: `vault.analytics.totalAssetsUnderlying` (detail API also returns it at top level). Catalog APY matches detail (`netApy` → `avgNetApy` → `apy`).
+- Login: IP rate limit on `POST /api/auth/verify`; timing-safe password compare; production requires `CURATOR_SESSION_SECRET`; session version stamp. Dependabot overrides: nanoid, postcss, js-yaml, hono, socket.io-parser.
+- Dropped unused exports (`AllocationListShell`, midnight helpers). Deps updated within pins (no wagmi 3 / ESLint 10 / TypeScript 7).
+
 ## 2026-08-29 — Vaults catalog + Morpho Caps / tab order
 
 - `/vaults` uses Morpho Curator-style tables (network, deposits, liquidity adapter, liquidity, APY) still grouped Prime / Frontier / Vineyard / Test.

@@ -23,7 +23,7 @@ export type VaultV2PublicAllocatorState = {
   markets: VaultV2PublicAllocatorMarket[];
 };
 
-export function vaultHasPublicAllocator(
+function vaultHasPublicAllocator(
   allocators: string[],
   chainId: number
 ): boolean {

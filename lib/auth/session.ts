@@ -3,9 +3,15 @@
 export const CURATOR_SESSION_COOKIE = 'curator_session';
 export const SESSION_MAX_AGE_SEC = 7 * 24 * 60 * 60;
 
+function sessionVersion(): string {
+  return process.env.CURATOR_SESSION_VERSION || '1';
+}
+
 function sessionSecret(): string {
+  const dedicated = process.env.CURATOR_SESSION_SECRET;
+  if (dedicated) return dedicated;
+  if (process.env.NODE_ENV === 'production') return '';
   return (
-    process.env.CURATOR_SESSION_SECRET ||
     process.env.CURATOR_ADMIN_PASSWORD ||
     process.env.CURATOR_OWNER_PASSWORD ||
     ''
@@ -41,6 +47,22 @@ async function hmacSha256(secret: string, data: string): Promise<string> {
   return bytesToB64Url(new Uint8Array(sig));
 }
 
+export function passwordsMatch(provided: string, expected: string): boolean {
+  const encoder = new TextEncoder();
+  const a = encoder.encode(provided);
+  const b = encoder.encode(expected);
+  const len = Math.max(a.length, b.length, 32);
+  const aPad = new Uint8Array(len);
+  const bPad = new Uint8Array(len);
+  aPad.set(a);
+  bPad.set(b);
+  let mismatch = a.length ^ b.length;
+  for (let i = 0; i < len; i++) {
+    mismatch |= aPad[i] ^ bPad[i];
+  }
+  return mismatch === 0;
+}
+
 function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
   let mismatch = 0;
@@ -57,6 +79,7 @@ export async function createSessionToken(): Promise<string> {
   }
   const payload = JSON.stringify({
     role: 'admin',
+    v: sessionVersion(),
     exp: Date.now() + SESSION_MAX_AGE_SEC * 1000,
   });
   const body = bytesToB64Url(new TextEncoder().encode(payload));
@@ -77,8 +100,9 @@ export async function readSessionRole(token: string | undefined | null): Promise
   if (!timingSafeEqual(expected, sig)) return null;
   try {
     const json = new TextDecoder().decode(b64UrlToBytes(body));
-    const parsed = JSON.parse(json) as { role?: unknown; exp?: unknown };
+    const parsed = JSON.parse(json) as { role?: unknown; exp?: unknown; v?: unknown };
     if (parsed.role !== 'admin' || typeof parsed.exp !== 'number') return null;
+    if (parsed.v !== sessionVersion()) return null;
     if (Date.now() > parsed.exp) return null;
     return 'admin';
   } catch {
