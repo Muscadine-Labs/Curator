@@ -2,6 +2,10 @@ import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/data/api-fetch';
 import { DASHBOARD_QUERY_OPTIONS, ON_CHAIN_VAULT_QUERY_OPTIONS } from '@/lib/data/query-config';
 import type { CuratorMarketDetail, CuratorMarketListItem } from '@/lib/morpho/curator-markets';
+import type {
+  MidnightMarketDetail,
+  MidnightMarketListItem,
+} from '@/lib/morpho/midnight-markets';
 import { BASE_CHAIN_ID } from '@/lib/constants';
 
 type CuratorMarketsResponse = {
@@ -60,5 +64,51 @@ export function useCuratorMarketDetail(
     },
     enabled: Boolean(marketId),
     ...ON_CHAIN_VAULT_QUERY_OPTIONS,
+  });
+}
+
+export function useMidnightMarketDetail(
+  marketId: string | null | undefined,
+  chainId: number = BASE_CHAIN_ID
+) {
+  return useQuery({
+    queryKey: ['midnight-market', chainId, marketId],
+    queryFn: async (): Promise<{ market: MidnightMarketDetail }> => {
+      if (!marketId) throw new Error('Market id is required');
+      const res = await apiFetch(
+        `/api/markets/midnight/${encodeURIComponent(marketId)}?chainId=${chainId}`
+      );
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.message || json.error || 'Failed to fetch Midnight market');
+      }
+      return res.json();
+    },
+    enabled: Boolean(marketId),
+    ...DASHBOARD_QUERY_OPTIONS,
+  });
+}
+
+type MidnightMarketsResponse = {
+  chainId: number;
+  markets: MidnightMarketListItem[];
+};
+
+export function useMidnightMarkets(
+  chainId: number = BASE_CHAIN_ID,
+  options?: { enabled?: boolean }
+) {
+  return useQuery({
+    queryKey: ['midnight-markets', chainId],
+    queryFn: async (): Promise<MidnightMarketsResponse> => {
+      const res = await apiFetch(`/api/markets/midnight?chainId=${chainId}`);
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.message || json.error || 'Failed to fetch Midnight markets');
+      }
+      return res.json();
+    },
+    ...DASHBOARD_QUERY_OPTIONS,
+    enabled: options?.enabled ?? true,
   });
 }

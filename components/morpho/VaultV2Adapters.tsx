@@ -1,11 +1,17 @@
 'use client';
 
-import { useMemo, type ReactNode } from 'react';
+import { useMemo } from 'react';
 import { Zap } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AddressBadge } from '@/components/AddressBadge';
+import {
+  CuratorEmptyText,
+  CuratorErrorText,
+  CuratorKvList,
+  CuratorKvRow,
+  CuratorPanel,
+} from '@/components/morpho/CuratorChrome';
 import { useVaultV2Governance } from '@/lib/hooks/useVaultV2Governance';
 import { useVaultV2Risk } from '@/lib/hooks/useVaultV2Risk';
 import { formatRawTokenAmount, formatUSD } from '@/lib/format/number';
@@ -23,30 +29,6 @@ interface VaultV2AdaptersProps {
   preloadedRisk?: V2VaultRiskResponse | null;
   assetSymbol?: string | null;
   assetDecimals?: number | null;
-}
-
-function AdapterRow({
-  label,
-  description,
-  children,
-}: {
-  label: string;
-  description?: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <div className="flex flex-col gap-1 border-b border-border/60 py-3 last:border-0 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
-      <div className="min-w-0 sm:max-w-[45%]">
-        <p className="text-sm font-medium text-foreground">{label}</p>
-        {description && (
-          <div className="mt-0.5 text-xs text-muted-foreground">{description}</div>
-        )}
-      </div>
-      <div className="text-sm font-semibold tabular-nums text-foreground sm:text-right">
-        {children}
-      </div>
-    </div>
-  );
 }
 
 export function VaultV2Adapters({
@@ -83,43 +65,34 @@ export function VaultV2Adapters({
 
   if ((!preloadedData && govLoading) || (!preloadedRisk && riskLoading)) {
     return (
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Adapters</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 pt-0">
+      <CuratorPanel title="Adapters">
+        <div className="space-y-3 p-4">
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-10 w-full" />
-        </CardContent>
-      </Card>
+        </div>
+      </CuratorPanel>
     );
   }
 
   if (govError || !data) {
     return (
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Adapters</CardTitle>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <p className="text-sm text-red-600 dark:text-red-400">
+      <CuratorPanel title="Adapters">
+        <div className="px-4 py-3">
+          <CuratorErrorText>
             Failed to load adapters: {govError instanceof Error ? govError.message : 'Unknown error'}
-          </p>
-        </CardContent>
-      </Card>
+          </CuratorErrorText>
+        </div>
+      </CuratorPanel>
     );
   }
 
   const idleUsd = data.idleAssetsUsd ?? 0;
 
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm">Adapters</CardTitle>
-      </CardHeader>
-      <CardContent className="pt-0">
-        <AdapterRow
-          label="Liquidity Adapter"
+    <CuratorPanel title="Adapters">
+      <CuratorKvList>
+        <CuratorKvRow
+          label="Liquidity adapter"
           description="Adapter used for deposits and withdrawals"
         >
           {data.liquidityAdapter?.address ? (
@@ -127,19 +100,16 @@ export function VaultV2Adapters({
           ) : (
             <span className="font-normal text-muted-foreground">Not set</span>
           )}
-        </AdapterRow>
+        </CuratorKvRow>
 
-        <AdapterRow
-          label="Idle"
-          description="Unallocated vault cash"
-        >
+        <CuratorKvRow label="Idle" description="Unallocated vault cash">
           <span>
             {formatToken(data.idleAssets, chainDecimals, displayDecimals, assetSymbol)}
             <span className="ml-1.5 font-normal text-muted-foreground">
               ({pctOfTotal(idleUsd, totalUsd)})
             </span>
           </span>
-        </AdapterRow>
+        </CuratorKvRow>
 
         {adapters.map((adapter) => {
           const isLiquidity = adapter.address.toLowerCase() === liquidityAdapterAddress;
@@ -151,7 +121,7 @@ export function VaultV2Adapters({
           const usd = adapter.assetsUsd ?? 0;
 
           return (
-            <AdapterRow
+            <CuratorKvRow
               key={adapter.address}
               label={label}
               description={
@@ -185,15 +155,17 @@ export function VaultV2Adapters({
                   ({pctOfTotal(usd, totalUsd)} · {formatUSD(usd, 2)})
                 </span>
               </span>
-            </AdapterRow>
+            </CuratorKvRow>
           );
         })}
+      </CuratorKvList>
 
-        {adapters.length === 0 && (
-          <p className="py-3 text-sm text-muted-foreground">No strategy adapters enabled.</p>
-        )}
-      </CardContent>
-    </Card>
+      {adapters.length === 0 ? (
+        <div className="px-4 py-3">
+          <CuratorEmptyText>No strategy adapters enabled.</CuratorEmptyText>
+        </div>
+      ) : null}
+    </CuratorPanel>
   );
 }
 

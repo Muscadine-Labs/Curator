@@ -89,13 +89,15 @@ function getRateLimitInfo(
  */
 export function createRateLimitMiddleware(
   maxRequests: number,
-  windowMs: number
+  windowMs: number,
+  bucket = 'api'
 ) {
   return (request: Request): { allowed: boolean; headers?: Headers } => {
     // Try to get IP from various headers (for production, use a proper IP extraction)
     const forwarded = request.headers.get('x-forwarded-for');
     const realIp = request.headers.get('x-real-ip');
-    const identifier = forwarded?.split(',')[0] || realIp || 'unknown';
+    const ip = forwarded?.split(',')[0]?.trim() || realIp || 'unknown';
+    const identifier = `${bucket}:${ip}`;
 
     const allowed = rateLimit(identifier, maxRequests, windowMs);
 

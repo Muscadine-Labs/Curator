@@ -10,16 +10,17 @@ export function clampCacheTtlMs(ttlMs: number): number {
   return Math.min(ttlMs, API_CACHE_MAX_AGE_MS);
 }
 
+/**
+ * Authenticated BFF responses must not be CDN-cached (session cookie).
+ * In-process `withServerResponseCache` still dedupes Morpho for 30s.
+ */
 export function mergeApiCacheHeaders(
   rateLimitHeaders: Headers | undefined,
   maxAgeSeconds = API_CACHE_MAX_AGE_SECONDS
 ): Headers {
+  void maxAgeSeconds;
   const headers = new Headers(rateLimitHeaders);
-  const maxAge = clampCacheMaxAgeSeconds(maxAgeSeconds);
-  headers.set(
-    'Cache-Control',
-    `public, s-maxage=${maxAge}, stale-while-revalidate=${API_CACHE_STALE_WHILE_REVALIDATE_SECONDS}`
-  );
+  headers.set('Cache-Control', 'private, no-store, must-revalidate');
   return headers;
 }
 

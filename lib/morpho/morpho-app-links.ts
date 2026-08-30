@@ -5,6 +5,7 @@ import {
   POLYGON_CHAIN_ID,
   ROBINHOOD_CHAIN_ID,
   MORPHO_APP_ORIGIN,
+  MORPHO_MARKETS_ORIGIN,
 } from '@/lib/constants';
 
 /** Morpho API market identifier (`marketId` in GraphQL; `marketKey` in app JSON). */
@@ -44,4 +45,25 @@ export function curatorBlueMarketHref(
 ): string | null {
   if (!marketId) return null;
   return `/market/blue/${encodeURIComponent(marketId)}?chainId=${chainId}`;
+}
+
+/** In-app Midnight market detail (`/midnight/{id}`). */
+export function curatorMidnightMarketHref(
+  marketId: string | null | undefined,
+  chainId: number = BASE_CHAIN_ID
+): string | null {
+  if (!marketId) return null;
+  return `/midnight/${encodeURIComponent(marketId)}?chainId=${chainId}`;
+}
+
+/**
+ * Morpho Markets Midnight book.
+ * Example: https://markets.morpho.org/fixed/base/0x549c…f221
+ */
+export function morphoMidnightMarketHref(
+  marketId: string | null | undefined,
+  chainId: number = BASE_CHAIN_ID
+): string | null {
+  if (!marketId) return null;
+  return `${MORPHO_MARKETS_ORIGIN}/fixed/${morphoChainSlug(chainId)}/${marketId}`;
 }

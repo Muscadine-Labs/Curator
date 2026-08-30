@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'react';
 import {
   type Address,
   type Hex,
@@ -25,6 +25,15 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { CuratorEmptyText, CuratorTableShell } from '@/components/morpho/CuratorChrome';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { TransactionButton } from '@/components/TransactionButton';
 import { ConnectWalletButton } from '@/components/ConnectWalletButton';
@@ -54,7 +63,6 @@ import type { UserMarketPositionSummary } from '@/lib/morpho/fetch-user-market-p
 import { formatAllocationEditInputExact } from '@/lib/format/allocation-display';
 import { curatorBlueMarketHref, morphoMarketHref } from '@/lib/morpho/morpho-app-links';
 import { getScanUrlForChain } from '@/lib/constants';
-import { cn } from '@/lib/utils';
 
 type MarketPositionBoxProps = {
   initialMarketId?: string;
@@ -584,10 +592,10 @@ export function MarketPositionBox({ initialMarketId }: MarketPositionBoxProps) {
 
   return (
     <div className="space-y-4">
-      <Card className="border-border/70">
-        <CardHeader className="space-y-1 pb-2">
-          <CardTitle className="text-base">Your positions</CardTitle>
-          <CardDescription className="text-xs">
+      <Card>
+        <CardHeader>
+          <CardTitle>Your positions</CardTitle>
+          <CardDescription>
             Tap a market to expand balances and load it for manage actions below.
           </CardDescription>
         </CardHeader>
@@ -602,124 +610,140 @@ export function MarketPositionBox({ initialMarketId }: MarketPositionBoxProps) {
               Loading positions…
             </p>
           ) : walletPositions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
+            <CuratorEmptyText>
               No Blue market positions for this wallet on {networkName}.
-            </p>
+            </CuratorEmptyText>
           ) : (
-            <ul className="space-y-2">
-              {walletPositions.map((row) => {
-                const open = expandedId?.toLowerCase() === row.marketId.toLowerCase();
-                const active =
-                  marketId?.toLowerCase() === row.marketId.toLowerCase();
-                const rowMorpho = morphoMarketHref(row.marketId, chainId);
-                const rowCurator = curatorBlueMarketHref(row.marketId, chainId);
-                const showLive = open && active && position != null;
-                return (
-                  <li
-                    key={row.marketId}
-                    className={cn(
-                      'overflow-hidden rounded-lg border border-border/70',
-                      open && 'border-border bg-muted/20'
-                    )}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => toggleWalletPosition(row)}
-                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left"
-                    >
-                      {open ? (
-                        <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      )}
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-sm font-medium text-foreground">
-                          {row.pair}
-                        </span>
-                        <span className="block text-[11px] text-muted-foreground">
-                          LLTV {row.lltvLabel}
-                          {row.borrowAssets > 0n
-                            ? ` · debt ${formatAllocationEditInputExact(row.borrowAssets, row.loanSymbol, row.loanDecimals, true)} ${row.loanSymbol}`
-                            : ''}
-                          {row.collateral > 0n
-                            ? ` · coll ${formatAllocationEditInputExact(row.collateral, row.collateralSymbol, row.collateralDecimals, true)} ${row.collateralSymbol}`
-                            : ''}
-                          {row.supplyAssets > 0n && row.borrowAssets === 0n && row.collateral === 0n
-                            ? ` · supply ${formatAllocationEditInputExact(row.supplyAssets, row.loanSymbol, row.loanDecimals, true)} ${row.loanSymbol}`
-                            : ''}
-                        </span>
-                      </span>
-                      {loading && open ? (
-                        <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
-                      ) : null}
-                    </button>
-                    {open ? (
-                      <div className="space-y-3 border-t border-border/60 px-3 py-3">
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-                          {rowCurator ? (
-                            <a
-                              href={rowCurator}
-                              className="font-medium text-blue-600 underline-offset-2 hover:underline dark:text-blue-400"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              Market
-                            </a>
-                          ) : null}
-                          {rowMorpho ? (
-                            <a
-                              href={rowMorpho}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="font-medium text-blue-600 underline-offset-2 hover:underline dark:text-blue-400"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              Morpho
-                            </a>
-                          ) : null}
-                          <span className="font-mono text-muted-foreground">
-                            {row.marketId.slice(0, 10)}…{row.marketId.slice(-6)}
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-3">
-                          <div>
-                            <p className="text-[11px] text-muted-foreground">Collateral</p>
-                            <p className="font-medium tabular-nums break-all">
-                              {showLive
-                                ? `${liveCollateral} ${collateralSymbol}`
-                                : `${formatAllocationEditInputExact(row.collateral, row.collateralSymbol, row.collateralDecimals, true)} ${row.collateralSymbol}`}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-[11px] text-muted-foreground">Debt</p>
-                            <p className="font-medium tabular-nums break-all">
-                              {showLive
-                                ? `${liveDebt} ${loanSymbol}`
-                                : `${formatAllocationEditInputExact(row.borrowAssets, row.loanSymbol, row.loanDecimals, true)} ${row.loanSymbol}`}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-[11px] text-muted-foreground">Supply</p>
-                            <p className="font-medium tabular-nums break-all">
-                              {showLive
-                                ? `${liveSupply} ${loanSymbol}`
-                                : `${formatAllocationEditInputExact(row.supplyAssets, row.loanSymbol, row.loanDecimals, true)} ${row.loanSymbol}`}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    ) : null}
-                  </li>
-                );
-              })}
-            </ul>
+            <CuratorTableShell>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-8" />
+                    <TableHead>Market</TableHead>
+                    <TableHead>LLTV</TableHead>
+                    <TableHead className="text-right">Supply</TableHead>
+                    <TableHead className="text-right">Borrow</TableHead>
+                    <TableHead className="text-right">Collateral</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {walletPositions.map((row) => {
+                    const open = expandedId?.toLowerCase() === row.marketId.toLowerCase();
+                    const active =
+                      marketId?.toLowerCase() === row.marketId.toLowerCase();
+                    const rowMorpho = morphoMarketHref(row.marketId, chainId);
+                    const rowCurator = curatorBlueMarketHref(row.marketId, chainId);
+                    const showLive = open && active && position != null;
+                    return (
+                      <Fragment key={row.marketId}>
+                          <TableRow key={row.marketId} className="cursor-pointer" onClick={() => toggleWalletPosition(row)}>
+                          <TableCell className="w-8 pr-0">
+                            {open ? (
+                              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                            )}
+                          </TableCell>
+                          <TableCell className="font-medium text-foreground">
+                            <span className="inline-flex items-center gap-2">
+                              {row.pair}
+                              {loading && open ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                              ) : null}
+                            </span>
+                          </TableCell>
+                          <TableCell className="tabular-nums text-muted-foreground">
+                            {row.lltvLabel}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {row.supplyAssets > 0n
+                              ? `${formatAllocationEditInputExact(row.supplyAssets, row.loanSymbol, row.loanDecimals, true)} ${row.loanSymbol}`
+                              : '—'}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {row.borrowAssets > 0n
+                              ? `${formatAllocationEditInputExact(row.borrowAssets, row.loanSymbol, row.loanDecimals, true)} ${row.loanSymbol}`
+                              : '—'}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {row.collateral > 0n
+                              ? `${formatAllocationEditInputExact(row.collateral, row.collateralSymbol, row.collateralDecimals, true)} ${row.collateralSymbol}`
+                              : '—'}
+                          </TableCell>
+                        </TableRow>
+                        {open ? (
+                          <TableRow className="hover:bg-transparent">
+                            <TableCell colSpan={6}>
+                              <div className="space-y-3 py-1">
+                                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                                  {rowCurator ? (
+                                    <a
+                                      href={rowCurator}
+                                      className="font-medium text-blue-600 underline-offset-2 hover:underline dark:text-blue-400"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      Market
+                                    </a>
+                                  ) : null}
+                                  {rowMorpho ? (
+                                    <a
+                                      href={rowMorpho}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="font-medium text-blue-600 underline-offset-2 hover:underline dark:text-blue-400"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      Morpho
+                                    </a>
+                                  ) : null}
+                                  <span className="font-mono text-muted-foreground">
+                                    {row.marketId.slice(0, 10)}…{row.marketId.slice(-6)}
+                                  </span>
+                                </div>
+                                <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-3">
+                                  <div>
+                                    <p className="text-[11px] text-muted-foreground">Collateral</p>
+                                    <p className="font-medium tabular-nums break-all">
+                                      {showLive
+                                        ? `${liveCollateral} ${collateralSymbol}`
+                                        : `${formatAllocationEditInputExact(row.collateral, row.collateralSymbol, row.collateralDecimals, true)} ${row.collateralSymbol}`}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p className="text-[11px] text-muted-foreground">Debt</p>
+                                    <p className="font-medium tabular-nums break-all">
+                                      {showLive
+                                        ? `${liveDebt} ${loanSymbol}`
+                                        : `${formatAllocationEditInputExact(row.borrowAssets, row.loanSymbol, row.loanDecimals, true)} ${row.loanSymbol}`}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p className="text-[11px] text-muted-foreground">Supply</p>
+                                    <p className="font-medium tabular-nums break-all">
+                                      {showLive
+                                        ? `${liveSupply} ${loanSymbol}`
+                                        : `${formatAllocationEditInputExact(row.supplyAssets, row.loanSymbol, row.loanDecimals, true)} ${row.loanSymbol}`}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ) : null}
+                      </Fragment>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </CuratorTableShell>
           )}
         </CardContent>
       </Card>
 
-      <Card className="border-border/70">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Load market</CardTitle>
-          <CardDescription className="text-xs">
+      <Card>
+        <CardHeader>
+          <CardTitle>Load market</CardTitle>
+          <CardDescription>
             Or paste a market id. Network: {networkName}.
           </CardDescription>
         </CardHeader>
@@ -786,17 +810,17 @@ export function MarketPositionBox({ initialMarketId }: MarketPositionBoxProps) {
       </Card>
 
       {marketParams && position ? (
-        <Card className="border-border/70">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Manage {marketPair}</CardTitle>
-            <CardDescription className="text-xs">
+        <Card>
+          <CardHeader>
+            <CardTitle>Manage {marketPair}</CardTitle>
+            <CardDescription>
               Borrow, repay any amount, add/withdraw collateral (partial or max safe), or
               supply. Exit all = full repay + withdraw all collateral.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div className="space-y-2 rounded-lg border border-border/60 p-3">
+              <div className="space-y-2 rounded-xl border border-border p-3">
                 <p className="text-xs font-medium text-foreground">
                   Borrow ({loanSymbol})
                 </p>
@@ -844,7 +868,7 @@ export function MarketPositionBox({ initialMarketId }: MarketPositionBoxProps) {
                 </div>
               </div>
 
-              <div className="space-y-2 rounded-lg border border-border/60 p-3">
+              <div className="space-y-2 rounded-xl border border-border p-3">
                 <p className="text-xs font-medium text-foreground">
                   Repay debt ({loanSymbol})
                 </p>
@@ -899,7 +923,7 @@ export function MarketPositionBox({ initialMarketId }: MarketPositionBoxProps) {
                 </div>
               </div>
 
-              <div className="space-y-2 rounded-lg border border-border/60 p-3">
+              <div className="space-y-2 rounded-xl border border-border p-3">
                 <p className="text-xs font-medium text-foreground">
                   Collateral ({collateralSymbol})
                 </p>
@@ -993,7 +1017,7 @@ export function MarketPositionBox({ initialMarketId }: MarketPositionBoxProps) {
                 </div>
               </div>
 
-              <div className="space-y-2 rounded-lg border border-border/60 p-3">
+              <div className="space-y-2 rounded-xl border border-border p-3">
                 <p className="text-xs font-medium text-foreground">
                   Supply ({loanSymbol})
                 </p>
@@ -1061,7 +1085,7 @@ export function MarketPositionBox({ initialMarketId }: MarketPositionBoxProps) {
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 px-3 py-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border px-3 py-2.5">
               <div>
                 <p className="text-xs font-medium text-foreground">Exit all</p>
                 <p className="text-[11px] text-muted-foreground">

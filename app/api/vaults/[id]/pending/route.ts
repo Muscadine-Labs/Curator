@@ -11,6 +11,7 @@ import { handleApiError, AppError } from '@/lib/utils/error-handler';
 import { createRateLimitMiddleware, RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS } from '@/lib/utils/rate-limit';
 import { BASE_CHAIN_ID, VAULT_V2_GRAPHQL_PENDING_LIMIT } from '@/lib/constants';
 import { mergeApiCacheHeaders } from '@/lib/api/response-cache';
+import { unauthorizedUnlessAdmin } from '@/lib/auth/require-admin';
 
 const PENDING_LIMIT = VAULT_V2_GRAPHQL_PENDING_LIMIT;
 
@@ -50,6 +51,8 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await unauthorizedUnlessAdmin(request);
+  if (denied) return denied;
   const rateLimitMiddleware = createRateLimitMiddleware(
     RATE_LIMIT_REQUESTS_PER_MINUTE,
     MINUTE_MS

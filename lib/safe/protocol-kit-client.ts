@@ -20,9 +20,9 @@ export type StoredSafeTransactionData = {
 };
 
 function resolveRpcUrl(): string {
-  const key = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY;
+  const key = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY?.trim();
   if (key) return `https://base-mainnet.g.alchemy.com/v2/${key}`;
-  return 'https://base-mainnet.g.alchemy.com/v2/demo';
+  return 'https://mainnet.base.org';
 }
 
 function getInjectedEthereum(): EIP1193Provider | undefined {

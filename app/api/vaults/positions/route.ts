@@ -9,6 +9,7 @@ import {
   MINUTE_MS,
 } from '@/lib/utils/rate-limit';
 import { mergeApiCacheHeaders } from '@/lib/api/response-cache';
+import { unauthorizedUnlessAdmin } from '@/lib/auth/require-admin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -23,6 +24,8 @@ function parseChainId(raw: string | null): number {
 }
 
 export async function GET(request: NextRequest) {
+  const denied = await unauthorizedUnlessAdmin(request);
+  if (denied) return denied;
   const rateLimitMiddleware = createRateLimitMiddleware(
     RATE_LIMIT_REQUESTS_PER_MINUTE,
     MINUTE_MS

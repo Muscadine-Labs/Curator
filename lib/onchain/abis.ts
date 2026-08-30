@@ -314,3 +314,37 @@ export const vaultV2Abi = [
     outputs: [],
   },
 ] as const;
+
+/** Vault V2 Blue Public Allocator — view fragment for curator Caps UI. */
+export const vaultV2BluePublicAllocatorAbi = [
+  {
+    type: 'function',
+    name: 'absoluteCap',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'vault', type: 'address' },
+      { name: 'id', type: 'bytes32' },
+    ],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+  {
+    type: 'function',
+    name: 'canPullFromMarket',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'vault', type: 'address' },
+      { name: 'id', type: 'bytes32' },
+    ],
+    outputs: [{ name: '', type: 'bool' }],
+  },
+  {
+    type: 'function',
+    name: 'vaultData',
+    stateMutability: 'view',
+    inputs: [{ name: 'vault', type: 'address' }],
+    outputs: [
+      { name: 'canPullFromIdle', type: 'bool' },
+      { name: 'penalty', type: 'uint64' },
+    ],
+  },
+] as const;

@@ -14,7 +14,6 @@ export const MUSCADINE_DOMAINS: readonly ExternalLinkItem[] = [
   { name: 'Curator', url: 'https://curator.muscadine.xyz', description: 'Curator' },
   { name: 'Portfolio', url: 'https://portfolio.muscadine.xyz', description: 'Portfolio' },
   { name: 'Portfolio API', url: 'https://api-portfolio.muscadine.io', description: 'Portfolio API' },
-  { name: 'Docs', url: 'https://docs.muscadine.xyz', description: 'Documentation' },
 ];
 
 export const MUSCADINE_DEVELOPMENT_LINKS: readonly ExternalLinkItem[] = [
@@ -66,13 +65,18 @@ export const MORPHO_DOCS_GET_STARTED_URL = 'https://docs.morpho.org/get-started/
 /** Morpho Oracle Portal — Decoder + Tester for oracle / feed validation. */
 export const MORPHO_ORACLE_PORTAL_URL = 'https://oracles.morpho.dev/';
 
+export const MUSCADINE_BOTS_GITHUB_URL =
+  'https://github.com/Muscadine-Labs/muscadine-bots';
+export const MUSCADINE_VAULT_BOT_TELEGRAM_URL = 'https://t.me/MuscadineVaultBot';
+
 export const MORPHO_AUTOMATION_BOTS: readonly MorphoAutomationBot[] = [
   {
     title: 'Muscadine Vault Bots',
     description:
-      'Muscadine Vault v2 allocator + sentinel bots on Base (private fork).',
-    body: 'Muscadine-Labs/muscadine-vault-bots — allocator and sentinel bots with liquidityAwareUtilBand and rankedYieldWithGuards strategies.',
-    href: 'https://github.com/Muscadine-Labs/muscadine-vault-bots',
+      'Muscadine Vault v2 allocator + sentinel + rebater bots on Base, plus Telegram alerts.',
+    body: 'Muscadine-Labs/muscadine-bots — allocator, sentinel, and rebater bots with liquidityAwareUtilBand and rankedYieldWithGuards strategies. Live alerts via @MuscadineVaultBot.',
+    href: MUSCADINE_BOTS_GITHUB_URL,
+    telegramHref: MUSCADINE_VAULT_BOT_TELEGRAM_URL,
   },
   {
     title: 'Morpho Bots',
@@ -80,12 +84,5 @@ export const MORPHO_AUTOMATION_BOTS: readonly MorphoAutomationBot[] = [
       'Morpho curator bots monorepo — Blue liquidation, Midnight bots, and shared bot-kit runtime.',
     body: 'Unified bun workspaces monorepo for Morpho off-chain curator bots: blue-liquidation, midnight-liquidation, kill-switch, and shared packages (@repo/bot-kit, @repo/swaps, @repo/contracts).',
     href: 'https://github.com/morpho-org/morpho-bots',
-  },
-  {
-    title: 'Morpho Vault V2 Reallocation Bot',
-    description:
-      'Official Morpho Vault v2 reallocation bot (RPC + Morpho API).',
-    body: 'Morpho-org/vault-v2-reallocation-bot — equilizeUtilizations and apyRange strategies for Vault v2 reallocations.',
-    href: 'https://github.com/morpho-org/vault-v2-reallocation-bot',
   },
 ];

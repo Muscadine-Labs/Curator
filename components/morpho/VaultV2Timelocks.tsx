@@ -1,6 +1,5 @@
 'use client';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { useVaultV2Governance } from '@/lib/hooks/useVaultV2Governance';
@@ -12,6 +11,21 @@ import {
   formatVaultV2FunctionTitle,
   isTimelockAbdicated,
 } from '@/lib/morpho/vault-v2-timelocks';
+import {
+  CuratorEmptyText,
+  CuratorErrorText,
+  CuratorPageHeader,
+  CuratorPanel,
+  CuratorTableShell,
+} from '@/components/morpho/CuratorChrome';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 interface VaultV2TimelocksProps {
   vaultAddress: string;
@@ -24,30 +38,29 @@ export function VaultV2Timelocks({ vaultAddress, preloadedData }: VaultV2Timeloc
 
   if (!preloadedData && isLoading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Vault Timelocks</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-12 w-full" />
-        </CardContent>
-      </Card>
+      <div className="space-y-6">
+        <CuratorPageHeader
+          title="Timelocks"
+          description="Delays governing changes on this vault. Abdicated functions are permanently disabled."
+        />
+        <CuratorPanel>
+          <div className="space-y-3 p-4">
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+          </div>
+        </CuratorPanel>
+      </div>
     );
   }
 
   if (error || !data) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Vault Timelocks</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-red-600 dark:text-red-400">
-            Failed to load timelocks: {error instanceof Error ? error.message : 'Unknown error'}
-          </p>
-        </CardContent>
-      </Card>
+      <div className="space-y-6">
+        <CuratorPageHeader title="Timelocks" />
+        <CuratorErrorText>
+          Failed to load timelocks: {error instanceof Error ? error.message : 'Unknown error'}
+        </CuratorErrorText>
+      </div>
     );
   }
 
@@ -61,66 +74,74 @@ export function VaultV2Timelocks({ vaultAddress, preloadedData }: VaultV2Timeloc
   });
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Vault Timelocks</CardTitle>
-        <CardDescription>
-          Timelocks governing changes on this vault. Abdicated functions are permanently disabled
-          and cannot be called again.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {timelocks.length === 0 ? (
-          <p className="text-sm text-slate-500 dark:text-slate-400">No timelocks configured.</p>
-        ) : (
-          <div className="divide-y divide-slate-200 rounded-md border border-slate-200 dark:divide-slate-800 dark:border-slate-800">
-            {timelocks.map((t) => {
-              const status = formatTimelockStatus(t.durationSeconds, t.abdicatedAt);
-              const abdicated = isTimelockAbdicated(t.abdicatedAt);
+    <div className="space-y-6">
+      <CuratorPageHeader
+        title="Timelocks"
+        description="Delays governing changes on this vault. Abdicated functions are permanently disabled and cannot be called again."
+      />
 
-              return (
-                <div
-                  key={t.selector}
-                  className="grid grid-cols-1 gap-2 p-3 text-sm sm:grid-cols-3 sm:items-center"
-                >
-                  <div>
-                    <p className="font-medium text-slate-900 dark:text-slate-100">
-                      {formatVaultV2FunctionTitle(t.functionName)}
-                    </p>
-                    <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                      {describeVaultV2Function(t.functionName, t.abdicatedAt)}
-                    </p>
-                    <p className="mt-1 font-mono text-[10px] text-slate-400 dark:text-slate-500">
-                      {t.selector}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                    <span
-                      className={
-                        abdicated
-                          ? 'font-semibold text-amber-700 dark:text-amber-400'
-                          : 'font-semibold text-slate-900 dark:text-slate-100'
-                      }
-                    >
-                      {status.label}
-                    </span>
-                    {status.variant === 'instant' && (
-                      <Badge variant="outline" className="text-xs">
-                        No delay
-                      </Badge>
-                    )}
-                    {abdicated && (
-                      <Badge variant="secondary" className="text-xs">
-                        Since {formatAbdicatedAt(t.abdicatedAt!)}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      {timelocks.length === 0 ? (
+        <CuratorEmptyText>No timelocks configured.</CuratorEmptyText>
+      ) : (
+        <CuratorTableShell>
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead>Function</TableHead>
+                <TableHead>Delay</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {timelocks.map((t) => {
+                const status = formatTimelockStatus(t.durationSeconds, t.abdicatedAt);
+                const abdicated = isTimelockAbdicated(t.abdicatedAt);
+
+                return (
+                  <TableRow key={t.selector}>
+                    <TableCell>
+                      <p className="font-medium text-foreground">
+                        {formatVaultV2FunctionTitle(t.functionName)}
+                      </p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {describeVaultV2Function(t.functionName, t.abdicatedAt)}
+                      </p>
+                      <p className="mt-1 font-mono text-[10px] text-muted-foreground">{t.selector}</p>
+                    </TableCell>
+                    <TableCell className="tabular-nums">
+                      <span
+                        className={
+                          abdicated
+                            ? 'font-medium text-amber-700 dark:text-amber-400'
+                            : 'font-medium text-foreground'
+                        }
+                      >
+                        {status.label}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {status.variant === 'instant' ? (
+                          <Badge variant="outline" className="text-[10px] font-normal">
+                            No delay
+                          </Badge>
+                        ) : null}
+                        {abdicated ? (
+                          <Badge variant="outline" className="text-[10px] font-normal">
+                            Since {formatAbdicatedAt(t.abdicatedAt!)}
+                          </Badge>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">Active</span>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </CuratorTableShell>
+      )}
+    </div>
   );
 }

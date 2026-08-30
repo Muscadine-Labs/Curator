@@ -6,7 +6,7 @@ import { ExternalLink } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { MarketRiskDetailCard } from '@/components/morpho/MarketRiskDetailCard';
 import { MarketOraclePanel } from '@/components/morpho/MarketOraclePanel';
@@ -18,16 +18,19 @@ import { formatLltvPill } from '@/components/morpho/AllocationListView';
 import { TokenUsdValue } from '@/components/morpho/TokenUsdValue';
 import { resolveTokenDisplayProps } from '@/lib/format/asset-decimals';
 import { BASE_CHAIN_ID, CURATOR_MARKET_NETWORKS, parseCuratorMarketChainId } from '@/lib/constants';
+import {
+  CuratorKvList,
+  CuratorKvRow,
+  CuratorPanel,
+} from '@/components/morpho/CuratorChrome';
 
-function MarketMetric({
-  label,
+function MarketUsdValue({
   underlying,
   usd,
   assetSymbol,
   decimals,
   compactUsd = false,
 }: {
-  label: string;
   underlying: string | null | undefined;
   usd: number | null | undefined;
   assetSymbol: string;
@@ -36,18 +39,15 @@ function MarketMetric({
 }) {
   const { chainDecimals, displayDecimals } = resolveTokenDisplayProps(assetSymbol, decimals);
   return (
-    <div>
-      <p className="text-xs text-slate-500">{label}</p>
-      <TokenUsdValue
-        underlying={underlying}
-        usd={usd}
-        assetSymbol={assetSymbol}
-        chainDecimals={chainDecimals}
-        displayDecimals={displayDecimals}
-        compactUsd={compactUsd}
-        align="left"
-      />
-    </div>
+    <TokenUsdValue
+      underlying={underlying}
+      usd={usd}
+      assetSymbol={assetSymbol}
+      chainDecimals={chainDecimals}
+      displayDecimals={displayDecimals}
+      compactUsd={compactUsd}
+      align="right"
+    />
   );
 }
 
@@ -172,128 +172,107 @@ export default function CuratorBlueMarketPage() {
 
       {market && riskMarket && (
         <div className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Market overview</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <div>
-                <p className="text-xs text-slate-500">Network</p>
-                <p className="font-medium">{networkName}</p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-500">LLTV</p>
-                <p className="font-medium">{formatLltvPill(market.lltv) ?? '—'}</p>
-              </div>
-              <MarketMetric
-                label="Market size"
-                underlying={market.supplyAssets}
-                usd={market.sizeUsd}
-                assetSymbol={market.loanSymbol}
-                decimals={market.loanDecimals ?? 18}
-              />
-              <MarketMetric
-                label="Total liquidity"
-                underlying={null}
-                usd={market.totalLiquidityUsd}
-                assetSymbol={market.loanSymbol}
-                decimals={market.loanDecimals ?? 18}
-                compactUsd
-              />
-              <MarketMetric
-                label="Available liquidity"
-                underlying={market.liquidityAssets}
-                usd={market.liquidityAssetsUsd}
-                assetSymbol={market.loanSymbol}
-                decimals={market.loanDecimals ?? 18}
-              />
-              <MarketMetric
-                label="Supply"
-                underlying={market.supplyAssets}
-                usd={market.supplyAssetsUsd}
-                assetSymbol={market.loanSymbol}
-                decimals={market.loanDecimals ?? 18}
-              />
-              <MarketMetric
-                label="Borrow"
-                underlying={market.borrowAssets}
-                usd={market.borrowAssetsUsd}
-                assetSymbol={market.loanSymbol}
-                decimals={market.loanDecimals ?? 18}
-              />
-              <MarketMetric
-                label="Collateral"
-                underlying={market.collateralAssets}
-                usd={market.collateralAssetsUsd}
-                assetSymbol={market.collateralSymbol}
-                decimals={market.collateralDecimals ?? 18}
-              />
-              <div>
-                <p className="text-xs text-slate-500">Utilization</p>
-                <p className="font-medium">
-                  {market.utilization != null
-                    ? formatPercentage(market.utilization * 100)
-                    : '—'}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-500">Supply APY</p>
-                <p className="font-medium">
-                  {market.supplyApy != null ? formatPercentage(market.supplyApy * 100) : '—'}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-500">Borrow APY</p>
-                <p className="font-medium">
-                  {market.borrowApy != null ? formatPercentage(market.borrowApy * 100) : '—'}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-500">6H net supply APY</p>
-                <p className="font-medium">
-                  {market.avgNetSupplyApy != null
-                    ? formatPercentage(market.avgNetSupplyApy * 100)
-                    : '—'}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-500">Spot net supply APY</p>
-                <p className="font-medium">
-                  {market.netSupplyApy != null
-                    ? formatPercentage(market.netSupplyApy * 100)
-                    : '—'}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-500">Listed</p>
+          <CuratorPanel title="Market overview">
+            <CuratorKvList>
+              <CuratorKvRow label="Network">{networkName}</CuratorKvRow>
+              <CuratorKvRow label="LLTV">{formatLltvPill(market.lltv) ?? '—'}</CuratorKvRow>
+              <CuratorKvRow label="Market size">
+                <MarketUsdValue
+                  underlying={market.supplyAssets}
+                  usd={market.sizeUsd}
+                  assetSymbol={market.loanSymbol}
+                  decimals={market.loanDecimals ?? 18}
+                />
+              </CuratorKvRow>
+              <CuratorKvRow label="Total liquidity">
+                <MarketUsdValue
+                  underlying={null}
+                  usd={market.totalLiquidityUsd}
+                  assetSymbol={market.loanSymbol}
+                  decimals={market.loanDecimals ?? 18}
+                  compactUsd
+                />
+              </CuratorKvRow>
+              <CuratorKvRow label="Available liquidity">
+                <MarketUsdValue
+                  underlying={market.liquidityAssets}
+                  usd={market.liquidityAssetsUsd}
+                  assetSymbol={market.loanSymbol}
+                  decimals={market.loanDecimals ?? 18}
+                />
+              </CuratorKvRow>
+              <CuratorKvRow label="Supply">
+                <MarketUsdValue
+                  underlying={market.supplyAssets}
+                  usd={market.supplyAssetsUsd}
+                  assetSymbol={market.loanSymbol}
+                  decimals={market.loanDecimals ?? 18}
+                />
+              </CuratorKvRow>
+              <CuratorKvRow label="Borrow">
+                <MarketUsdValue
+                  underlying={market.borrowAssets}
+                  usd={market.borrowAssetsUsd}
+                  assetSymbol={market.loanSymbol}
+                  decimals={market.loanDecimals ?? 18}
+                />
+              </CuratorKvRow>
+              <CuratorKvRow label="Collateral">
+                <MarketUsdValue
+                  underlying={market.collateralAssets}
+                  usd={market.collateralAssetsUsd}
+                  assetSymbol={market.collateralSymbol}
+                  decimals={market.collateralDecimals ?? 18}
+                />
+              </CuratorKvRow>
+              <CuratorKvRow label="Utilization">
+                {market.utilization != null
+                  ? formatPercentage(market.utilization * 100)
+                  : '—'}
+              </CuratorKvRow>
+              <CuratorKvRow label="Supply APY">
+                {market.supplyApy != null ? formatPercentage(market.supplyApy * 100) : '—'}
+              </CuratorKvRow>
+              <CuratorKvRow label="Borrow APY">
+                {market.borrowApy != null ? formatPercentage(market.borrowApy * 100) : '—'}
+              </CuratorKvRow>
+              <CuratorKvRow label="6H net supply APY">
+                {market.avgNetSupplyApy != null
+                  ? formatPercentage(market.avgNetSupplyApy * 100)
+                  : '—'}
+              </CuratorKvRow>
+              <CuratorKvRow label="Spot net supply APY">
+                {market.netSupplyApy != null
+                  ? formatPercentage(market.netSupplyApy * 100)
+                  : '—'}
+              </CuratorKvRow>
+              <CuratorKvRow label="Listed">
                 <Badge variant={market.listed ? 'default' : 'secondary'}>
                   {market.listed ? 'Listed' : 'Not listed'}
                 </Badge>
-              </div>
-              <MarketMetric
-                label="Realized bad debt"
-                underlying={market.realizedBadDebt?.underlying}
-                usd={market.realizedBadDebt?.usd}
-                assetSymbol={market.loanSymbol}
-                decimals={market.loanDecimals ?? 18}
-              />
-              <MarketMetric
-                label="Unrealized bad debt"
-                underlying={market.unrealizedBadDebt?.underlying}
-                usd={market.unrealizedBadDebt?.usd}
-                assetSymbol={market.loanSymbol}
-                decimals={market.loanDecimals ?? 18}
-              />
-              <div className="sm:col-span-2 lg:col-span-4">
-                <p className="text-xs text-slate-500">Market ID</p>
-                <p className="font-mono text-xs break-all text-slate-700 dark:text-slate-300">
-                  {market.marketId}
-                </p>
-              </div>
-              <div className="sm:col-span-2">
-                <p className="text-xs text-slate-500">Muscadine vault caps</p>
+              </CuratorKvRow>
+              <CuratorKvRow label="Realized bad debt">
+                <MarketUsdValue
+                  underlying={market.realizedBadDebt?.underlying}
+                  usd={market.realizedBadDebt?.usd}
+                  assetSymbol={market.loanSymbol}
+                  decimals={market.loanDecimals ?? 18}
+                />
+              </CuratorKvRow>
+              <CuratorKvRow label="Unrealized bad debt">
+                <MarketUsdValue
+                  underlying={market.unrealizedBadDebt?.underlying}
+                  usd={market.unrealizedBadDebt?.usd}
+                  assetSymbol={market.loanSymbol}
+                  decimals={market.loanDecimals ?? 18}
+                />
+              </CuratorKvRow>
+              <CuratorKvRow label="Market ID">
+                <p className="break-all font-mono text-xs font-normal">{market.marketId}</p>
+              </CuratorKvRow>
+              <CuratorKvRow label="Muscadine vault caps">
                 {market.muscadineVaults.length > 0 ? (
-                  <div className="mt-1 flex flex-wrap gap-2">
+                  <div className="flex flex-wrap justify-end gap-2">
                     {market.muscadineVaults.map((v) => (
                       <Button key={v.address} variant="secondary" size="sm" asChild>
                         <Link href={`/vault/${v.address}`}>{v.name}</Link>
@@ -301,11 +280,13 @@ export default function CuratorBlueMarketPage() {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-slate-500">No Muscadine vault market cap enabled</p>
+                  <span className="font-normal text-muted-foreground">
+                    No Muscadine vault market cap enabled
+                  </span>
                 )}
-              </div>
-            </CardContent>
-          </Card>
+              </CuratorKvRow>
+            </CuratorKvList>
+          </CuratorPanel>
 
           {chainId === BASE_CHAIN_ID && (
             <MarketOraclePanel
@@ -319,13 +300,11 @@ export default function CuratorBlueMarketPage() {
 
           {chainId !== BASE_CHAIN_ID ? (
             <Card>
-              <CardContent className="pt-6 text-sm text-slate-500 dark:text-slate-400">
+              <CardContent className="text-sm text-muted-foreground">
                 Oracle freshness, feed bounds, and IRM utilization targets still read via the{' '}
-                <span className="font-medium text-slate-700 dark:text-slate-200">Base RPC</span>{' '}
+                <span className="font-medium text-foreground">Base RPC</span>{' '}
                 only. To enable full risk scoring and the oracle panel on{' '}
-                <span className="font-medium text-slate-700 dark:text-slate-200">
-                  {networkName}
-                </span>
+                <span className="font-medium text-foreground">{networkName}</span>
                 , add a {networkName} RPC to the website (server client + env).
               </CardContent>
             </Card>

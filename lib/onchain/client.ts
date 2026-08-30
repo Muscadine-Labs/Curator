@@ -1,27 +1,18 @@
 import { createPublicClient, http, Address, Abi } from 'viem';
 import { base } from '@/lib/onchain/base-chain';
+import { getBaseRpcUrl } from '@/lib/onchain/rpc-url';
 import { logger } from '@/lib/utils/logger';
 
-function getRpcUrl(): string {
-  if (process.env.ALCHEMY_API_KEY) {
-    return `https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`;
-  }
-
-  if (process.env.COINBASE_CDP_API_KEY) {
-    return `https://base-mainnet.cdp.coinbase.com/v1/${process.env.COINBASE_CDP_API_KEY}`;
-  }
-
-  return 'https://base-mainnet.g.alchemy.com/v2/demo';
-}
+const rpcUrl = getBaseRpcUrl();
 
 const baseChain = {
   ...base,
   rpcUrls: {
     default: {
-      http: [getRpcUrl()],
+      http: [rpcUrl],
     },
     public: {
-      http: [getRpcUrl()],
+      http: [rpcUrl],
     },
   },
 };

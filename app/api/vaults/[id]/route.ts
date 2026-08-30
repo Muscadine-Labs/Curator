@@ -21,6 +21,7 @@ import {
   vaultV2TransactionUser,
   type VaultV2TxData,
 } from '@/lib/morpho/vault-v2-transaction-utils';
+import { unauthorizedUnlessAdmin } from '@/lib/auth/require-admin';
 
 type VaultDetailQueryResponse = {
   vaultV2ByAddress?: V2VaultGraphQL | null;
@@ -166,7 +167,7 @@ function mapV2VaultDetail(
   cfg: ReturnType<typeof getVaultByAddress>,
   address: string,
   txs: VaultDetailQueryResponse['vaultV2transactions'],
-  revenue: { revenueAllTime: number | null; feesYtd: number | null }
+  revenue: { revenueAllTime: number | null; treasuryRevenueYtd: number | null }
 ) {
   const positions = (mv.positions?.items ?? []).filter(
     (p): p is { user: { address: string } } =>
@@ -249,10 +250,11 @@ function mapV2VaultDetail(
     asset: mv.asset?.symbol ?? 'UNKNOWN',
     assetDecimals: mv.asset?.decimals ?? null,
     tvl: tvlUsd,
+    totalAssetsUnderlying,
     apy: apyPct,
     apyBase: mv.apy != null ? mv.apy * 100 : null,
     apyBoosted: mv.avgNetApy != null ? mv.avgNetApy * 100 : null,
-    feesYtd: revenue.feesYtd,
+    treasuryRevenueYtd: revenue.treasuryRevenueYtd,
     utilization,
     analytics,
     depositors,
@@ -321,6 +323,8 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await unauthorizedUnlessAdmin(request);
+  if (denied) return denied;
   const rateLimitMiddleware = createRateLimitMiddleware(
     RATE_LIMIT_REQUESTS_PER_MINUTE,
     MINUTE_MS
@@ -364,15 +368,21 @@ export async function GET(
         const revenueByVault = aggregateTreasuryRevenueByVault(data.vaults);
         return {
           revenueAllTime: treasuryRevenueAllTimeForVault(revenueByVault, address),
-          feesYtd: treasuryRevenueYtdForVault(data.vaults, address),
+          treasuryRevenueYtd: treasuryRevenueYtdForVault(data.vaults, address),
         };
       })
-      .catch(() => ({ revenueAllTime: null, feesYtd: null }));
+      .catch((error) => {
+        logger.warn('Treasury statement failed for vault detail revenue', {
+          address,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        return { revenueAllTime: null, treasuryRevenueYtd: null };
+      });
 
     let data: VaultDetailQueryResponse;
-    let revenue: { revenueAllTime: number | null; feesYtd: number | null } = {
+    let revenue: { revenueAllTime: number | null; treasuryRevenueYtd: number | null } = {
       revenueAllTime: null,
-      feesYtd: null,
+      treasuryRevenueYtd: null,
     };
 
     try {
@@ -420,7 +430,7 @@ export async function GET(
           depositors: 0,
           revenueAllTime: revenue.revenueAllTime,
           feesAllTime: null,
-          feesYtd: revenue.feesYtd,
+          treasuryRevenueYtd: revenue.treasuryRevenueYtd,
           lastHarvest: null,
           apyBreakdown: null,
           rewards: [],

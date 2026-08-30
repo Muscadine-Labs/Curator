@@ -2,12 +2,17 @@ import { NextResponse } from 'next/server';
 import { handleApiError } from '@/lib/utils/error-handler';
 import { createRateLimitMiddleware, RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS } from '@/lib/utils/rate-limit';
 import { mergeApiCacheHeaders } from '@/lib/api/response-cache';
+import {
+  STATEMENT_START_DATE,
+} from '@/lib/morpho/treasury-statement';
+import { monthKeyFromIsoDate, utcMonthsFrom } from '@/lib/utils/utc-calendar';
 import { 
   fetchDefiLlamaFees,
   fetchDefiLlamaRevenue,
   getDailyFeesChart,
   getDailyRevenueChart,
 } from '@/lib/defillama/service';
+import { unauthorizedUnlessAdmin } from '@/lib/auth/require-admin';
 
 // Ensure Node.js runtime for API routes
 export const runtime = 'nodejs';
@@ -29,40 +34,24 @@ function aggregateByMonth(
   dailyData: Array<{ date: string; value: number }>
 ): Map<string, number> {
   const monthlyMap = new Map<string, number>();
-  
+
   for (const point of dailyData) {
-    const date = new Date(point.date);
-    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    const monthKey = monthKeyFromIsoDate(point.date);
+    if (!/^\d{4}-\d{2}$/.test(monthKey)) continue;
     const current = monthlyMap.get(monthKey) || 0;
     monthlyMap.set(monthKey, current + point.value);
   }
-  
+
   return monthlyMap;
 }
 
-/**
- * Get all months from November 2025 to now
- */
 function getAllMonths(): Array<{ year: number; month: number; key: string }> {
-  const months: Array<{ year: number; month: number; key: string }> = [];
-  const now = new Date();
-  const start = new Date('2025-11-01'); // Start from November 2025
-  
-  let current = new Date(start.getFullYear(), start.getMonth(), 1);
-  
-  while (current <= now) {
-    months.push({
-      year: current.getFullYear(),
-      month: current.getMonth() + 1,
-      key: `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}`,
-    });
-    current = new Date(current.getFullYear(), current.getMonth() + 1, 1);
-  }
-  
-  return months;
+  return utcMonthsFrom(STATEMENT_START_DATE);
 }
 
 export async function GET(request: Request) {
+  const denied = await unauthorizedUnlessAdmin(request);
+  if (denied) return denied;
   // Rate limiting
   const rateLimitMiddleware = createRateLimitMiddleware(
     RATE_LIMIT_REQUESTS_PER_MINUTE,
@@ -105,16 +94,11 @@ export async function GET(request: Request) {
     const dailyFees = getDailyFeesChart(feesData);
     const dailyRevenue = getDailyRevenueChart(revenueData);
 
-    // Filter daily data to start from November 2025
-    const startDate = new Date('2025-11-01');
-    const filteredDailyFees = dailyFees.filter(point => {
-      const pointDate = new Date(point.date);
-      return pointDate >= startDate;
-    });
-    const filteredDailyRevenue = dailyRevenue.filter(point => {
-      const pointDate = new Date(point.date);
-      return pointDate >= startDate;
-    });
+    const startDay = STATEMENT_START_DATE.toISOString().slice(0, 10);
+    const filteredDailyFees = dailyFees.filter((point) => point.date.slice(0, 10) >= startDay);
+    const filteredDailyRevenue = dailyRevenue.filter(
+      (point) => point.date.slice(0, 10) >= startDay
+    );
 
     // Aggregate by month
     const monthlyFees = aggregateByMonth(filteredDailyFees);

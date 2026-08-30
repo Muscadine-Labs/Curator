@@ -61,7 +61,7 @@ export function CapLabel({
           <ScanTokenLink address={col.address} scanBase={scanBase}>
             {colLabel}
           </ScanTokenLink>
-          <span className="text-slate-500 dark:text-slate-400">/</span>
+          <span className="text-muted-foreground">/</span>
           <ScanTokenLink address={loan.address} scanBase={scanBase}>
             {loanLabel}
           </ScanTokenLink>
@@ -70,7 +70,7 @@ export function CapLabel({
               href={morphoHref}
               target="_blank"
               rel="noreferrer"
-              className="ml-1 text-xs font-normal text-slate-500 hover:text-blue-600 hover:underline dark:text-slate-400 dark:hover:text-blue-400"
+              className="ml-1 text-xs font-normal text-muted-foreground hover:text-blue-600 hover:underline dark:hover:text-blue-400"
               title="View market on Morpho"
             >
               Morpho ↗

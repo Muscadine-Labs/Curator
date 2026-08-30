@@ -31,8 +31,8 @@ export function VaultWriteDestinationSelect({
       : safeOptions[0]?.role ?? ALLOCATION_SAFE_ROLE;
 
   return (
-    <div className="space-y-2 border-t border-slate-200 px-4 py-3 dark:border-slate-800">
-      <p className="text-xs font-medium text-slate-700 dark:text-slate-300">Submit via</p>
+    <div className="space-y-2 border-t border-border px-4 py-3">
+      <p className="text-xs font-medium text-foreground">Submit via</p>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <label className="flex cursor-pointer items-center gap-2 text-sm">
           <input
@@ -78,7 +78,7 @@ export function VaultWriteDestinationSelect({
         </p>
       )}
       {selectedKind === 'safe' && safeOptions.length > 0 && (
-        <p className="text-xs text-slate-500 dark:text-slate-400">
+        <p className="text-xs text-muted-foreground">
           Queues locally — owners sign on Multisig Safe; any connected wallet can execute once ready.
         </p>
       )}

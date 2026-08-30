@@ -28,6 +28,7 @@ import {
 import { getIRMTargetUtilizationWithFallback } from '@/lib/morpho/irm-utils';
 import { getOracleTimestampData, getOracleFeedHintsFromMarket, type OracleTimestampData } from '@/lib/morpho/oracle-utils';
 import type { Address } from 'viem';
+import { unauthorizedUnlessAdmin } from '@/lib/auth/require-admin';
 
 type AdapterType = 'MorphoMarketV1Adapter' | 'Unknown';
 
@@ -473,6 +474,8 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await unauthorizedUnlessAdmin(request);
+  if (denied) return denied;
   const rateLimitMiddleware = createRateLimitMiddleware(
     RATE_LIMIT_REQUESTS_PER_MINUTE,
     MINUTE_MS

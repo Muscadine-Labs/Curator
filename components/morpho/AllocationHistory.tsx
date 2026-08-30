@@ -9,8 +9,12 @@ import {
   RefreshCw,
   ShieldAlert,
 } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  CuratorEmptyText,
+  CuratorErrorText,
+  CuratorPanel,
+} from '@/components/morpho/CuratorChrome';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useVaultReallocations } from '@/lib/hooks/useVaultReallocations';
@@ -88,11 +92,11 @@ function GroupRow({
   const iconClass = sentinelStyle ? 'text-amber-600 dark:text-amber-400' : 'text-blue-500';
 
   return (
-    <div className="border-b border-slate-100 dark:border-slate-800 last:border-0">
+    <div className="border-b border-border last:border-0">
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
-        className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+        className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50"
       >
         {expanded ? (
           <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -102,7 +106,7 @@ function GroupRow({
         <div className="flex flex-1 items-center justify-between gap-2 min-w-0">
           <div className="flex items-center gap-2 min-w-0">
             <Icon className={`h-4 w-4 shrink-0 ${iconClass}`} />
-            <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
+            <span className="text-sm font-medium text-foreground">
               {groupHeading}
             </span>
             <Badge variant="secondary" className="text-xs shrink-0">
@@ -117,7 +121,7 @@ function GroupRow({
               href={`${scanUrl}/tx/${group.hash}`}
               target="_blank"
               rel="noreferrer"
-              className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+              className="text-muted-foreground hover:text-foreground"
               onClick={(e) => e.stopPropagation()}
               aria-label="View transaction"
             >
@@ -128,7 +132,7 @@ function GroupRow({
       </button>
 
       {expanded && (
-        <div className="bg-slate-50/50 dark:bg-slate-800/30 px-4 pb-3">
+        <div className="bg-muted/40 px-4 pb-3">
           <div className="space-y-1 pl-7">
             {group.events.map((ev, i) => (
               <EventRow key={`${ev.hash}-${i}`} event={ev} assetDecimals={assetDecimals} assetSymbol={assetSymbol} />
@@ -172,14 +176,14 @@ function EventRow({
       <div className="flex items-center gap-2 min-w-0">
         {eventTypeBadge(event.type)}
         {marketLabel && (
-          <span className="text-xs text-slate-600 dark:text-slate-400 truncate">
+          <span className="truncate text-xs text-muted-foreground">
             {marketLabel}
             {lltv && <span className="ml-1 text-muted-foreground">({lltv} LLTV)</span>}
           </span>
         )}
       </div>
       {event.assets && (
-        <span className="font-mono text-xs text-slate-700 dark:text-slate-300 shrink-0">
+        <span className="shrink-0 font-mono text-xs tabular-nums text-foreground">
           {formatRawTokenAmount(
             event.assets,
             assetDecimals,
@@ -240,88 +244,91 @@ export function AllocationHistory({
   const symbol = assetSymbol ?? '';
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-1">
-            <CardTitle className="flex items-center gap-2">
-              {title}
-              <Badge variant="secondary" className="text-xs">
-                {isLoading ? '…' : `${groups.length} event${groups.length === 1 ? '' : 's'}`}
-              </Badge>
-            </CardTitle>
-            {description && (
-              <CardDescription className="text-xs">{description}</CardDescription>
-            )}
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <div className="space-y-2">
+    <div className="space-y-3">
+      {isLoading ? (
+        <CuratorPanel title={title} description={description}>
+          <div className="space-y-2 p-4">
             {[...Array(5)].map((_, i) => (
               <Skeleton key={i} className="h-12 w-full" />
             ))}
           </div>
-        ) : error ? (
-          <p className="text-sm text-red-600 dark:text-red-400">
-            Failed to load history: {error instanceof Error ? error.message : 'Unknown error'}
-          </p>
-        ) : groups.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{emptyMessage}</p>
-        ) : (
-          <>
-            <div className="rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
-              {paged.map((group) => (
-                <GroupRow
-                  key={group.hash}
-                  group={group}
-                  scanUrl={scanUrl}
-                  assetDecimals={decimals}
-                  assetSymbol={symbol}
-                  groupHeading={groupHeading}
-                  sentinelStyle={sentinelStyle}
-                />
-              ))}
-            </div>
-
-            {groups.length > pageSize && (
-              <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
-                <span>
-                  Showing {rangeStart}–{rangeEnd} of {groups.length}
+        </CuratorPanel>
+      ) : error ? (
+        <CuratorPanel title={title}>
+          <div className="px-4 py-3">
+            <CuratorErrorText>
+              Failed to load history: {error instanceof Error ? error.message : 'Unknown error'}
+            </CuratorErrorText>
+          </div>
+        </CuratorPanel>
+      ) : groups.length === 0 ? (
+        <CuratorPanel title={title} description={description}>
+          <div className="px-4 py-3">
+            <CuratorEmptyText>{emptyMessage}</CuratorEmptyText>
+          </div>
+        </CuratorPanel>
+      ) : (
+        <>
+          <CuratorPanel
+            title={
+              <>
+                {title}{' '}
+                <span className="font-normal text-muted-foreground">
+                  ({groups.length})
                 </span>
-                <div className="flex items-center gap-1">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPage((p) => Math.max(0, p - 1))}
-                    disabled={safePage === 0}
-                    aria-label="Previous page"
-                    className="h-7 w-7 p-0"
-                  >
-                    <ChevronLeft className="h-3.5 w-3.5" />
-                  </Button>
-                  <span className="tabular-nums">
-                    {safePage + 1} / {totalPages}
-                  </span>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                    disabled={safePage >= totalPages - 1}
-                    aria-label="Next page"
-                    className="h-7 w-7 p-0"
-                  >
-                    <ChevronRight className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
+              </>
+            }
+            description={description}
+          >
+            {paged.map((group) => (
+              <GroupRow
+                key={group.hash}
+                group={group}
+                scanUrl={scanUrl}
+                assetDecimals={decimals}
+                assetSymbol={symbol}
+                groupHeading={groupHeading}
+                sentinelStyle={sentinelStyle}
+              />
+            ))}
+          </CuratorPanel>
+
+          {groups.length > pageSize ? (
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>
+                Showing {rangeStart}–{rangeEnd} of {groups.length}
+              </span>
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  disabled={safePage === 0}
+                  aria-label="Previous page"
+                  className="h-7 w-7 p-0"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                </Button>
+                <span className="tabular-nums">
+                  {safePage + 1} / {totalPages}
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                  disabled={safePage >= totalPages - 1}
+                  aria-label="Next page"
+                  className="h-7 w-7 p-0"
+                >
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </Button>
               </div>
-            )}
-          </>
-        )}
-      </CardContent>
-    </Card>
+            </div>
+          ) : null}
+        </>
+      )}
+    </div>
   );
 }

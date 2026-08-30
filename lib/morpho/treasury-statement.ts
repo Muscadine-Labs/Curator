@@ -1,3 +1,5 @@
+import { utcCalendarYear } from '@/lib/utils/utc-calendar';
+
 /** Safe that receives vault performance fees and holds vault share positions. */
 export const TREASURY_ADDRESS = '0x057fd8B961Eb664baA647a5C7A6e9728fabA266A';
 
@@ -26,7 +28,7 @@ export function sumTreasuryBreakdownUsd(assets: TreasuryAssetBreakdown): number 
 /** Sum treasury net revenue for calendar year-to-date from monthly statement rows. */
 export function sumTreasuryRevenueYtd(
   statements: ReadonlyArray<{ month: string; total: { usd: number } }>,
-  year: number = new Date().getFullYear()
+  year: number = utcCalendarYear()
 ): number {
   const prefix = `${year}-`;
   return statements
@@ -37,19 +39,37 @@ export function sumTreasuryRevenueYtd(
 /** YTD treasury revenue from daily net-change series (includes partial current month). */
 export function sumTreasuryRevenueYtdFromDaily(
   daily: ReadonlyArray<{ date: string; value: number }>,
-  year: number = new Date().getFullYear()
+  year: number = utcCalendarYear()
 ): number {
   const prefix = `${year}-`;
   return daily.filter((d) => d.date.startsWith(prefix)).reduce((sum, d) => sum + d.value, 0);
 }
 
-/** Configured V2 vault addresses → treasury asset bucket for statements. */
+/** Vault share tokens → treasury asset bucket (V2 business vaults + V1 MetaMorpho still paying fees). */
 export const VAULT_ASSET_MAP: Record<string, TreasuryAssetKey> = {
   '0x89712980cb434ef5ae4ab29349419eb976b0b496': 'USDC',
   '0x314fd07319ef645ba7d548915ccd91f4788a1839': 'USDC',
   '0x99dcd0d75822ba398f13b2a8852b07c7e137ec70': 'cbBTC',
   '0xd6dcad2f7da91fbb27bda471540d9770c97a5a43': 'WETH',
+  // V1 MetaMorpho — treasury fee accounting only; not in lib/config/vaults.ts
+  '0xf7e26fa48a568b8b0038e104dfd8abdf0f99074f': 'USDC',
+  '0x21e0d366272798da3a977feba699fcb91959d120': 'WETH',
+  '0xaecc8113a7bd0cfaf7000ea7a31affd4691ff3e9': 'cbBTC',
 };
+
+/** Map a Morpho vault position to USDC / WETH / cbBTC. Unknown tokens are skipped (no spam ERC-20s). */
+export function treasuryAssetKeyForVault(
+  vaultAddress: string,
+  assetSymbol?: string | null
+): TreasuryAssetKey | null {
+  const mapped = VAULT_ASSET_MAP[vaultAddress.toLowerCase()];
+  if (mapped) return mapped;
+  const symbol = (assetSymbol ?? '').trim().toUpperCase();
+  if (symbol === 'USDC' || symbol === 'USDBC') return 'USDC';
+  if (symbol === 'WETH' || symbol === 'ETH') return 'WETH';
+  if (symbol === 'CBBTC') return 'cbBTC';
+  return null;
+}
 
 export type TreasuryVaultMonthlyRow = {
   vaultAddress: string;
@@ -83,7 +103,7 @@ export function treasuryRevenueAllTimeForVault(
 export function treasuryRevenueYtdForVault(
   rows: ReadonlyArray<TreasuryVaultMonthlyRow>,
   vaultAddress: string,
-  year = new Date().getFullYear()
+  year = utcCalendarYear()
 ): number | null {
   const addr = vaultAddress.toLowerCase();
   const yearPrefix = `${year}-`;

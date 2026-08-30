@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { gql } from 'graphql-request';
 import { getAddress } from 'viem';
 import {
   getActiveVaultAddressesForStats,
   getConfiguredVaultDisplayName,
 } from '@/lib/config/vaults';
-import { BASE_CHAIN_ID, GRAPHQL_FIRST_LIMIT } from '@/lib/constants';
-import { morphoGraphQLClient } from '@/lib/morpho/graphql-client';
+import { BASE_CHAIN_ID } from '@/lib/constants';
 import { handleApiError } from '@/lib/utils/error-handler';
 import {
   createRateLimitMiddleware,
@@ -16,6 +14,9 @@ import {
 import { mergeApiCacheHeaders } from '@/lib/api/response-cache';
 import { withServerResponseCache } from '@/lib/api/server-response-cache';
 import { API_CACHE_MAX_AGE_MS } from '@/lib/api/response-cache';
+import { batchVaultV2ByAddress } from '@/lib/morpho/batch-vault-graphql';
+import { fetchAllV2Positions } from '@/lib/morpho/paginate-v2-positions';
+import { unauthorizedUnlessAdmin } from '@/lib/auth/require-admin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -42,46 +43,9 @@ export type ProtocolUsersResponse = {
   totalUsers: number;
 };
 
-const V2_POSITIONS_QUERY = gql`
-  query V2VaultPositions($address: String!, $chainId: Int!, $first: Int!) {
-    vaultV2ByAddress(address: $address, chainId: $chainId) {
-      address
-      name
-      asset {
-        symbol
-        decimals
-      }
-      positions(first: $first) {
-        items {
-          user {
-            address
-          }
-          assets
-          assetsUsd
-          shares
-        }
-      }
-    }
-  }
-`;
-
-type V2PositionsResponse = {
-  vaultV2ByAddress?: {
-    address?: string | null;
-    name?: string | null;
-    asset?: { symbol?: string | null; decimals?: number | null } | null;
-    positions?: {
-      items?: Array<{
-        user?: { address?: string | null } | null;
-        assets?: string | null;
-        assetsUsd?: number | null;
-        shares?: string | null;
-      } | null> | null;
-    } | null;
-  } | null;
-};
-
 export async function GET(request: NextRequest) {
+  const denied = await unauthorizedUnlessAdmin(request);
+  if (denied) return denied;
   const rateLimit = createRateLimitMiddleware(RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS);
   const rateLimitResult = rateLimit(request);
   if (!rateLimitResult.allowed) {
@@ -99,33 +63,35 @@ export async function GET(request: NextRequest) {
         const vaults = getActiveVaultAddressesForStats();
         const byUser = new Map<string, ProtocolUser>();
 
+        const meta = await batchVaultV2ByAddress<{
+          name?: string | null;
+          asset?: { symbol?: string | null; decimals?: number | null } | null;
+        }>(
+          vaults.map((v) => ({ address: v.address, chainId: v.chainId ?? BASE_CHAIN_ID })),
+          `name asset { symbol decimals }`
+        );
+
         const results = await Promise.all(
           vaults.map(async (vault) => {
             const address = getAddress(vault.address);
             try {
-              const data = await morphoGraphQLClient.request<V2PositionsResponse>(
-                V2_POSITIONS_QUERY,
-                {
-                  address,
-                  chainId: vault.chainId ?? BASE_CHAIN_ID,
-                  first: GRAPHQL_FIRST_LIMIT,
-                }
+              const items = await fetchAllV2Positions(
+                address,
+                vault.chainId ?? BASE_CHAIN_ID
               );
-              return { vault, address, data };
+              return { vault, address, items };
             } catch {
-              return { vault, address, data: null as V2PositionsResponse | null };
+              return { vault, address, items: [] };
             }
           })
         );
 
-        for (const { vault, address, data } of results) {
+        for (const { vault, address, items } of results) {
+          const gqlMeta = meta.get(vault.address.toLowerCase());
           const vaultName =
-            data?.vaultV2ByAddress?.name?.trim() ||
-            getConfiguredVaultDisplayName(vault);
-          const assetSymbol =
-            data?.vaultV2ByAddress?.asset?.symbol ?? vault.assetSymbol;
-          const assetDecimals = data?.vaultV2ByAddress?.asset?.decimals ?? null;
-          const items = data?.vaultV2ByAddress?.positions?.items ?? [];
+            gqlMeta?.name?.trim() || getConfiguredVaultDisplayName(vault);
+          const assetSymbol = gqlMeta?.asset?.symbol ?? vault.assetSymbol;
+          const assetDecimals = gqlMeta?.asset?.decimals ?? null;
 
           for (const item of items) {
             const userAddress = item?.user?.address;

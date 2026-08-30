@@ -1,6 +1,16 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { CapUtilizationRing } from '@/components/morpho/CapUtilizationRing';
+import { CuratorTableShell } from '@/components/morpho/CuratorChrome';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { formatLtv } from '@/lib/format/number';
 import type { AllocationFilterState } from '@/lib/allocation/allocation-filters';
@@ -34,85 +44,26 @@ interface AllocationListShellProps {
   className?: string;
 }
 
-export function AllocationListShell({ children, className }: AllocationListShellProps) {
-  return (
-    <div className={cn('overflow-x-auto rounded-xl border bg-card', className)}>
-      <div className="min-w-[76rem]">{children}</div>
-    </div>
-  );
+function AllocationListShell({ children, className }: AllocationListShellProps) {
+  return <CuratorTableShell className={cn('overflow-x-auto', className)}>{children}</CuratorTableShell>;
 }
 
-export function AllocationListSection({
-  title,
-  children,
-}: {
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="border-b border-border/60 last:border-b-0">
-      <div className="border-b border-border/60 bg-muted/30 px-4 py-2 text-xs font-medium text-muted-foreground">
-        {title}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-/** Morpho Curator–style dynamic column grid for V2 allocations. */
+/** Morpho Curator–style optional allocation columns. */
 const CURATOR_OPTIONAL_COLUMNS: {
   filterKey: keyof AllocationFilterState['columns'];
   label: string;
-  width: string;
 }[] = [
-  { filterKey: 'utilization', label: 'Util.', width: '5rem' },
-  { filterKey: 'liquidity', label: 'Liquidity', width: '12rem' },
-  { filterKey: 'effectiveCap', label: 'Eff. Abs. Cap', width: '9rem' },
-  { filterKey: 'supplyApy', label: 'Rate', width: '5rem' },
-  { filterKey: 'borrowApy', label: 'Borrow', width: '5rem' },
-  { filterKey: 'allocated', label: 'Allocated', width: '8rem' },
-  { filterKey: 'percentCap', label: '% Cap', width: '6rem' },
+  { filterKey: 'utilization', label: 'Util.' },
+  { filterKey: 'liquidity', label: 'Liquidity' },
+  { filterKey: 'effectiveCap', label: 'Eff. Abs. Cap' },
+  { filterKey: 'supplyApy', label: 'Rate' },
+  { filterKey: 'borrowApy', label: 'Borrow' },
+  { filterKey: 'allocated', label: 'Allocated' },
+  { filterKey: 'percentCap', label: '% Cap' },
 ];
 
 export function getCuratorVisibleColumns(columns: AllocationFilterState['columns']) {
   return CURATOR_OPTIONAL_COLUMNS.filter((c) => columns[c.filterKey]);
-}
-
-export function buildCuratorGridTemplate(
-  columns: AllocationFilterState['columns'],
-  editing: boolean
-): string {
-  const optional = getCuratorVisibleColumns(columns)
-    .map((c) => c.width)
-    .join(' ');
-  const base = `minmax(12rem, 1.6fr)${optional ? ` ${optional}` : ''} 8.5rem 6.5rem`;
-  return editing ? `${base} minmax(26rem, 1.5fr)` : base;
-}
-
-export function CuratorAllocationListHeader({
-  editing = false,
-  columns = DEFAULT_CURATOR_COLUMNS,
-}: {
-  editing?: boolean;
-  columns?: AllocationFilterState['columns'];
-}) {
-  const visible = getCuratorVisibleColumns(columns);
-  return (
-    <div
-      className="grid items-center gap-x-5 border-b px-5 py-3.5 text-xs font-medium text-muted-foreground"
-      style={{ gridTemplateColumns: buildCuratorGridTemplate(columns, editing) }}
-    >
-      <span className="text-sm font-medium text-foreground">Allocation</span>
-      {visible.map((col) => (
-        <span key={col.filterKey} className="text-right">
-          {col.label}
-        </span>
-      ))}
-      <span className="text-right">Allocation</span>
-      <span className="text-right">% Alloc.</span>
-      {editing && <span className="text-right">Target</span>}
-    </div>
-  );
 }
 
 const DEFAULT_CURATOR_COLUMNS: AllocationFilterState['columns'] = {
@@ -125,18 +76,36 @@ const DEFAULT_CURATOR_COLUMNS: AllocationFilterState['columns'] = {
   percentCap: false,
 };
 
-export function AllocationPctIndicator({ pct }: { pct: number }) {
-  const active = pct > 0;
+export function CuratorAllocationListHeader({
+  editing = false,
+  columns = DEFAULT_CURATOR_COLUMNS,
+}: {
+  editing?: boolean;
+  columns?: AllocationFilterState['columns'];
+}) {
+  const visible = getCuratorVisibleColumns(columns);
   return (
-    <span className="inline-flex items-center justify-end gap-2">
-      <span
-        className={cn(
-          'h-3.5 w-3.5 shrink-0 rounded-full border-2',
-          active ? 'border-primary bg-primary' : 'border-muted-foreground/35 bg-transparent'
-        )}
-        aria-hidden
-      />
-      <span className="text-sm tabular-nums text-foreground">{pct.toFixed(2)}%</span>
+    <TableHeader>
+      <TableRow className="hover:bg-transparent">
+        <TableHead>Name</TableHead>
+        {visible.map((col) => (
+          <TableHead key={col.filterKey} className="text-right">
+            {col.label}
+          </TableHead>
+        ))}
+        <TableHead className="text-right">Allocation</TableHead>
+        <TableHead className="text-right">% Alloc.</TableHead>
+        {editing ? <TableHead className="text-right">Target</TableHead> : null}
+      </TableRow>
+    </TableHeader>
+  );
+}
+
+export function AllocationPctIndicator({ pct }: { pct: number }) {
+  return (
+    <span className="inline-flex items-center justify-end gap-1.5">
+      <CapUtilizationRing percent={pct} />
+      <span className="tabular-nums text-foreground">{pct.toFixed(2)}%</span>
     </span>
   );
 }
@@ -167,33 +136,44 @@ export function CuratorAllocationListRow({
   const visible = getCuratorVisibleColumns(columns);
 
   return (
-    <div
-      className={cn(
-        'grid items-center gap-x-5 border-b border-border/60 px-5 py-4 last:border-b-0',
-        className
-      )}
-      style={{ gridTemplateColumns: buildCuratorGridTemplate(columns, editing) }}
-    >
-      <div className="flex min-w-0 items-center gap-2.5">
-        <div className="truncate text-sm font-medium text-foreground">{name}</div>
-        {tags}
-      </div>
+    <TableRow className={className}>
+      <TableCell>
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <span className="font-medium text-foreground">{name}</span>
+          {tags}
+        </div>
+      </TableCell>
       {visible.map((col, i) => (
-        <div
+        <TableCell
           key={col.filterKey}
           className={cn(
-            'text-right text-sm tabular-nums tracking-tight text-foreground',
+            'text-right tabular-nums',
             col.filterKey === 'liquidity' && 'whitespace-normal'
           )}
         >
           {optionalCells[i] ?? '—'}
-        </div>
+        </TableCell>
       ))}
-      <div className="text-right text-sm tabular-nums tracking-tight text-foreground">
-        {allocationAmount}
-      </div>
-      <div className="text-right">{percentAllocated}</div>
-      {targetCell}
-    </div>
+      <TableCell className="text-right tabular-nums">{allocationAmount}</TableCell>
+      <TableCell className="text-right">{percentAllocated}</TableCell>
+      {editing ? <TableCell className="text-right">{targetCell}</TableCell> : null}
+    </TableRow>
+  );
+}
+
+export function AllocationTable({
+  header,
+  children,
+}: {
+  header: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <AllocationListShell>
+      <Table>
+        {header}
+        <TableBody>{children}</TableBody>
+      </Table>
+    </AllocationListShell>
   );
 }

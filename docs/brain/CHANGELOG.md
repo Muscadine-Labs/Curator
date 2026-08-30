@@ -4,6 +4,56 @@ Append-only session log. Newest first. Keep entries short; link files.
 
 ---
 
+## 2026-08-29 — AI review: bugs, deps, dead code
+
+- Caps relative rings: `vault.analytics.totalAssetsUnderlying` (detail API also returns it at top level). Catalog APY matches detail (`netApy` → `avgNetApy` → `apy`).
+- Login: IP rate limit on `POST /api/auth/verify`; timing-safe password compare; production requires `CURATOR_SESSION_SECRET`; session version stamp. Dependabot overrides: nanoid, postcss, js-yaml, hono, socket.io-parser.
+- Dropped unused exports (`AllocationListShell`, midnight helpers). Deps updated within pins (no wagmi 3 / ESLint 10 / TypeScript 7).
+
+## 2026-08-29 — Vaults catalog + Morpho Caps / tab order
+
+- `/vaults` uses Morpho Curator-style tables (network, deposits, liquidity adapter, liquidity, APY) still grouped Prime / Frontier / Vineyard / Test.
+- Vault tabs: Overview → Allocation → Caps → Risk → Timelocks → Sentinel. `/analytics` redirects to `/risk`.
+- Caps: grouped market / collateral / adapter tables with utilization rings. Public Allocator toggle when the V2 Blue PA is an allocator ([docs](https://docs.morpho.org/learn/concepts/public-allocator/)).
+
+## 2026-08-29 — Midnight market pages
+
+- `/midnight/[id]` is a Midnight-only detail page (order book, maturity, outstanding units, per-collateral LLTV/cursor/oracle). Not Blue APY/utilization/IRM.
+- External link: `https://markets.morpho.org/fixed/{chain}/{marketId}`. Browse rows go in-app (`curatorMidnightMarketHref`).
+- BFF: `GET /api/markets/midnight/[id]` (market + state + book).
+
+## 2026-08-29 — Name public allocator on Bots
+
+- `0xAED2…e412` labeled **Public Allocator** (`lib/constants/bots.ts`).
+
+## 2026-08-29 — Review fixes: auth, treasury, cache, GraphQL batching
+
+- HttpOnly `curator_session` cookie + `proxy.ts` on `/api/*`. `apiFetch` sends cookies. BFFs `private, no-store`. Each BFF also checks the session (proxy is not an auth boundary).
+- Treasury income: daily **share** change × day's USD; GraphQL self-deposits excluded.
+- `/api/vaults` one aliased GraphQL query + 30s cache; protocol-users paginate positions.
+- Shared `getBaseRpcUrl()` (no Alchemy `/demo`). UTC calendar for statements/charts.
+- Bots roles/realloc batched; Rebater surfaces truncated/error.
+
+## 2026-08-29 — Bots: Safe is the bot, not the EOA
+
+- Dropped **Bot** label on `0xf35B…B333`. Allocator/Sentinel Safes are the bot actors (`lib/constants/bots.ts`); Alchemy watch is Safes only.
+
+## 2026-08-29 — Curator tools at `/curator`
+
+- Hub moved from `/morpho` to `/curator`; bots at `/curator/bots`. `/morpho` and `/morpho/bots` redirect (`next.config.ts`).
+
+## 2026-08-29 — Drop Morpho vault-v2-reallocation-bot from hub
+
+- Removed [vault-v2-reallocation-bot](https://github.com/morpho-org/vault-v2-reallocation-bot) from `/morpho` Automation bots (`lib/constants/links.ts`).
+
+## 2026-08-29 — Bots tabs, treasury inflows, Midnight, load times
+
+- Bots `/morpho/bots`: Allocator / Sentinel / Rebater tabs; Safes on by default, EOAs off; Rebater watches treasury outflows (`lib/bots/rebater-activity.ts`). Telegram + muscadine-bots links (`lib/constants/links.ts`).
+- Bot activity BFF: `?panel=`, one APY series per vault, Alchemy only for known bot/Safes (`app/api/bots/activity/route.ts`).
+- Protocol txs: single `vaultV2transactions` query (`app/api/protocol-transactions/route.ts`).
+- Treasury income: GraphQL **daily share change** × that day's USD; self-deposits excluded (`compute-treasury-statement.ts`). No RPC/ABI; not `assetsUsd` mark-to-market. BFFs require HttpOnly session cookie (`proxy.ts`). Vault list is one aliased GraphQL query + 30s cache.
+- Markets: All/Blue/Midnight toggle; Midnight REST books (`lib/morpho/midnight-markets.ts`, `GET /api/markets/midnight`); wallet positions card on `/markets`.
+
 ## 2026-07-31 — Bot market labels via GraphQL + repos on Morpho Tools
 
 - Bots activity labels markets as `cbBTC/USDC (86%)` via Morpho GraphQL

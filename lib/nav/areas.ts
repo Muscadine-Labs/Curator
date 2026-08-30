@@ -19,7 +19,7 @@ export const CURATOR_TOP_NAV: readonly CuratorNavItem[] = [
   { id: 'overview', label: 'Overview', href: '/' },
   { id: 'vaults', label: 'Vaults', href: '/vaults' },
   { id: 'markets', label: 'Markets', href: '/markets' },
-  { id: 'curator', label: 'Curator', href: '/morpho' },
+  { id: 'curator', label: 'Curator', href: '/curator' },
   { id: 'business', label: 'Business', href: '/monthly-statement' },
 ] as const;
 
@@ -38,12 +38,20 @@ export function resolveCuratorNavArea(pathname: string): CuratorNavArea {
   if (
     path === '/markets' ||
     path.startsWith('/markets/') ||
-    path.startsWith('/market/')
+    path.startsWith('/market/') ||
+    path.startsWith('/midnight')
   ) {
     return 'markets';
   }
 
-  if (path === '/morpho' || path.startsWith('/morpho/') || path === '/safe' || path.startsWith('/safe/')) {
+  if (
+    path === '/curator' ||
+    path.startsWith('/curator/') ||
+    path === '/morpho' ||
+    path.startsWith('/morpho/') ||
+    path === '/safe' ||
+    path.startsWith('/safe/')
+  ) {
     return 'curator';
   }
 

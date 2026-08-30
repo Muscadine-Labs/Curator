@@ -6,6 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { formatCompactUSD } from '@/lib/format/number';
 import { filterDataByRange, type TimeRange } from '@/lib/utils/date-filter';
+import { formatUtcChartTick } from '@/lib/utils/utc-calendar';
 import { TimeRangeFilter } from '@/components/charts/TimeRangeFilter';
 import { ViewModeFilter, type ChartViewMode } from '@/components/charts/ViewModeFilter';
 import { useRevenueSource } from '@/lib/RevenueSourceContext';
@@ -65,10 +66,7 @@ export function ChartRevenue({
 
   const formatTooltipValue = useMemo(() => (value: number) => formatCompactUSD(value), []);
   const formatXAxisLabel = useMemo(
-    () => (tickItem: string) => {
-      const date = new Date(tickItem);
-      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    },
+    () => (tickItem: string) => formatUtcChartTick(tickItem),
     []
   );
 

@@ -14,17 +14,21 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useCuratorMarkets } from '@/lib/hooks/useCuratorMarkets';
+import { useCuratorMarkets, useMidnightMarkets } from '@/lib/hooks/useCuratorMarkets';
 import type { CuratorMarketListItem } from '@/lib/morpho/curator-markets';
+import type { MidnightMarketListItem } from '@/lib/morpho/midnight-markets';
 import { formatCompactUSD, formatPercentage } from '@/lib/format/number';
 import { formatMarketTokenAmount } from '@/components/morpho/TokenUsdValue';
 import { formatLltvPill } from '@/components/morpho/AllocationListView';
-import { curatorBlueMarketHref } from '@/lib/morpho/morpho-app-links';
+import { curatorBlueMarketHref, curatorMidnightMarketHref } from '@/lib/morpho/morpho-app-links';
 import { useCuratorNetwork } from '@/lib/network/CuratorNetworkContext';
 import { cn } from '@/lib/utils';
+import { WalletMarketPositionsCard } from '@/components/morpho/WalletMarketPositionsCard';
+import { CuratorTableShell } from '@/components/morpho/CuratorChrome';
 
 type ListedFilter = 'all' | 'listed' | 'unlisted';
 type MuscadineFilter = 'all' | 'muscadine';
+type ProductFilter = 'all' | 'blue' | 'midnight';
 type SortKey = 'pair' | 'lltv' | 'sizeUsd' | 'liquidity' | 'apy' | 'listed' | 'muscadine';
 type SortDir = 'asc' | 'desc';
 
@@ -89,9 +93,9 @@ function SortableHead({
           onSort(sortKey);
         }}
         className={cn(
-          'inline-flex items-center gap-1 whitespace-nowrap font-medium transition-colors hover:text-slate-900 dark:hover:text-slate-100',
+          'inline-flex items-center gap-1 whitespace-nowrap font-medium transition-colors hover:text-foreground',
           align === 'right' && 'ml-auto',
-          active && 'text-slate-900 dark:text-slate-100'
+          active && 'text-foreground'
         )}
       >
         {label}
@@ -112,6 +116,127 @@ function MetricCell({ primary, secondary }: { primary: ReactNode; secondary?: Re
   );
 }
 
+function MidnightMarketsTable({
+  markets,
+  loading,
+  networkName,
+  onOpen,
+}: {
+  markets: MidnightMarketListItem[];
+  loading: boolean;
+  networkName: string;
+  onOpen: (market: MidnightMarketListItem) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-muted-foreground">
+        Midnight is Morpho&apos;s fixed-term (tenor) book. GraphQL is Blue-only;
+        this table uses the Morpho REST books API. Maturity is the market tenor
+        date; remaining tenor is time-to-maturity.
+      </p>
+      <CuratorTableShell>
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead>Network</TableHead>
+              <TableHead>Loan</TableHead>
+              <TableHead>Collateral</TableHead>
+              <TableHead>LLTV</TableHead>
+              <TableHead>Oracle</TableHead>
+              <TableHead>Maturity / tenor</TableHead>
+              <TableHead className="text-right">Lend depth</TableHead>
+              <TableHead className="text-right">Borrow depth</TableHead>
+              <TableHead className="text-right">Best rate</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading &&
+              [...Array(6)].map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell colSpan={9}>
+                    <Skeleton className="h-8 w-full" />
+                  </TableCell>
+                </TableRow>
+              ))}
+            {!loading && markets.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={9} className="py-8 text-center text-sm text-muted-foreground">
+                  No Midnight markets on {networkName}.
+                </TableCell>
+              </TableRow>
+            )}
+            {!loading &&
+              markets.map((market) => {
+                const maturity = new Date(market.maturity * 1000).toLocaleDateString(
+                  undefined,
+                  { month: 'short', day: 'numeric', year: 'numeric' }
+                );
+                return (
+                  <TableRow
+                    key={market.marketId}
+                    tabIndex={0}
+                    role="link"
+                    onClick={() => onOpen(market)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onOpen(market);
+                      }
+                    }}
+                    className="cursor-pointer"
+                  >
+                    <TableCell className="text-xs">{networkName}</TableCell>
+                    <TableCell className="font-medium">{market.loanSymbol}</TableCell>
+                    <TableCell className="text-sm">{market.collateralLabel}</TableCell>
+                    <TableCell className="text-xs">{market.lltvLabel}</TableCell>
+                    <TableCell className="font-mono text-[10px] text-muted-foreground">
+                      {market.oracleAddress
+                        ? `${market.oracleAddress.slice(0, 6)}…${market.oracleAddress.slice(-4)}`
+                        : '—'}
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <div className="text-sm">{maturity}</div>
+                        <div className="text-xs text-muted-foreground">{market.tenorLabel}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <MetricCell
+                        primary={
+                          formatMarketTokenAmount(
+                            market.lendDepthAssets,
+                            market.loanSymbol,
+                            market.loanDecimals
+                          ) ?? '—'
+                        }
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <MetricCell
+                        primary={
+                          formatMarketTokenAmount(
+                            market.borrowDepthAssets,
+                            market.loanSymbol,
+                            market.loanDecimals
+                          ) ?? '—'
+                        }
+                      />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {market.bestRate != null
+                        ? formatPercentage(market.bestRate * 100)
+                        : '—'}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+          </TableBody>
+        </Table>
+      </CuratorTableShell>
+    </div>
+  );
+}
+
 export function CuratorMarketsBrowser() {
   const router = useRouter();
   const { chainId, networkName, ready } = useCuratorNetwork();
@@ -120,13 +245,23 @@ export function CuratorMarketsBrowser() {
   const [collateralFilter, setCollateralFilter] = useState('');
   const [listedFilter, setListedFilter] = useState<ListedFilter>('listed');
   const [muscadineFilter, setMuscadineFilter] = useState<MuscadineFilter>('all');
+  const [productFilter, setProductFilter] = useState<ProductFilter>('blue');
   const [sortKey, setSortKey] = useState<SortKey>('sizeUsd');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
 
   const { data, isLoading, error, refetch } = useCuratorMarkets(chainId, {
-    enabled: ready,
+    enabled: ready && productFilter !== 'midnight',
   });
-  const loading = !ready || isLoading;
+  const {
+    data: midnightData,
+    isLoading: midnightLoading,
+    error: midnightError,
+    refetch: refetchMidnight,
+  } = useMidnightMarkets(chainId, {
+    enabled: ready && productFilter !== 'blue',
+  });
+  const loading = !ready || (productFilter !== 'midnight' && isLoading);
+  const midnightBusy = !ready || (productFilter !== 'blue' && midnightLoading);
 
   const resetFilters = () => {
     setSearch('');
@@ -134,9 +269,11 @@ export function CuratorMarketsBrowser() {
     setCollateralFilter('');
     setListedFilter('listed');
     setMuscadineFilter('all');
+    setProductFilter('blue');
     setSortKey('sizeUsd');
     setSortDir('desc');
     void refetch();
+    void refetchMidnight();
   };
 
   const filtered = useMemo(() => {
@@ -181,11 +318,33 @@ export function CuratorMarketsBrowser() {
     if (href) router.push(href);
   };
 
+  const openMidnight = (market: MidnightMarketListItem) => {
+    const href = curatorMidnightMarketHref(market.marketId, market.chainId);
+    if (href) router.push(href);
+  };
+
+  const showBlue = productFilter === 'all' || productFilter === 'blue';
+  const showMidnight = productFilter === 'all' || productFilter === 'midnight';
+
   return (
     <div className="space-y-4">
+      <WalletMarketPositionsCard />
+
       <div className="flex flex-wrap items-end gap-3">
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">Product</label>
+          <select
+            value={productFilter}
+            onChange={(e) => setProductFilter(e.target.value as ProductFilter)}
+            className="h-9 rounded-md border border-border bg-background px-3 text-sm"
+          >
+            <option value="all">All</option>
+            <option value="blue">Blue</option>
+            <option value="midnight">Midnight</option>
+          </select>
+        </div>
         <div className="min-w-[140px] flex-1 space-y-1">
-          <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Loan</label>
+          <label className="text-xs font-medium text-muted-foreground">Loan</label>
           <Input
             placeholder="e.g. USDC"
             value={loanFilter}
@@ -194,7 +353,7 @@ export function CuratorMarketsBrowser() {
         </div>
 
         <div className="min-w-[140px] flex-1 space-y-1">
-          <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Collateral</label>
+          <label className="text-xs font-medium text-muted-foreground">Collateral</label>
           <Input
             placeholder="e.g. WETH"
             value={collateralFilter}
@@ -203,11 +362,11 @@ export function CuratorMarketsBrowser() {
         </div>
 
         <div className="space-y-1">
-          <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Listed</label>
+          <label className="text-xs font-medium text-muted-foreground">Listed</label>
           <select
             value={listedFilter}
             onChange={(e) => setListedFilter(e.target.value as ListedFilter)}
-            className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900"
+            className="h-9 rounded-md border border-border bg-background px-3 text-sm"
           >
             <option value="all">All</option>
             <option value="listed">Listed</option>
@@ -216,11 +375,11 @@ export function CuratorMarketsBrowser() {
         </div>
 
         <div className="space-y-1">
-          <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Muscadine</label>
+          <label className="text-xs font-medium text-muted-foreground">Muscadine</label>
           <select
             value={muscadineFilter}
             onChange={(e) => setMuscadineFilter(e.target.value as MuscadineFilter)}
-            className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900"
+            className="h-9 rounded-md border border-border bg-background px-3 text-sm"
           >
             <option value="all">All markets</option>
             <option value="muscadine">Enabled caps only</option>
@@ -228,9 +387,9 @@ export function CuratorMarketsBrowser() {
         </div>
 
         <div className="min-w-[200px] flex-[2] space-y-1">
-          <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Search</label>
+          <label className="text-xs font-medium text-muted-foreground">Search</label>
           <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               className="pl-9"
               placeholder="Pair or market id"
@@ -241,140 +400,144 @@ export function CuratorMarketsBrowser() {
         </div>
       </div>
 
-      <p className="text-xs text-slate-500 dark:text-slate-400">
-        Network follows the Account → Network toggle ({networkName}). Sorted by{' '}
-        {SORTABLE_COLUMNS.find((c) => c.key === sortKey)?.label.toLowerCase() ?? 'market size'}{' '}
-        ({sortDir === 'desc' ? 'high → low' : 'low → high'}). Tap a column header to re-sort.
-        Rows highlighted in blue have a Muscadine vault market cap enabled.
-      </p>
+      {showBlue && (
+        <p className="text-xs text-muted-foreground">
+          Network follows the Account → Network toggle ({networkName}). Sorted by{' '}
+          {SORTABLE_COLUMNS.find((c) => c.key === sortKey)?.label.toLowerCase() ?? 'market size'}{' '}
+          ({sortDir === 'desc' ? 'high → low' : 'low → high'}). Tap a column header to re-sort.
+          Rows highlighted in blue have a Muscadine vault market cap enabled.
+        </p>
+      )}
 
-      {error && (
+      {showBlue && error && (
         <p className="text-sm text-red-600 dark:text-red-400">
           {error instanceof Error ? error.message : 'Failed to load markets'}
         </p>
       )}
 
-      <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {SORTABLE_COLUMNS.map((col) => (
-                <SortableHead
-                  key={col.key}
-                  label={col.label}
-                  sortKey={col.key}
-                  activeKey={sortKey}
-                  sortDir={sortDir}
-                  align={col.align}
-                  onSort={toggleSort}
-                />
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading &&
-              [...Array(8)].map((_, i) => (
-                <TableRow key={i}>
-                  <TableCell colSpan={7}>
-                    <Skeleton className="h-8 w-full" />
-                  </TableCell>
-                </TableRow>
-              ))}
-
-            {!loading && sorted.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={7} className="py-8 text-center text-sm text-slate-500">
-                  No markets match your filters.
-                </TableCell>
+      {showBlue && (
+        <CuratorTableShell className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                {SORTABLE_COLUMNS.map((col) => (
+                  <SortableHead
+                    key={col.key}
+                    label={col.label}
+                    sortKey={col.key}
+                    activeKey={sortKey}
+                    sortDir={sortDir}
+                    align={col.align}
+                    onSort={toggleSort}
+                  />
+                ))}
               </TableRow>
-            )}
-
-            {!loading &&
-              sorted.map((market) => {
-                const muscadine = market.muscadineVaults.length > 0;
-                const sizeToken =
-                  formatMarketTokenAmount(
-                    market.supplyAssets,
-                    market.loanSymbol,
-                    market.loanDecimals
-                  ) ?? '—';
-                const liqToken =
-                  formatMarketTokenAmount(
-                    market.liquidityAssets,
-                    market.loanSymbol,
-                    market.loanDecimals
-                  ) ?? '—';
-                return (
-                  <TableRow
-                    key={market.marketId}
-                    tabIndex={0}
-                    role="link"
-                    onClick={() => openMarket(market)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        openMarket(market);
-                      }
-                    }}
-                    className={cn(
-                      'cursor-pointer',
-                      muscadine &&
-                        'bg-blue-50/80 hover:bg-blue-100/80 dark:bg-blue-950/30 dark:hover:bg-blue-950/50'
-                    )}
-                  >
-                    <TableCell className="font-medium">
-                      {market.collateralSymbol} / {market.loanSymbol}
-                    </TableCell>
-                    <TableCell>{formatLltvPill(market.lltv) ?? '—'}</TableCell>
-                    <TableCell>
-                      <MetricCell
-                        primary={sizeToken}
-                        secondary={
-                          market.sizeUsd != null
-                            ? formatCompactUSD(market.sizeUsd)
-                            : undefined
-                        }
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <MetricCell
-                        primary={liqToken}
-                        secondary={
-                          market.totalLiquidityUsd != null
-                            ? formatCompactUSD(market.totalLiquidityUsd)
-                            : undefined
-                        }
-                      />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {market.avgNetSupplyApy != null
-                        ? formatPercentage(market.avgNetSupplyApy * 100)
-                        : '—'}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={market.listed ? 'default' : 'secondary'}>
-                        {market.listed ? 'Listed' : 'No'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {muscadine ? (
-                        <span className="text-xs text-blue-700 dark:text-blue-300">
-                          {market.muscadineVaults.map((v) => v.symbol).join(', ')}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-slate-400">—</span>
-                      )}
+            </TableHeader>
+            <TableBody>
+              {loading &&
+                [...Array(8)].map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell colSpan={7}>
+                      <Skeleton className="h-8 w-full" />
                     </TableCell>
                   </TableRow>
-                );
-              })}
-          </TableBody>
-        </Table>
-      </div>
+                ))}
 
-      {!loading && (
-        <p className="text-xs text-slate-500 dark:text-slate-400">
-          Showing {sorted.length} of {data?.markets.length ?? 0} markets on {networkName}.
+              {!loading && sorted.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
+                    No markets match your filters.
+                  </TableCell>
+                </TableRow>
+              )}
+
+              {!loading &&
+                sorted.map((market) => {
+                  const muscadine = market.muscadineVaults.length > 0;
+                  const sizeToken =
+                    formatMarketTokenAmount(
+                      market.supplyAssets,
+                      market.loanSymbol,
+                      market.loanDecimals
+                    ) ?? '—';
+                  const liqToken =
+                    formatMarketTokenAmount(
+                      market.liquidityAssets,
+                      market.loanSymbol,
+                      market.loanDecimals
+                    ) ?? '—';
+                  return (
+                    <TableRow
+                      key={market.marketId}
+                      tabIndex={0}
+                      role="link"
+                      onClick={() => openMarket(market)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          openMarket(market);
+                        }
+                      }}
+                      className={cn(
+                        'cursor-pointer',
+                        muscadine &&
+                          'bg-blue-50/80 hover:bg-blue-100/80 dark:bg-blue-950/30 dark:hover:bg-blue-950/50'
+                      )}
+                    >
+                      <TableCell className="font-medium">
+                        {market.collateralSymbol} / {market.loanSymbol}
+                      </TableCell>
+                      <TableCell>{formatLltvPill(market.lltv) ?? '—'}</TableCell>
+                      <TableCell>
+                        <MetricCell
+                          primary={sizeToken}
+                          secondary={
+                            market.sizeUsd != null
+                              ? formatCompactUSD(market.sizeUsd)
+                              : undefined
+                          }
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <MetricCell
+                          primary={liqToken}
+                          secondary={
+                            market.totalLiquidityUsd != null
+                              ? formatCompactUSD(market.totalLiquidityUsd)
+                              : undefined
+                          }
+                        />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {market.avgNetSupplyApy != null
+                          ? formatPercentage(market.avgNetSupplyApy * 100)
+                          : '—'}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={market.listed ? 'default' : 'secondary'}>
+                          {market.listed ? 'Listed' : 'No'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {muscadine ? (
+                          <span className="text-xs text-blue-700 dark:text-blue-300">
+                            {market.muscadineVaults.map((v) => v.symbol).join(', ')}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+            </TableBody>
+          </Table>
+        </CuratorTableShell>
+      )}
+
+      {showBlue && !loading && (
+        <p className="text-xs text-muted-foreground">
+          Showing {sorted.length} of {data?.markets.length ?? 0} Blue markets on {networkName}.
           Tap a row for risk details or{' '}
           <button
             type="button"
@@ -385,6 +548,27 @@ export function CuratorMarketsBrowser() {
           </button>
           .
         </p>
+      )}
+
+      {showMidnight && (
+        <div className="space-y-2">
+          {productFilter === 'all' ? (
+            <h3 className="text-sm font-semibold">Midnight</h3>
+          ) : null}
+          {midnightError ? (
+            <p className="text-sm text-red-600 dark:text-red-400">
+              {midnightError instanceof Error
+                ? midnightError.message
+                : 'Failed to load Midnight markets'}
+            </p>
+          ) : null}
+          <MidnightMarketsTable
+            markets={midnightData?.markets ?? []}
+            loading={midnightBusy}
+            networkName={networkName}
+            onOpen={openMidnight}
+          />
+        </div>
       )}
     </div>
   );

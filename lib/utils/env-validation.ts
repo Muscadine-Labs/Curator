@@ -32,17 +32,29 @@ function validateEnvVars(): EnvValidationResult {
   const hasCoinbaseKey = !!process.env.COINBASE_CDP_API_KEY;
   
   if (!hasAlchemyKey && !hasCoinbaseKey) {
-    warnings.push('No RPC API key configured (ALCHEMY_API_KEY or COINBASE_CDP_API_KEY). Using demo endpoints (rate limited)');
+    warnings.push('No RPC API key configured (ALCHEMY_API_KEY or COINBASE_CDP_API_KEY). Server RPC falls back to https://mainnet.base.org');
   }
 
   // Server-side RPC key recommended
   if (!process.env.ALCHEMY_API_KEY && !process.env.COINBASE_CDP_API_KEY) {
-    warnings.push('No server-side RPC API key configured. Server-side calls will use demo endpoints');
+    warnings.push('No server-side RPC API key configured. Server-side calls use https://mainnet.base.org');
   }
 
   // Client-side RPC key recommended
   if (!process.env.NEXT_PUBLIC_ALCHEMY_API_KEY) {
-    warnings.push('NEXT_PUBLIC_ALCHEMY_API_KEY is not set. Client-side RPC calls will use demo endpoints');
+    warnings.push('NEXT_PUBLIC_ALCHEMY_API_KEY is not set. Client wallet RPC uses public chain endpoints');
+  }
+
+  if (!process.env.CURATOR_SESSION_SECRET) {
+    if (process.env.NODE_ENV === 'production') {
+      warnings.push(
+        'CURATOR_SESSION_SECRET is not set. Production login will fail until it is set (do not reuse the admin password).'
+      );
+    } else {
+      warnings.push(
+        'CURATOR_SESSION_SECRET is not set; sessions are signed with the admin password (dev only)'
+      );
+    }
   }
 
   return {

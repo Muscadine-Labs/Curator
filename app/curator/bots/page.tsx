@@ -7,7 +7,7 @@ export default function BotsPage() {
   return (
     <AppShell
       title="Bots"
-      description="Allocator and sentinel activity across all role holders. Automation bot repos live under Morpho Tools."
+      description="Allocator, sentinel, and rebater activity. Telegram alerts: @MuscadineVaultBot. Automation repos live under Curator tools."
     >
       <div className="mx-auto w-full max-w-5xl">
         <BotWatchPanel />

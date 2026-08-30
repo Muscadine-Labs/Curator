@@ -5,10 +5,13 @@ import { fetchSafeProposers } from '@/lib/safe/fetch-safe-proposers.server';
 import { getSafeByAddress } from '@/lib/safe/config';
 import { mergeApiCacheHeaders } from '@/lib/api/response-cache';
 import { handleApiError } from '@/lib/utils/error-handler';
+import { unauthorizedUnlessAdmin } from '@/lib/auth/require-admin';
 
 type RouteParams = { params: Promise<{ address: string }> };
 
-export async function GET(_req: NextRequest, { params }: RouteParams) {
+export async function GET(request: NextRequest, { params }: RouteParams) {
+  const denied = await unauthorizedUnlessAdmin(request);
+  if (denied) return denied;
   try {
     const { address: raw } = await params;
     if (!isAddress(raw)) {

@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { useMemo, useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertTriangle, CheckCircle2, Loader2, Pencil } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -104,9 +103,8 @@ import {
 } from '@/lib/morpho/morpho-app-links';
 import {
   AllocationPctIndicator,
-  AllocationListSection,
-  AllocationListShell,
   AllocationPill,
+  AllocationTable,
   CuratorAllocationListHeader,
   CuratorAllocationListRow,
   getCuratorVisibleColumns,
@@ -114,6 +112,15 @@ import {
   formatLltvPill,
 } from '@/components/morpho/AllocationListView';
 import { VaultV2LiquidityAdapter } from '@/components/morpho/VaultV2LiquidityAdapter';
+import {
+  CuratorEmptyText,
+  CuratorErrorText,
+  CuratorPageHeader,
+  CuratorPanel,
+  CuratorSectionHeader,
+  CuratorSegmented,
+  CuratorSegmentedButton,
+} from '@/components/morpho/CuratorChrome';
 
 interface VaultV2AllocationsProps {
   vaultAddress: string;
@@ -1606,43 +1613,35 @@ export function VaultV2Allocations({
 
   if (!risk && isLoading) {
     return (
-      <div className="space-y-4">
-        <Card>
-          <CardHeader><CardTitle>Liquidity Adapter</CardTitle></CardHeader>
-          <CardContent><Skeleton className="h-20 w-full" /></CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle>Allocation</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
+      <div className="space-y-6">
+        <CuratorPageHeader title="Allocation" />
+        <CuratorPanel>
+          <div className="space-y-3 p-4">
+            <Skeleton className="h-20 w-full" />
             <Skeleton className="h-24 w-full" />
-            <Skeleton className="h-24 w-full" />
-          </CardContent>
-        </Card>
+          </div>
+        </CuratorPanel>
       </div>
     );
   }
 
   if (error || !risk) {
     return (
-      <Card>
-        <CardHeader><CardTitle>Allocation</CardTitle></CardHeader>
-        <CardContent>
-          <p className="text-sm text-red-600 dark:text-red-400">
-            Failed to load allocations: {error instanceof Error ? error.message : 'Unknown error'}
-          </p>
-        </CardContent>
-      </Card>
+      <div className="space-y-6">
+        <CuratorPageHeader title="Allocation" />
+        <CuratorErrorText>
+          Failed to load allocations: {error instanceof Error ? error.message : 'Unknown error'}
+        </CuratorErrorText>
+      </div>
     );
   }
 
   if (rows.length === 0) {
     return (
-      <Card>
-        <CardHeader><CardTitle>Allocation</CardTitle></CardHeader>
-        <CardContent>
-          <p className="text-sm text-slate-500 dark:text-slate-400">No allocations yet.</p>
-        </CardContent>
-      </Card>
+      <div className="space-y-6">
+        <CuratorPageHeader title="Allocation" />
+        <CuratorEmptyText>No allocations yet.</CuratorEmptyText>
+      </div>
     );
   }
 
@@ -1903,7 +1902,7 @@ export function VaultV2Allocations({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <VaultV2LiquidityAdapter
         vaultAddress={vaultAddress}
         chainId={chainId}
@@ -1912,65 +1911,70 @@ export function VaultV2Allocations({
         assetSymbol={vaultSymbol}
         assetDecimals={vaultDecimals}
       />
-    <Card>
-      <CardHeader>
-        <div className="flex items-start justify-between gap-2 flex-wrap">
-          <div>
-            <CardTitle>Allocation</CardTitle>
-            <CardDescription>
+      <div className="space-y-4">
+        <CuratorPageHeader
+          title="Allocation"
+          description={
+            <>
               Total:{' '}
               {filters.amountUnit === 'usd'
                 ? formatFullUSD(totalUsd, 2)
                 : `${formatRawTokenAmount(planningTotalRaw, vaultDecimals, vaultDisplayDecimals)} ${vaultSymbol}`}
-              {editing && (
+              {editing ? (
                 <span className="mt-1 block text-xs text-muted-foreground">
                   Edit amounts match the Allocated column. Unchanged rows keep on-chain booked
                   allocation; accrued interest is not treated as deployable cash.
                 </span>
-              )}
-            </CardDescription>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <AllocationFilters
-              value={filters}
-              onChange={setFilters}
-              onReset={() => clearAllocationFilters(vaultAddress)}
-              editing={editing}
-            />
-            {!editing ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={beginRebalance}
-                disabled={refreshingForEdit}
-                className="flex items-center gap-1.5"
-              >
-                {refreshingForEdit ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Pencil className="h-3.5 w-3.5" />
-                )}
-                {refreshingForEdit ? 'Refreshing…' : 'Rebalance'}
-              </Button>
-            ) : (
-              <div className="flex items-center gap-2">
-                <div className="flex gap-0.5 rounded-md border p-0.5">
-                  <button
-                    onClick={() => switchInputMode('percentage')}
-                    className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${inputMode === 'percentage' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                  >%</button>
-                  <button
-                    onClick={() => switchInputMode('tokens')}
-                    className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${inputMode === 'tokens' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                  >{vaultSymbol || 'Tokens'}</button>
+              ) : null}
+            </>
+          }
+          actions={
+            <div className="flex flex-wrap items-center gap-2">
+              <AllocationFilters
+                value={filters}
+                onChange={setFilters}
+                onReset={() => clearAllocationFilters(vaultAddress)}
+                editing={editing}
+              />
+              {!editing ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={beginRebalance}
+                  disabled={refreshingForEdit}
+                  className="flex items-center gap-1.5"
+                >
+                  {refreshingForEdit ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Pencil className="h-3.5 w-3.5" />
+                  )}
+                  {refreshingForEdit ? 'Refreshing…' : 'Rebalance'}
+                </Button>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <CuratorSegmented>
+                    <CuratorSegmentedButton
+                      active={inputMode === 'percentage'}
+                      onClick={() => switchInputMode('percentage')}
+                    >
+                      %
+                    </CuratorSegmentedButton>
+                    <CuratorSegmentedButton
+                      active={inputMode === 'tokens'}
+                      onClick={() => switchInputMode('tokens')}
+                    >
+                      {vaultSymbol || 'Tokens'}
+                    </CuratorSegmentedButton>
+                  </CuratorSegmented>
+                  <Button variant="ghost" size="sm" onClick={cancelEditing}>
+                    Cancel
+                  </Button>
                 </div>
-                <Button variant="ghost" size="sm" onClick={cancelEditing}>Cancel</Button>
-              </div>
-            )}
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
+              )}
+            </div>
+          }
+        />
         {govError && !governance?.caps?.length && (
           <div className="mb-3 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/30">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
@@ -2019,20 +2023,24 @@ export function VaultV2Allocations({
           </div>
         )}
 
-        <AllocationListShell>
-          <CuratorAllocationListHeader editing={editing} columns={filters.columns} />
-          {rowsToRender.length === 0 ? (
-            <div className="px-4 py-8 text-center text-xs text-muted-foreground">
-              No targets match your filters.
-            </div>
-          ) : (
-            sectionedRows.map((section) => (
-              <AllocationListSection key={section.key} title={section.title}>
-                {section.rows.map((r) => renderAllocationRow(r))}
-              </AllocationListSection>
-            ))
-          )}
-        </AllocationListShell>
+        {rowsToRender.length === 0 ? (
+          <CuratorEmptyText>No targets match your filters.</CuratorEmptyText>
+        ) : (
+          <div className="space-y-8">
+            {sectionedRows.map((section) => (
+              <div key={section.key} className="space-y-3">
+                <CuratorSectionHeader title={section.title} count={section.rows.length} />
+                <AllocationTable
+                  header={
+                    <CuratorAllocationListHeader editing={editing} columns={filters.columns} />
+                  }
+                >
+                  {section.rows.map((r) => renderAllocationRow(r))}
+                </AllocationTable>
+              </div>
+            ))}
+          </div>
+        )}
 
         {editing && (
           <div className="mt-4 space-y-3">
@@ -2130,8 +2138,7 @@ export function VaultV2Allocations({
             )}
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
     </div>
   );
 }

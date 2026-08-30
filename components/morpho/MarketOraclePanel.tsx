@@ -130,25 +130,25 @@ export function MarketOraclePanel({
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <p className="text-xs text-slate-500">Oracle contract</p>
+            <p className="text-xs text-muted-foreground">Oracle contract</p>
             {oracleScanUrl && oracleAddress ? (
               <ExplorerAddressLink address={oracleAddress} chainId={chainId} />
             ) : (
               <p className="font-mono text-xs break-all">—</p>
             )}
             {oracleScanUrl && (
-              <p className="text-xs text-slate-500">{scanName}</p>
+              <p className="text-xs text-muted-foreground">{scanName}</p>
             )}
           </div>
           <div>
-            <p className="text-xs text-slate-500">Oracle collateral price</p>
+            <p className="text-xs text-muted-foreground">Oracle collateral price</p>
             <p className="font-medium tabular-nums">
               {oraclePrice?.oracleCollateralUsd != null
                 ? formatFullUSD(oraclePrice.oracleCollateralUsd)
                 : '—'}
             </p>
             {oraclePrice?.loanPerCollateral != null && (
-              <p className="text-xs text-slate-500 tabular-nums">
+              <p className="text-xs tabular-nums text-muted-foreground">
                 {oraclePrice.loanPerCollateral.toLocaleString('en-US', {
                   maximumFractionDigits: 6,
                 })}{' '}
@@ -157,33 +157,33 @@ export function MarketOraclePanel({
             )}
           </div>
           <div>
-            <p className="text-xs text-slate-500">Morpho spot price</p>
+            <p className="text-xs text-muted-foreground">Morpho spot price</p>
             <p className="font-medium tabular-nums">
               {oraclePrice?.spotCollateralUsd != null
                 ? formatFullUSD(oraclePrice.spotCollateralUsd)
                 : '—'}
             </p>
-            <p className="text-xs text-slate-500">Indexed {collateralSymbol} USD</p>
+            <p className="text-xs text-muted-foreground">Indexed {collateralSymbol} USD</p>
           </div>
           <div>
-            <p className="text-xs text-slate-500">Oracle freshness</p>
+            <p className="text-xs text-muted-foreground">Oracle freshness</p>
             <p className="font-medium">
               {freshness.lastUpdated
                 ? freshness.lastUpdated
                 : 'Unavailable'}
             </p>
             {freshness.age && (
-              <p className="text-xs text-slate-500">{freshness.age}</p>
+              <p className="text-xs text-muted-foreground">{freshness.age}</p>
             )}
           </div>
         </div>
 
         {oraclePrice && oraclePrice.feeds.length > 0 && (
           <div className="space-y-2 border-t pt-4">
-            <p className="text-xs font-medium text-slate-600 dark:text-slate-400">
+            <p className="text-xs font-medium text-muted-foreground">
               Chainlink feeds
             </p>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted-foreground">
               Morpho oracle price ≈ (base feeds) ÷ (quote feeds). Base feeds price{' '}
               <span className="font-medium">{collateralSymbol}</span>; quote feeds price{' '}
               <span className="font-medium">{loanSymbol}</span> (often ~$1 for stables).
@@ -192,12 +192,12 @@ export function MarketOraclePanel({
               {oraclePrice.feeds.map((feed) => (
                 <div
                   key={`${feed.role}-${feed.address}`}
-                  className="rounded-md border px-3 py-2 text-sm"
+                  className="rounded-xl border border-border px-3 py-2 text-sm"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="space-y-0.5">
                       <p className="font-medium">{feedTitle(feed, collateralSymbol, loanSymbol)}</p>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-muted-foreground">
                         {feedSubtitle(feed, collateralSymbol, loanSymbol)}
                       </p>
                     </div>
@@ -215,10 +215,10 @@ export function MarketOraclePanel({
                     </div>
                   </div>
                   <div className="mt-2">
-                    <p className="text-xs text-slate-500">{scanName}</p>
+                    <p className="text-xs text-muted-foreground">{scanName}</p>
                     <ExplorerAddressLink address={feed.address} chainId={chainId} />
                   </div>
-                  <div className="mt-2 grid gap-1 text-xs text-slate-600 dark:text-slate-400 sm:grid-cols-3">
+                  <div className="mt-2 grid gap-1 text-xs text-muted-foreground sm:grid-cols-3">
                     <span>
                       Reported:{' '}
                       {feed.answerHuman != null

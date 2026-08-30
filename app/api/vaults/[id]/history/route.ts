@@ -14,6 +14,7 @@ import {
   RATE_LIMIT_REQUESTS_PER_MINUTE,
   MINUTE_MS,
 } from '@/lib/utils/rate-limit';
+import { unauthorizedUnlessAdmin } from '@/lib/auth/require-admin';
 
 const HISTORY_START_TIMESTAMP = Math.floor(new Date('2024-06-01').getTime() / 1000);
 
@@ -31,6 +32,8 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await unauthorizedUnlessAdmin(request);
+  if (denied) return denied;
   const rateLimitMiddleware = createRateLimitMiddleware(
     RATE_LIMIT_REQUESTS_PER_MINUTE,
     MINUTE_MS

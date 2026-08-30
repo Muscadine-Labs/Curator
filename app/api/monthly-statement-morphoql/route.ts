@@ -7,11 +7,14 @@ import {
   MINUTE_MS,
 } from '@/lib/utils/rate-limit';
 import { mergeApiCacheHeaders } from '@/lib/api/response-cache';
+import { unauthorizedUnlessAdmin } from '@/lib/auth/require-admin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
+  const denied = await unauthorizedUnlessAdmin(request);
+  if (denied) return denied;
   const rateLimitMiddleware = createRateLimitMiddleware(
     RATE_LIMIT_REQUESTS_PER_MINUTE,
     MINUTE_MS
@@ -30,16 +33,8 @@ export async function GET(request: Request) {
 
   try {
     const { statements, daily, vaults } = await computeTreasuryStatement();
-    const responseHeaders = mergeApiCacheHeaders(rateLimitResult.headers, 300);
-
-    const url = new URL(request.url);
-    const wantPerVault = url.searchParams.get('perVault') === 'true';
-
-    if (wantPerVault) {
-      return NextResponse.json({ vaults, daily }, { headers: responseHeaders });
-    }
-
-    return NextResponse.json({ statements, daily }, { headers: responseHeaders });
+    const responseHeaders = mergeApiCacheHeaders(rateLimitResult.headers);
+    return NextResponse.json({ statements, daily, vaults }, { headers: responseHeaders });
   } catch (err) {
     const { error, statusCode } = handleApiError(err, 'Failed to fetch monthly statement');
     return NextResponse.json(error, { status: statusCode });
