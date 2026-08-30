@@ -19,10 +19,10 @@ function SafeTabLink({ role, label }: { role: SafeRole; label: string }) {
     <Link
       href={href}
       className={cn(
-        'inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium transition touch-manipulation',
+        'inline-flex h-8 items-center gap-2 rounded-md px-3 text-sm font-medium transition touch-manipulation',
         active
-          ? 'border-slate-900 bg-slate-900 text-white dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900'
-          : 'border-transparent bg-muted text-muted-foreground hover:bg-slate-100 dark:hover:bg-slate-800'
+          ? 'bg-background text-foreground shadow-sm'
+          : 'text-muted-foreground hover:text-foreground'
       )}
     >
       {label}
@@ -31,7 +31,7 @@ function SafeTabLink({ role, label }: { role: SafeRole; label: string }) {
           className={cn(
             'rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums',
             active
-              ? 'bg-white/20 text-white dark:bg-slate-900/20 dark:text-slate-900'
+              ? 'bg-muted text-foreground'
               : 'bg-blue-100 text-blue-800 dark:bg-blue-950/50 dark:text-blue-300'
           )}
         >
@@ -51,7 +51,7 @@ export default function SafeLayout({ children }: { children: React.ReactNode }) 
       <div className="space-y-6">
         <SafeAppModeBanner />
         <MuscadineSafeWorkspaceCard />
-        <nav className="flex flex-wrap gap-2">
+        <nav className="flex w-fit flex-wrap items-center gap-1 rounded-lg bg-muted p-1">
           {SAFE_ACCOUNTS.map((account) => (
             <SafeTabLink key={account.role} role={account.role} label={account.label} />
           ))}

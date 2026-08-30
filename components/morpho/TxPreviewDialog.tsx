@@ -58,12 +58,12 @@ function PreviewChangeRow({ change }: { change: TxPreviewChange }) {
     change.after !== '';
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3 dark:border-slate-800 dark:bg-slate-900/40">
+    <div className="rounded-xl border border-border p-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <p className="font-medium text-slate-900 dark:text-slate-100">{change.label}</p>
+          <p className="font-medium text-foreground">{change.label}</p>
           {change.subtitle && (
-            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{change.subtitle}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{change.subtitle}</p>
           )}
         </div>
         <span
@@ -77,16 +77,16 @@ function PreviewChangeRow({ change }: { change: TxPreviewChange }) {
       </div>
 
       {change.delta && (
-        <p className="mt-2 text-sm tabular-nums text-slate-700 dark:text-slate-300">
+        <p className="mt-2 text-sm tabular-nums text-foreground">
           <span className="font-semibold">{change.delta}</span>
         </p>
       )}
 
       {hasBeforeAfter && (
-        <div className="mt-2 flex flex-wrap items-center gap-2 text-sm tabular-nums text-slate-700 dark:text-slate-300">
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-sm tabular-nums text-muted-foreground">
           <span>{change.before}</span>
-          <ArrowRight className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden />
-          <span className="font-semibold text-slate-900 dark:text-slate-100">{change.after}</span>
+          <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+          <span className="font-semibold text-foreground">{change.after}</span>
         </div>
       )}
     </div>
@@ -167,15 +167,15 @@ export function TxPreviewDialog({
         aria-modal="true"
         aria-labelledby="tx-preview-title"
         tabIndex={-1}
-        className="relative z-10 flex max-h-[min(85vh,640px)] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-950"
+        className="relative z-10 flex max-h-[min(85vh,640px)] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-border bg-background shadow-xl"
       >
-        <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-slate-800">
+        <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
           <div className="min-w-0">
-            <h2 id="tx-preview-title" className="text-base font-semibold text-slate-900 dark:text-slate-100">
+            <h2 id="tx-preview-title" className="text-base font-semibold text-foreground">
               {preview.title}
             </h2>
             {preview.description && (
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{preview.description}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{preview.description}</p>
             )}
           </div>
           <Button
@@ -197,7 +197,7 @@ export function TxPreviewDialog({
         </div>
 
         {preview.footnote && (
-          <p className="border-t border-slate-200 px-4 py-2 text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
+          <p className="border-t border-border px-4 py-2 text-xs text-muted-foreground">
             {preview.footnote}
           </p>
         )}
@@ -218,7 +218,7 @@ export function TxPreviewDialog({
           </div>
         )}
 
-        <div className="flex flex-col-reverse gap-2 border-t border-slate-200 px-4 py-3 sm:flex-row sm:justify-end dark:border-slate-800">
+        <div className="flex flex-col-reverse gap-2 border-t border-border px-4 py-3 sm:flex-row sm:justify-end">
           <Button
             type="button"
             variant="outline"

@@ -1,9 +1,9 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CollapsibleCard } from '@/components/ui/collapsible-card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { CuratorPanel } from '@/components/morpho/CuratorChrome';
 import {
   LineChart,
   Line,
@@ -294,14 +294,8 @@ export function VaultOverviewHistoryChart({
   }
 
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle className="text-sm">{title}</CardTitle>
-          {chartFilters}
-        </div>
-      </CardHeader>
-      <CardContent className="pt-0">{chartBody}</CardContent>
-    </Card>
+    <CuratorPanel title={title} actions={chartFilters}>
+      <div className="p-4">{chartBody}</div>
+    </CuratorPanel>
   );
 }

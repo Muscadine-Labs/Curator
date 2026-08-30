@@ -4,12 +4,20 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAccount } from 'wagmi';
-import { Info } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import {
+  CuratorEmptyText,
+  CuratorErrorText,
+  CuratorKvList,
+  CuratorKvRow,
+  CuratorPageHeader,
+  CuratorPanel,
+  CuratorSectionHeader,
+  CuratorTableShell,
+} from '@/components/morpho/CuratorChrome';
 import {
   Table,
   TableBody,
@@ -141,7 +149,7 @@ function SentinelAllocationLabel({
 }) {
   if (!morphoHref) {
     return (
-      <span className={className ?? 'truncate text-slate-800 dark:text-slate-200'}>{label}</span>
+      <span className={className ?? 'truncate text-foreground'}>{label}</span>
     );
   }
   return (
@@ -195,14 +203,10 @@ export function VaultV2Sentinel({
 
   if (!governance || !risk) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Sentinel</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-red-600 dark:text-red-400">Failed to load sentinel data.</p>
-        </CardContent>
-      </Card>
+      <div className="space-y-6">
+        <CuratorPageHeader title="Sentinel" />
+        <CuratorErrorText>Failed to load sentinel data.</CuratorErrorText>
+      </div>
     );
   }
 
@@ -211,18 +215,19 @@ export function VaultV2Sentinel({
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Allocation Overview</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between gap-4">
-            <p className="text-sm text-slate-500 dark:text-slate-400">Total Assets</p>
-            <p className="text-sm font-semibold tabular-nums text-slate-900 dark:text-slate-100">
-              {formatAllocationTableAmount(totalRaw, assetSymbol, assetDecimals ?? chainDecimals)}
-            </p>
-          </div>
-          <div className="mt-3 flex h-2.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+      <CuratorPageHeader
+        title="Sentinel"
+        description="Deallocate to idle, decrease caps, and revoke pending curator actions."
+      />
+
+      <CuratorPanel title="Allocation overview">
+        <CuratorKvList>
+          <CuratorKvRow label="Total assets">
+            {formatAllocationTableAmount(totalRaw, assetSymbol, assetDecimals ?? chainDecimals)}
+          </CuratorKvRow>
+        </CuratorKvList>
+        <div className="space-y-4 px-4 py-3">
+          <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-muted">
             {overviewSegments.map((seg, i) =>
               seg.pct > 0 ? (
                 <div
@@ -234,7 +239,7 @@ export function VaultV2Sentinel({
               ) : null
             )}
           </div>
-          <div className="mt-4 space-y-2">
+          <div className="space-y-2">
             {overviewSegments.map((seg, i) => (
               <div key={seg.key} className="flex items-center justify-between gap-3 text-sm">
                 <div className="flex min-w-0 items-center gap-2">
@@ -243,7 +248,7 @@ export function VaultV2Sentinel({
                   />
                   <SentinelAllocationLabel label={seg.label} morphoHref={seg.morphoHref} />
                 </div>
-                <div className="flex shrink-0 items-center gap-4 tabular-nums text-slate-600 dark:text-slate-300">
+                <div className="flex shrink-0 items-center gap-4 tabular-nums text-muted-foreground">
                   <span>
                     {formatAllocationTableAmount(seg.raw, assetSymbol, assetDecimals ?? chainDecimals)}
                   </span>
@@ -252,18 +257,14 @@ export function VaultV2Sentinel({
               </div>
             ))}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </CuratorPanel>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Vault Pending Actions</CardTitle>
-          <CardDescription>
-            Pending timelock actions submitted by the curator. Revoke cancels before execution —
-            sentinel or curator wallet/Safe (sentinel preferred).
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+      <CuratorPanel
+        title="Pending actions"
+        description="Pending timelock actions submitted by the curator. Revoke cancels before execution — sentinel or curator wallet/Safe (sentinel preferred)."
+      >
+        <div className="px-4 py-3">
           <VaultV2Pending
             vaultAddress={vaultAddress}
             chainId={chainId}
@@ -277,8 +278,8 @@ export function VaultV2Sentinel({
             sentinelEmpty
             allowRevoke
           />
-        </CardContent>
-      </Card>
+        </div>
+      </CuratorPanel>
 
       <DecreaseCapsPanel
         grouped={grouped}
@@ -305,15 +306,12 @@ export function VaultV2Sentinel({
 
       {emergencyActionsUrl ? (
         <section className="space-y-3">
-          <div>
-            <h2 className="text-base font-semibold text-foreground">Emergency Actions</h2>
-            <p className="text-xs text-muted-foreground">
-              Close deposits, hard/safe market removal, sentinel lockdown, and allocator
-              compromised flows on Morpho Curator.
-            </p>
-          </div>
-          <Card>
-            <CardContent className="flex flex-col gap-3 pt-6 sm:flex-row sm:items-center sm:justify-between">
+          <CuratorSectionHeader
+            title="Emergency actions"
+            description="Close deposits, hard/safe market removal, sentinel lockdown, and allocator compromised flows on Morpho Curator."
+          />
+          <CuratorPanel>
+            <div className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-muted-foreground">
                 Execute emergency actions for this vault on Morpho Curator.
               </p>
@@ -322,8 +320,8 @@ export function VaultV2Sentinel({
                   Open Emergency Actions
                 </a>
               </Button>
-            </CardContent>
-          </Card>
+            </div>
+          </CuratorPanel>
         </section>
       ) : null}
     </div>
@@ -718,34 +716,27 @@ function DecreaseCapsPanel({
     grouped.adapter.length + grouped.collateral.length + grouped.market.length;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          Decrease Caps
-          <Info className="h-4 w-4 text-slate-400" aria-hidden />
-        </CardTitle>
-        <CardDescription className="mt-1">
-          Pick absolute or relative cap, enter a new value (must be ≤ current), then Decrease. Use 0
-          to preset zero; Clear resets the row input.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-8">
-        {totalCaps === 0 ? (
-          <p className="text-sm text-slate-500 dark:text-slate-400">No caps configured.</p>
-        ) : (
-          sections.map((section) =>
+    <div className="space-y-6">
+      <CuratorSectionHeader
+        title="Decrease caps"
+        description="Pick absolute or relative cap, enter a new value (must be ≤ current), then Decrease. Use 0 to preset zero; Clear resets the row input."
+      />
+      {totalCaps === 0 ? (
+        <CuratorEmptyText>No caps configured.</CuratorEmptyText>
+      ) : (
+        <div className="space-y-8">
+          {sections.map((section) =>
             section.caps.length === 0 ? null : (
               <div key={section.title} className="space-y-3">
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                    {section.title}
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">{section.description}</p>
-                </div>
-                <div className="overflow-x-auto rounded-md border border-slate-200 dark:border-slate-800">
+                <CuratorSectionHeader
+                  title={section.title}
+                  count={section.caps.length}
+                  description={section.description}
+                />
+                <CuratorTableShell>
                   <Table>
                     <TableHeader>
-                      <TableRow>
+                      <TableRow className="hover:bg-transparent">
                         <TableHead>{section.nameCol}</TableHead>
                         <TableHead className="text-right">Allocation</TableHead>
                         <TableHead className="text-right">Absolute Cap</TableHead>
@@ -880,12 +871,12 @@ function DecreaseCapsPanel({
                       })}
                     </TableBody>
                   </Table>
-                </div>
+                </CuratorTableShell>
               </div>
             )
-          )
-        )}
-      </CardContent>
+          )}
+        </div>
+      )}
       <TxPreviewDialog
         open={previewOpen}
         preview={txPreview}
@@ -920,7 +911,7 @@ function DecreaseCapsPanel({
             : write.error
         }
       />
-    </Card>
+    </div>
   );
 }
 
@@ -1223,32 +1214,28 @@ function DeallocatePanel({
   ]);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Deallocate to Idle</CardTitle>
-        <CardDescription>
-          Enter an amount and Deallocate, or Min to fill the withdrawable amount
-          (allocation minus illiquid remainder — same liquidity rule as Allocations Min).
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="overflow-x-auto rounded-md border border-slate-200 dark:border-slate-800">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Allocation</TableHead>
-                <TableHead className="text-right">Allocation</TableHead>
-                <TableHead className="text-right">Effective Abs. Cap</TableHead>
-                <TableHead className="text-right">Effective Rel. Cap</TableHead>
-                <TableHead className="text-right">Rate</TableHead>
-                <TableHead className="text-right">Liquidity</TableHead>
-                <TableHead className="min-w-[220px]">Amount</TableHead>
-              </TableRow>
-            </TableHeader>
+    <div className="space-y-3">
+      <CuratorSectionHeader
+        title="Deallocate to idle"
+        description="Enter an amount and Deallocate, or Min to fill the withdrawable amount (allocation minus illiquid remainder — same liquidity rule as Allocations Min)."
+      />
+      <CuratorTableShell>
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead>Allocation</TableHead>
+              <TableHead className="text-right">Allocation</TableHead>
+              <TableHead className="text-right">Effective Abs. Cap</TableHead>
+              <TableHead className="text-right">Effective Rel. Cap</TableHead>
+              <TableHead className="text-right">Rate</TableHead>
+              <TableHead className="text-right">Liquidity</TableHead>
+              <TableHead className="min-w-[220px]">Amount</TableHead>
+            </TableRow>
+          </TableHeader>
             <TableBody>
               {rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-slate-500">
+                  <TableCell colSpan={7} className="text-center text-muted-foreground">
                     No positions.
                   </TableCell>
                 </TableRow>
@@ -1341,7 +1328,7 @@ function DeallocatePanel({
                           )}
                           </div>
                         ) : (
-                          <span className="text-xs text-slate-400">—</span>
+                          <span className="text-xs text-muted-foreground">—</span>
                         )}
                       </TableCell>
                     </TableRow>
@@ -1350,8 +1337,7 @@ function DeallocatePanel({
               )}
             </TableBody>
           </Table>
-        </div>
-      </CardContent>
+      </CuratorTableShell>
       <TxPreviewDialog
         open={previewOpen}
         preview={txPreview}
@@ -1386,7 +1372,7 @@ function DeallocatePanel({
             : write.error
         }
       />
-    </Card>
+    </div>
   );
 }
 

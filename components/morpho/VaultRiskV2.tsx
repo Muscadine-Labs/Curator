@@ -1,14 +1,21 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Shield } from 'lucide-react';
 import { useVaultV2Risk } from '@/lib/hooks/useVaultV2Risk';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { formatCompactUSD, formatPercentage } from '@/lib/format/number';
 import { MarketRiskDetailCard } from '@/components/morpho/MarketRiskDetailCard';
+import {
+  CuratorEmptyText,
+  CuratorErrorText,
+  CuratorKvList,
+  CuratorKvRow,
+  CuratorPageHeader,
+  CuratorPanel,
+  CuratorSectionHeader,
+} from '@/components/morpho/CuratorChrome';
 import { BASE_CHAIN_ID } from '@/lib/constants';
 import { shouldShowAdapterEntry, shouldShowMarketEntry } from '@/lib/morpho/format-risk';
 import { getGradeColor, getScoreColor } from '@/lib/morpho/market-risk-display';
@@ -59,18 +66,18 @@ export function VaultRiskV2({ vaultAddress, chainId, preloadedData }: VaultRiskV
 
   if (isActuallyLoading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Shield className="h-4 w-4" />
-            Risk
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Skeleton className="h-24 w-full" />
-          <Skeleton className="h-32 w-full" />
-        </CardContent>
-      </Card>
+      <div className="space-y-6">
+        <CuratorPageHeader
+          title="Risk"
+          description="Market risk grades for this vault's allocations."
+        />
+        <CuratorPanel>
+          <div className="space-y-3 p-4">
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-32 w-full" />
+          </div>
+        </CuratorPanel>
+      </div>
     );
   }
 
@@ -80,127 +87,92 @@ export function VaultRiskV2({ vaultAddress, chainId, preloadedData }: VaultRiskV
     const apiUrl = `/api/vaults/${vaultAddress}/risk`;
     
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Shield className="h-4 w-4" />
-            Risk
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <p className="text-sm text-red-600 dark:text-red-400">
+      <div className="space-y-6">
+        <CuratorPageHeader title="Risk" />
+        <div className="space-y-3">
+          <CuratorErrorText>
             Failed to load risk data: {error instanceof Error ? error.message : 'Unknown error'}
-          </p>
+          </CuratorErrorText>
           {isDeploymentProtection && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20 p-3">
-              <p className="text-xs text-amber-800 dark:text-amber-200 mb-2">
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/20">
+              <p className="mb-2 text-xs text-amber-800 dark:text-amber-200">
                 <strong>Preview Deployment Protection:</strong> This preview deployment requires authentication.
               </p>
-              <p className="text-xs text-amber-700 dark:text-amber-300 mb-2">
+              <p className="mb-2 text-xs text-amber-700 dark:text-amber-300">
                 To fix this, open the API route directly in your browser to authenticate:
               </p>
               <a
                 href={apiUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs text-amber-900 dark:text-amber-100 underline hover:text-amber-700 dark:hover:text-amber-300 break-all"
+                className="break-all text-xs text-amber-900 underline hover:text-amber-700 dark:text-amber-100 dark:hover:text-amber-300"
               >
                 {typeof window !== 'undefined' ? window.location.origin + apiUrl : apiUrl}
               </a>
-              <p className="text-xs text-amber-700 dark:text-amber-300 mt-2">
+              <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
                 After authenticating, refresh this page. Production deployments don&apos;t require this step.
               </p>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     );
   }
 
   if (!data) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Shield className="h-4 w-4" />
-            Risk
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-center py-8 text-slate-500 dark:text-slate-400">
-            No adapter risk data found for this vault yet.
-          </p>
-        </CardContent>
-      </Card>
+      <div className="space-y-6">
+        <CuratorPageHeader title="Risk" />
+        <CuratorEmptyText>No adapter risk data found for this vault yet.</CuratorEmptyText>
+      </div>
     );
   }
 
   return (
-    <Card>
-      <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <CardTitle className="flex items-center gap-2">
-            <Shield className="h-4 w-4" />
-            Risk
-          </CardTitle>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Weighted average across strategy adapters. Markets with a non-zero cap or allocation are shown.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <p className={cn('text-xl font-semibold', getScoreColor(data.vaultRiskScore))}>
-            {data.vaultRiskScore.toFixed(2)}
-          </p>
-          <Badge
-            variant="outline"
-            className={cn('text-xs font-semibold px-2 py-1', getGradeColor(data.vaultRiskGrade))}
-          >
-            {data.vaultRiskGrade}
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div className="rounded-lg border p-4 bg-slate-50/60 dark:bg-slate-900/50">
-            <p className="text-xs text-slate-500 dark:text-slate-400">Total Allocated (Adapters + Idle)</p>
-            <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-              {formatCompactUSD(totalVaultAllocatedUsd)}
+    <div className="space-y-6">
+      <CuratorPageHeader
+        title="Risk"
+        description="Weighted average across strategy adapters. Markets with a non-zero cap or allocation are shown."
+        actions={
+          <div className="flex items-center gap-2">
+            <p className={cn('text-lg font-semibold tabular-nums', getScoreColor(data.vaultRiskScore))}>
+              {data.vaultRiskScore.toFixed(2)}
             </p>
+            <Badge
+              variant="outline"
+              className={cn('px-2 py-0.5 text-[10px] font-normal', getGradeColor(data.vaultRiskGrade))}
+            >
+              {data.vaultRiskGrade}
+            </Badge>
           </div>
-          <div className="rounded-lg border p-4 bg-slate-50/60 dark:bg-slate-900/50">
-            <p className="text-xs text-slate-500 dark:text-slate-400">Adapters Count</p>
-            <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-              {adapterCount}
-            </p>
-          </div>
-        </div>
+        }
+      />
 
-        <div className="space-y-4">
-          {idleUsd > 0 && (
-            <div className="rounded-lg border border-dashed p-4 bg-slate-50/80 dark:bg-slate-900/50 shadow-sm space-y-3">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                <div className="space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-base font-semibold">Idle</p>
-                    <Badge variant="outline" className="text-xs">
-                      Idle Adapter
-                    </Badge>
-                  </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Allocation: {formatCompactUSD(idleUsd)} · {formatPercentage(idleWeightPct, 2)} of vault
-                  </p>
-                </div>
-                <Badge variant="outline" className="text-xs">
-                  No strategy risk
-                </Badge>
-              </div>
-              <p className="rounded-md border border-dashed border-slate-200 bg-white/60 p-3 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300">
+      <CuratorPanel>
+        <CuratorKvList>
+          <CuratorKvRow label="Total allocated">
+            {formatCompactUSD(totalVaultAllocatedUsd)}
+          </CuratorKvRow>
+          <CuratorKvRow label="Adapters">{adapterCount}</CuratorKvRow>
+        </CuratorKvList>
+      </CuratorPanel>
+
+      <div className="space-y-6">
+        {idleUsd > 0 && (
+          <div className="space-y-3">
+            <CuratorSectionHeader
+              title="Idle"
+              description={`${formatCompactUSD(idleUsd)} · ${formatPercentage(idleWeightPct, 2)} of vault`}
+            />
+            <CuratorPanel>
+              <p className="px-4 py-3 text-sm text-muted-foreground">
                 Unallocated vault cash held in the contract. No market or adapter exposure.
               </p>
-            </div>
-          )}
+            </CuratorPanel>
+          </div>
+        )}
 
-          {sortedAdapters.map((adapter) => {
+        {sortedAdapters.map((adapter) => {
             const adapterWeightPct =
               totalVaultAllocatedUsd > 0
                 ? (adapter.allocationUsd / totalVaultAllocatedUsd) * 100
@@ -217,36 +189,25 @@ export function VaultRiskV2({ vaultAddress, chainId, preloadedData }: VaultRiskV
               .sort((a, b) => (b.allocationUsd ?? 0) - (a.allocationUsd ?? 0));
 
             return (
-              <div
-                key={adapter.adapterAddress}
-                className="rounded-lg border p-4 bg-white dark:bg-slate-950 shadow-sm space-y-3"
-              >
+              <div key={adapter.adapterAddress} className="space-y-3">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="space-y-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-base font-semibold">{adapter.adapterLabel}</p>
-                      <Badge variant="outline" className="text-xs">
-                        Morpho Blue
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Allocation: {formatCompactUSD(adapter.allocationUsd)} ·{' '}
-                      {formatPercentage(adapterWeightPct, 2)} of vault
-                    </p>
-                  </div>
+                  <CuratorSectionHeader
+                    title={adapter.adapterLabel}
+                    count={markets.length}
+                    description={`${formatCompactUSD(adapter.allocationUsd)} · ${formatPercentage(adapterWeightPct, 2)} of vault`}
+                  />
                   <div className="flex items-center gap-2">
-                    <p className={cn('text-lg font-semibold', getScoreColor(adapter.riskScore))}>
+                    <p className={cn('text-sm font-semibold tabular-nums', getScoreColor(adapter.riskScore))}>
                       {adapter.riskScore.toFixed(2)}
                     </p>
                     <Badge
                       variant="outline"
-                      className={cn('text-xs font-semibold px-2 py-1', getGradeColor(adapter.riskGrade))}
+                      className={cn('text-[10px] font-normal', getGradeColor(adapter.riskGrade))}
                     >
                       {adapter.riskGrade}
                     </Badge>
                   </div>
                 </div>
-
                 <div className="space-y-3">
                   {markets.map((m) => (
                       <MarketRiskDetailCard
@@ -265,9 +226,8 @@ export function VaultRiskV2({ vaultAddress, chainId, preloadedData }: VaultRiskV
               </div>
             );
           })}
-        </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 

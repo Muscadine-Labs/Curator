@@ -24,6 +24,7 @@ import { curatorBlueMarketHref, curatorMidnightMarketHref } from '@/lib/morpho/m
 import { useCuratorNetwork } from '@/lib/network/CuratorNetworkContext';
 import { cn } from '@/lib/utils';
 import { WalletMarketPositionsCard } from '@/components/morpho/WalletMarketPositionsCard';
+import { CuratorTableShell } from '@/components/morpho/CuratorChrome';
 
 type ListedFilter = 'all' | 'listed' | 'unlisted';
 type MuscadineFilter = 'all' | 'muscadine';
@@ -92,9 +93,9 @@ function SortableHead({
           onSort(sortKey);
         }}
         className={cn(
-          'inline-flex items-center gap-1 whitespace-nowrap font-medium transition-colors hover:text-slate-900 dark:hover:text-slate-100',
+          'inline-flex items-center gap-1 whitespace-nowrap font-medium transition-colors hover:text-foreground',
           align === 'right' && 'ml-auto',
-          active && 'text-slate-900 dark:text-slate-100'
+          active && 'text-foreground'
         )}
       >
         {label}
@@ -128,15 +129,15 @@ function MidnightMarketsTable({
 }) {
   return (
     <div className="space-y-2">
-      <p className="text-xs text-slate-500 dark:text-slate-400">
+      <p className="text-xs text-muted-foreground">
         Midnight is Morpho&apos;s fixed-term (tenor) book. GraphQL is Blue-only;
         this table uses the Morpho REST books API. Maturity is the market tenor
         date; remaining tenor is time-to-maturity.
       </p>
-      <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
+      <CuratorTableShell>
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="hover:bg-transparent">
               <TableHead>Network</TableHead>
               <TableHead>Loan</TableHead>
               <TableHead>Collateral</TableHead>
@@ -159,7 +160,7 @@ function MidnightMarketsTable({
               ))}
             {!loading && markets.length === 0 && (
               <TableRow>
-                <TableCell colSpan={9} className="py-8 text-center text-sm text-slate-500">
+                <TableCell colSpan={9} className="py-8 text-center text-sm text-muted-foreground">
                   No Midnight markets on {networkName}.
                 </TableCell>
               </TableRow>
@@ -231,7 +232,7 @@ function MidnightMarketsTable({
               })}
           </TableBody>
         </Table>
-      </div>
+      </CuratorTableShell>
     </div>
   );
 }
@@ -331,11 +332,11 @@ export function CuratorMarketsBrowser() {
 
       <div className="flex flex-wrap items-end gap-3">
         <div className="space-y-1">
-          <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Product</label>
+          <label className="text-xs font-medium text-muted-foreground">Product</label>
           <select
             value={productFilter}
             onChange={(e) => setProductFilter(e.target.value as ProductFilter)}
-            className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900"
+            className="h-9 rounded-md border border-border bg-background px-3 text-sm"
           >
             <option value="all">All</option>
             <option value="blue">Blue</option>
@@ -343,7 +344,7 @@ export function CuratorMarketsBrowser() {
           </select>
         </div>
         <div className="min-w-[140px] flex-1 space-y-1">
-          <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Loan</label>
+          <label className="text-xs font-medium text-muted-foreground">Loan</label>
           <Input
             placeholder="e.g. USDC"
             value={loanFilter}
@@ -352,7 +353,7 @@ export function CuratorMarketsBrowser() {
         </div>
 
         <div className="min-w-[140px] flex-1 space-y-1">
-          <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Collateral</label>
+          <label className="text-xs font-medium text-muted-foreground">Collateral</label>
           <Input
             placeholder="e.g. WETH"
             value={collateralFilter}
@@ -361,11 +362,11 @@ export function CuratorMarketsBrowser() {
         </div>
 
         <div className="space-y-1">
-          <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Listed</label>
+          <label className="text-xs font-medium text-muted-foreground">Listed</label>
           <select
             value={listedFilter}
             onChange={(e) => setListedFilter(e.target.value as ListedFilter)}
-            className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900"
+            className="h-9 rounded-md border border-border bg-background px-3 text-sm"
           >
             <option value="all">All</option>
             <option value="listed">Listed</option>
@@ -374,11 +375,11 @@ export function CuratorMarketsBrowser() {
         </div>
 
         <div className="space-y-1">
-          <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Muscadine</label>
+          <label className="text-xs font-medium text-muted-foreground">Muscadine</label>
           <select
             value={muscadineFilter}
             onChange={(e) => setMuscadineFilter(e.target.value as MuscadineFilter)}
-            className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900"
+            className="h-9 rounded-md border border-border bg-background px-3 text-sm"
           >
             <option value="all">All markets</option>
             <option value="muscadine">Enabled caps only</option>
@@ -386,9 +387,9 @@ export function CuratorMarketsBrowser() {
         </div>
 
         <div className="min-w-[200px] flex-[2] space-y-1">
-          <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Search</label>
+          <label className="text-xs font-medium text-muted-foreground">Search</label>
           <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               className="pl-9"
               placeholder="Pair or market id"
@@ -400,7 +401,7 @@ export function CuratorMarketsBrowser() {
       </div>
 
       {showBlue && (
-        <p className="text-xs text-slate-500 dark:text-slate-400">
+        <p className="text-xs text-muted-foreground">
           Network follows the Account → Network toggle ({networkName}). Sorted by{' '}
           {SORTABLE_COLUMNS.find((c) => c.key === sortKey)?.label.toLowerCase() ?? 'market size'}{' '}
           ({sortDir === 'desc' ? 'high → low' : 'low → high'}). Tap a column header to re-sort.
@@ -415,10 +416,10 @@ export function CuratorMarketsBrowser() {
       )}
 
       {showBlue && (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
+        <CuratorTableShell className="overflow-x-auto">
           <Table>
             <TableHeader>
-              <TableRow>
+              <TableRow className="hover:bg-transparent">
                 {SORTABLE_COLUMNS.map((col) => (
                   <SortableHead
                     key={col.key}
@@ -444,7 +445,7 @@ export function CuratorMarketsBrowser() {
 
               {!loading && sorted.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-8 text-center text-sm text-slate-500">
+                  <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
                     No markets match your filters.
                   </TableCell>
                 </TableRow>
@@ -523,7 +524,7 @@ export function CuratorMarketsBrowser() {
                             {market.muscadineVaults.map((v) => v.symbol).join(', ')}
                           </span>
                         ) : (
-                          <span className="text-xs text-slate-400">—</span>
+                          <span className="text-xs text-muted-foreground">—</span>
                         )}
                       </TableCell>
                     </TableRow>
@@ -531,11 +532,11 @@ export function CuratorMarketsBrowser() {
                 })}
             </TableBody>
           </Table>
-        </div>
+        </CuratorTableShell>
       )}
 
       {showBlue && !loading && (
-        <p className="text-xs text-slate-500 dark:text-slate-400">
+        <p className="text-xs text-muted-foreground">
           Showing {sorted.length} of {data?.markets.length ?? 0} Blue markets on {networkName}.
           Tap a row for risk details or{' '}
           <button

@@ -25,6 +25,7 @@ import {
 import { getAddressScanUrl, getScanNameForChain } from '@/lib/constants';
 import { bigintRatio } from '@/lib/format/bigint-ratio';
 import { getAddress, isAddress } from 'viem';
+import { CuratorTableShell } from '@/components/morpho/CuratorChrome';
 
 function formatPriceWad(priceWad: string): string {
   try {
@@ -67,7 +68,7 @@ function AddrLink({
 function Metric({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
-      <p className="text-xs text-slate-500">{label}</p>
+      <p className="text-xs text-muted-foreground">{label}</p>
       <div className="font-medium">{children}</div>
     </div>
   );
@@ -88,7 +89,7 @@ function BookSide({
 }) {
   let running = 0n;
   return (
-    <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
+    <CuratorTableShell>
       <Table>
         <TableHeader>
           <TableRow>
@@ -107,7 +108,7 @@ function BookSide({
         <TableBody>
           {levels.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={5} className="py-6 text-center text-sm text-slate-500">
+              <TableCell colSpan={5} className="py-6 text-center text-sm text-muted-foreground">
                 {emptyLabel}
               </TableCell>
             </TableRow>
@@ -140,7 +141,7 @@ function BookSide({
           )}
         </TableBody>
       </Table>
-    </div>
+    </CuratorTableShell>
   );
 }
 
@@ -154,7 +155,7 @@ export function MidnightMarketView({ market }: { market: MidnightMarketDetail })
         <CardHeader className="flex flex-row items-start justify-between gap-3">
           <div>
             <CardTitle className="text-base">Market details</CardTitle>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            <p className="mt-1 text-xs text-muted-foreground">
               Midnight is a fixed-term order book (lend/borrow at a price until
               maturity). It is not Morpho Blue: there is no IRM, utilization, or
               variable supply/borrow APY.
@@ -246,7 +247,7 @@ export function MidnightMarketView({ market }: { market: MidnightMarketDetail })
               )}
             </Metric>
             <div className="sm:col-span-2">
-              <p className="text-xs text-slate-500">Token</p>
+              <p className="text-xs text-muted-foreground">Token</p>
               <AddrLink address={c.token} chainId={market.chainId} />
             </div>
           </CardContent>
@@ -277,26 +278,26 @@ export function MidnightMarketView({ market }: { market: MidnightMarketDetail })
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <div>
-            <p className="text-xs text-slate-500">Market ID</p>
-            <p className="font-mono text-xs break-all text-slate-700 dark:text-slate-300">
+            <p className="text-xs text-muted-foreground">Market ID</p>
+            <p className="break-all font-mono text-xs text-foreground">
               {market.marketId}
             </p>
           </div>
           {market.marketFamilyId ? (
             <div>
-              <p className="text-xs text-slate-500">Market family</p>
-              <p className="font-mono text-xs break-all text-slate-700 dark:text-slate-300">
+              <p className="text-xs text-muted-foreground">Market family</p>
+              <p className="break-all font-mono text-xs text-foreground">
                 {market.marketFamilyId}
               </p>
             </div>
           ) : null}
           <div>
-            <p className="text-xs text-slate-500">Loan token</p>
+            <p className="text-xs text-muted-foreground">Loan token</p>
             <AddrLink address={market.loanAddress} chainId={market.chainId} />
           </div>
           {market.midnight ? (
             <div>
-              <p className="text-xs text-slate-500">Midnight contract</p>
+              <p className="text-xs text-muted-foreground">Midnight contract</p>
               <AddrLink address={market.midnight} chainId={market.chainId} />
             </div>
           ) : null}

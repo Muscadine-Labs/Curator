@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { ExternalLink } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatRawTokenAmount } from '@/lib/format/number';
 import { getScanUrlForChain } from '@/lib/constants';
@@ -10,15 +9,14 @@ import { BASE_CHAIN_ID } from '@/lib/constants';
 import { useSafeInfo } from '@/lib/hooks/useSafeInfo';
 import type { SafeAccountConfig } from '@/lib/safe/config';
 import { safeAppHomeHref } from '@/lib/safe/links';
-
-function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex items-start justify-between gap-3 text-sm">
-      <span className="text-slate-500 dark:text-slate-400">{label}</span>
-      <span className="text-right font-medium text-slate-900 dark:text-slate-100">{value}</span>
-    </div>
-  );
-}
+import {
+  CuratorEmptyText,
+  CuratorErrorText,
+  CuratorKvList,
+  CuratorKvRow,
+  CuratorPageHeader,
+  CuratorPanel,
+} from '@/components/morpho/CuratorChrome';
 
 function formatThresholdLabel(threshold: number, ownerCount: number): string {
   return `${threshold}/${ownerCount}`;
@@ -34,144 +32,135 @@ export function SafeOverviewPanel({ account }: { account: SafeAccountConfig }) {
 
   return (
     <div className="grid gap-4 lg:grid-cols-3">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Safe details</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {infoLoading || !info ? (
+      <CuratorPanel title="Safe details">
+        {infoLoading || !info ? (
+          <div className="p-4">
             <Skeleton className="h-28 w-full" />
-          ) : (
-            <>
-              <InfoRow
-                label="ETH"
-                value={infoLoading ? <span className="text-slate-400">Loading…</span> : (ethDisplay ?? '—')}
-              />
-              <InfoRow label="Nonce" value={info.nonce.toString()} />
-              <InfoRow label="Version" value={info.version} />
-              <InfoRow
-                label="Address"
-                value={
-                  <a
-                    href={`${getScanUrlForChain(BASE_CHAIN_ID)}/address/${account.address}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 font-mono text-xs break-all text-blue-600 hover:underline dark:text-blue-400"
-                  >
-                    {account.address}
-                    <ExternalLink className="h-3 w-3 shrink-0" />
-                  </a>
-                }
-              />
-              <InfoRow
-                label="Safe app"
-                value={
-                  <a
-                    href={safeAppHomeHref(account.address)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline dark:text-blue-400"
-                  >
-                    app.safe.global
-                    <ExternalLink className="h-3 w-3 shrink-0" />
-                  </a>
-                }
-              />
-            </>
-          )}
-        </CardContent>
-      </Card>
+          </div>
+        ) : (
+          <CuratorKvList>
+            <CuratorKvRow label="ETH">
+              {infoLoading ? <span className="text-muted-foreground">Loading…</span> : (ethDisplay ?? '—')}
+            </CuratorKvRow>
+            <CuratorKvRow label="Nonce">{info.nonce.toString()}</CuratorKvRow>
+            <CuratorKvRow label="Version">{info.version}</CuratorKvRow>
+            <CuratorKvRow label="Address">
+              <a
+                href={`${getScanUrlForChain(BASE_CHAIN_ID)}/address/${account.address}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 break-all font-mono text-xs text-blue-600 hover:underline dark:text-blue-400"
+              >
+                {account.address}
+                <ExternalLink className="h-3 w-3 shrink-0" />
+              </a>
+            </CuratorKvRow>
+            <CuratorKvRow label="Safe app">
+              <a
+                href={safeAppHomeHref(account.address)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline dark:text-blue-400"
+              >
+                app.safe.global
+                <ExternalLink className="h-3 w-3 shrink-0" />
+              </a>
+            </CuratorKvRow>
+          </CuratorKvList>
+        )}
+      </CuratorPanel>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Owners</CardTitle>
-          {info && !infoLoading && (
-            <CardDescription>
-              {formatThresholdLabel(info.threshold, info.owners.length)} threshold
-            </CardDescription>
-          )}
-        </CardHeader>
-        <CardContent>
-          {infoLoading || !info ? (
+      <CuratorPanel
+        title="Owners"
+        description={
+          info && !infoLoading
+            ? `${formatThresholdLabel(info.threshold, info.owners.length)} threshold`
+            : undefined
+        }
+      >
+        {infoLoading || !info ? (
+          <div className="p-4">
             <Skeleton className="h-28 w-full" />
-          ) : (
-            <ul className="space-y-2">
-              {info.owners.map((owner) => (
-                <li key={owner}>
-                  <a
-                    href={`${getScanUrlForChain(BASE_CHAIN_ID)}/address/${owner}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-mono text-xs text-slate-700 hover:text-blue-600 dark:text-slate-300 dark:hover:text-blue-400"
-                  >
-                    {owner}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+          </div>
+        ) : (
+          <ul className="divide-y divide-border">
+            {info.owners.map((owner) => (
+              <li key={owner} className="px-4 py-3">
+                <a
+                  href={`${getScanUrlForChain(BASE_CHAIN_ID)}/address/${owner}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-mono text-xs text-foreground hover:text-blue-600 dark:hover:text-blue-400"
+                >
+                  {owner}
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CuratorPanel>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Proposers</CardTitle>
-          <CardDescription>
-            Addresses authorized to propose transactions via the Safe Transaction Service
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {infoLoading || !info ? (
+      <CuratorPanel
+        title="Proposers"
+        description="Addresses authorized to propose transactions via the Safe Transaction Service"
+      >
+        {infoLoading || !info ? (
+          <div className="p-4">
             <Skeleton className="h-28 w-full" />
-          ) : !info.proposersConfigured ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400">
+          </div>
+        ) : !info.proposersConfigured ? (
+          <div className="px-4 py-3">
+            <CuratorEmptyText>
               Set{' '}
-              <code className="rounded bg-slate-100 px-1 py-0.5 text-xs dark:bg-slate-800">
+              <code className="rounded bg-muted px-1 py-0.5 text-xs">
                 NEXT_PUBLIC_SAFE_API_KEY
               </code>{' '}
               to load proposers from the Transaction Service.
-            </p>
-          ) : info.proposersError ? (
-            <p className="text-sm text-red-600 dark:text-red-400">{info.proposersError}</p>
-          ) : info.proposers.length === 0 ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400">None configured</p>
-          ) : (
-            <ul className="space-y-3">
-              {info.proposers.map((proposer) => (
-                <li key={proposer.address} className="space-y-0.5">
-                  <a
-                    href={`${getScanUrlForChain(BASE_CHAIN_ID)}/address/${proposer.address}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-mono text-xs text-slate-700 hover:text-blue-600 dark:text-slate-300 dark:hover:text-blue-400"
-                  >
-                    {proposer.address}
-                  </a>
-                  {proposer.label ? (
-                    <p className="text-xs text-slate-500 dark:text-slate-400">{proposer.label}</p>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+            </CuratorEmptyText>
+          </div>
+        ) : info.proposersError ? (
+          <div className="px-4 py-3">
+            <CuratorErrorText>{info.proposersError}</CuratorErrorText>
+          </div>
+        ) : info.proposers.length === 0 ? (
+          <div className="px-4 py-3">
+            <CuratorEmptyText>None configured</CuratorEmptyText>
+          </div>
+        ) : (
+          <ul className="divide-y divide-border">
+            {info.proposers.map((proposer) => (
+              <li key={proposer.address} className="space-y-0.5 px-4 py-3">
+                <a
+                  href={`${getScanUrlForChain(BASE_CHAIN_ID)}/address/${proposer.address}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-mono text-xs text-foreground hover:text-blue-600 dark:hover:text-blue-400"
+                >
+                  {proposer.address}
+                </a>
+                {proposer.label ? (
+                  <p className="text-xs text-muted-foreground">{proposer.label}</p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
+      </CuratorPanel>
 
       {account.role === 'allocator' && (
-        <p className="lg:col-span-3 text-xs text-slate-500 dark:text-slate-400">
+        <p className="text-xs text-muted-foreground lg:col-span-3">
           Vault rebalances queued from the Allocation tab appear in the transaction queue below.
-          Choose{' '}
-          <span className="font-medium text-slate-700 dark:text-slate-300">Queue in Allocator Safe</span>{' '}
-          in the preview dialog.
+          Choose <span className="font-medium text-foreground">Queue in Allocator Safe</span> in the
+          preview dialog.
         </p>
       )}
       {account.role === 'sentinel' && (
-        <p className="lg:col-span-3 text-xs text-slate-500 dark:text-slate-400">
+        <p className="text-xs text-muted-foreground lg:col-span-3">
           Cap decreases and deallocations queued from a vault&apos;s{' '}
-          <span className="font-medium text-slate-700 dark:text-slate-300">Sentinel</span>{' '}
-          tab appear in the transaction queue below. Choose{' '}
-          <span className="font-medium text-slate-700 dark:text-slate-300">Queue in Sentinel Safe</span>{' '}
-          in the preview dialog.
+          <span className="font-medium text-foreground">Sentinel</span> tab appear in the
+          transaction queue below. Choose{' '}
+          <span className="font-medium text-foreground">Queue in Sentinel Safe</span> in the
+          preview dialog.
         </p>
       )}
     </div>
@@ -180,10 +169,7 @@ export function SafeOverviewPanel({ account }: { account: SafeAccountConfig }) {
 
 export function SafeRoleHeader({ account }: { account: SafeAccountConfig }) {
   return (
-    <div className="space-y-1">
-      <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{account.label}</h2>
-      <p className="text-sm text-slate-500 dark:text-slate-400">{account.description}</p>
-    </div>
+    <CuratorPageHeader title={account.label} description={account.description} />
   );
 }
 

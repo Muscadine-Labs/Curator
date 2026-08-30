@@ -86,11 +86,11 @@ function FieldLabel({
 }) {
   return (
     <label htmlFor={htmlFor} className="block space-y-1">
-      <span className="text-sm font-medium text-slate-800 dark:text-slate-200">
+      <span className="text-sm font-medium text-foreground">
         {children}
       </span>
       {hint ? (
-        <span className="block text-xs text-slate-500 dark:text-slate-400">
+        <span className="block text-xs text-muted-foreground">
           {hint}
         </span>
       ) : null}
@@ -102,7 +102,7 @@ function TokenMetaLine({ lookup }: { lookup: Erc20TokenLookup }) {
   if (lookup.status === 'idle') return null;
   if (lookup.status === 'loading') {
     return (
-      <p className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+      <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <Loader2 className="h-3 w-3 animate-spin" />
         Resolving token…
       </p>
@@ -114,13 +114,13 @@ function TokenMetaLine({ lookup }: { lookup: Erc20TokenLookup }) {
     );
   }
   return (
-    <p className="text-xs text-slate-600 dark:text-slate-300">
-      <span className="font-medium text-slate-900 dark:text-slate-100">
+    <p className="text-xs text-muted-foreground">
+      <span className="font-medium text-foreground">
         {lookup.token.symbol}
       </span>
-      <span className="text-slate-400 dark:text-slate-500"> · </span>
+      <span className="text-muted-foreground"> · </span>
       {lookup.token.name}
-      <span className="text-slate-400 dark:text-slate-500">
+      <span className="text-muted-foreground">
         {' '}
         · {lookup.token.decimals} decimals
       </span>
@@ -132,7 +132,7 @@ function OracleMetaLine({ lookup }: { lookup: OracleLookup }) {
   if (lookup.status === 'idle') return null;
   if (lookup.status === 'loading') {
     return (
-      <p className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+      <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <Loader2 className="h-3 w-3 animate-spin" />
         Checking oracle…
       </p>
@@ -144,18 +144,18 @@ function OracleMetaLine({ lookup }: { lookup: OracleLookup }) {
     );
   }
   return (
-    <p className="text-xs text-slate-600 dark:text-slate-300">
+    <p className="text-xs text-muted-foreground">
       Contract found
       {lookup.factoryDeployed === true ? (
         <>
-          <span className="text-slate-400 dark:text-slate-500"> · </span>
+          <span className="text-muted-foreground"> · </span>
           <span className="text-emerald-700 dark:text-emerald-400">
             MorphoChainlinkOracleV2 (factory)
           </span>
         </>
       ) : lookup.factoryDeployed === false ? (
         <>
-          <span className="text-slate-400 dark:text-slate-500"> · </span>
+          <span className="text-muted-foreground"> · </span>
           <span className="text-amber-700 dark:text-amber-400">
             Not from Morpho factory — verify carefully
           </span>
@@ -876,7 +876,7 @@ export function CreateMarketForm() {
             <CardTitle className="flex items-center gap-2">
               On-chain checks
               {validation.checking ? (
-                <Loader2 className="h-4 w-4 animate-spin text-slate-500" />
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
               ) : null}
             </CardTitle>
             <CardDescription>
@@ -885,8 +885,8 @@ export function CreateMarketForm() {
           </CardHeader>
           <CardContent className="space-y-3">
             {validation.marketId ? (
-              <div className="rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/50">
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              <div className="rounded-xl border border-border bg-muted/30 p-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Market ID
                 </p>
                 <p className="mt-1 break-all font-mono text-sm">{validation.marketId}</p>

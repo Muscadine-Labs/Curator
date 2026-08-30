@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -34,7 +33,18 @@ import type { CapInfo, VaultV2GovernanceResponse } from '@/app/api/vaults/[id]/g
 import type { V2VaultRiskResponse } from '@/app/api/vaults/[id]/risk/route';
 import type { VaultV2PendingResponse } from '@/app/api/vaults/[id]/pending/route';
 import { VaultV2Pending } from '@/components/morpho/VaultV2Pending';
-import { cn } from '@/lib/utils';
+import {
+  CuratorEmptyText,
+  CuratorErrorText,
+  CuratorKvList,
+  CuratorKvRow,
+  CuratorPageHeader,
+  CuratorPanel,
+  CuratorSectionHeader,
+  CuratorSegmented,
+  CuratorSegmentedButton,
+  CuratorTableShell,
+} from '@/components/morpho/CuratorChrome';
 
 interface VaultV2CapsProps {
   vaultAddress: string;
@@ -73,16 +83,12 @@ export function VaultV2Caps({
 
   if (govError || !data) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Caps</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-red-600 dark:text-red-400">
-            Failed to load caps: {govError instanceof Error ? govError.message : 'Unknown error'}
-          </p>
-        </CardContent>
-      </Card>
+      <div className="space-y-6">
+        <CuratorPageHeader title="Caps" />
+        <CuratorErrorText>
+          Failed to load caps: {govError instanceof Error ? govError.message : 'Unknown error'}
+        </CuratorErrorText>
+      </div>
     );
   }
 
@@ -94,17 +100,19 @@ export function VaultV2Caps({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold text-foreground">Caps</h2>
-        <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-          {view === 'publicAllocator'
-            ? 'Cap the total allocation each market can hold after a Public Allocator move, and choose which markets it can deallocate from.'
-            : 'Supply and borrow limits for adapters, collateral tokens, and Morpho markets. Vault caps still bind Public Allocator moves.'}
-          {pendingCount > 0
-            ? ' Accept executable timelock actions below — any connected wallet or multisig Safe may submit after the waiting period.'
-            : ''}
-        </p>
-      </div>
+      <CuratorPageHeader
+        title="Caps"
+        description={
+          <>
+            {view === 'publicAllocator'
+              ? 'Cap the total allocation each market can hold after a Public Allocator move, and choose which markets it can deallocate from.'
+              : 'Supply and borrow limits for adapters, collateral tokens, and Morpho markets. Vault caps still bind Public Allocator moves.'}
+            {pendingCount > 0
+              ? ' Accept executable timelock actions below — any connected wallet or multisig Safe may submit after the waiting period.'
+              : ''}
+          </>
+        }
+      />
 
       {pendingCount > 0 ? (
         <VaultV2Pending
@@ -123,20 +131,17 @@ export function VaultV2Caps({
       ) : null}
 
       {hasPublicAllocator ? (
-        <div className="flex items-center gap-1 rounded-lg bg-muted p-1 w-fit">
-          <ViewToggle
-            active={view === 'vault'}
-            onClick={() => setView('vault')}
-          >
+        <CuratorSegmented>
+          <CuratorSegmentedButton active={view === 'vault'} onClick={() => setView('vault')}>
             Vault
-          </ViewToggle>
-          <ViewToggle
+          </CuratorSegmentedButton>
+          <CuratorSegmentedButton
             active={view === 'publicAllocator'}
             onClick={() => setView('publicAllocator')}
           >
             Public Allocator
-          </ViewToggle>
-        </div>
+          </CuratorSegmentedButton>
+        </CuratorSegmented>
       ) : null}
 
       {view === 'publicAllocator' && publicAllocator ? (
@@ -152,7 +157,7 @@ export function VaultV2Caps({
       ) : data.caps.length === 0 ? (
         <div className="space-y-4">
           <MaxRateBlock maxRate={data.maxRate} />
-          <p className="text-sm text-muted-foreground">No caps configured.</p>
+          <CuratorEmptyText>No caps configured.</CuratorEmptyText>
         </div>
       ) : (
         <div className="space-y-8">
@@ -203,54 +208,27 @@ export function VaultV2Caps({
   );
 }
 
-function ViewToggle({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-        active ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
 function CapsSkeleton() {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Caps</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <Skeleton className="h-12 w-full" />
-        <Skeleton className="h-12 w-full" />
-        <Skeleton className="h-12 w-full" />
-      </CardContent>
-    </Card>
+    <div className="space-y-6">
+      <CuratorPageHeader title="Caps" />
+      <CuratorPanel>
+        <div className="space-y-3 p-4">
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-12 w-full" />
+        </div>
+      </CuratorPanel>
+    </div>
   );
 }
 
 function MaxRateBlock({ maxRate }: { maxRate: string | null }) {
   if (maxRate == null) return null;
   return (
-    <div className="rounded-lg border border-border p-4">
-      <p className="text-sm font-semibold text-foreground">Max rate</p>
-      <p className="mt-1 text-xs text-muted-foreground">
-        Caps how fast the vault&apos;s assets can grow to avoid yield spikes.
-      </p>
-      <p className="mt-2 text-lg font-semibold tabular-nums">{formatMaxRateApr(maxRate)}</p>
-    </div>
+    <CuratorPanel title="Max rate" description="Caps how fast the vault's assets can grow to avoid yield spikes.">
+      <p className="px-4 py-3 text-lg font-semibold tabular-nums">{formatMaxRateApr(maxRate)}</p>
+    </CuratorPanel>
   );
 }
 
@@ -280,14 +258,8 @@ function CapTableSection({
   const rows = sortCapsByAllocationDesc(caps);
   return (
     <div className="space-y-3">
-      <div>
-        <h3 className="text-sm font-semibold text-foreground">
-          {title}{' '}
-          <span className="font-normal text-muted-foreground">({rows.length})</span>
-        </h3>
-        <p className="text-xs text-muted-foreground">{description}</p>
-      </div>
-      <div className="overflow-hidden rounded-xl border border-border">
+      <CuratorSectionHeader title={title} count={rows.length} description={description} />
+      <CuratorTableShell>
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
@@ -345,7 +317,7 @@ function CapTableSection({
             ))}
           </TableBody>
         </Table>
-      </div>
+      </CuratorTableShell>
     </div>
   );
 }
@@ -378,30 +350,27 @@ function PublicAllocatorCaps({
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border border-border">
-        <div className="border-b border-border px-4 py-3">
-          <p className="text-sm font-semibold text-foreground">Public Allocator caps</p>
-        </div>
-        <div className="flex items-center justify-between gap-4 px-4 py-3">
-          <p className="text-sm text-foreground">Allow allocations from idle</p>
-          <AllowedBadge allowed={state.canPullFromIdle} />
-        </div>
-        {state.penalty != null ? (
-          <div className="flex items-center justify-between gap-4 border-t border-border px-4 py-3">
-            <p className="text-sm text-foreground">Penalty</p>
-            <p className="text-sm tabular-nums text-muted-foreground">
-              {formatForceDeallocatePenaltyWad(state.penalty)}
-            </p>
-          </div>
-        ) : null}
-      </div>
+      <CuratorPanel title="Public Allocator caps">
+        <CuratorKvList>
+          <CuratorKvRow label="Allow allocations from idle">
+            <AllowedBadge allowed={state.canPullFromIdle} />
+          </CuratorKvRow>
+          {state.penalty != null ? (
+            <CuratorKvRow label="Penalty">
+              <span className="text-muted-foreground">
+                {formatForceDeallocatePenaltyWad(state.penalty)}
+              </span>
+            </CuratorKvRow>
+          ) : null}
+        </CuratorKvList>
+      </CuratorPanel>
 
       {rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
+        <CuratorEmptyText>
           No market caps to show. Public Allocator target ceilings are per Morpho market.
-        </p>
+        </CuratorEmptyText>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border">
+        <CuratorTableShell>
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
@@ -459,7 +428,7 @@ function PublicAllocatorCaps({
               })}
             </TableBody>
           </Table>
-        </div>
+        </CuratorTableShell>
       )}
     </div>
   );

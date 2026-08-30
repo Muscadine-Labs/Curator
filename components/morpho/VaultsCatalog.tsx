@@ -236,7 +236,7 @@ export function VaultsCatalog() {
         groups.map((group) => (
           <section key={group.type} className="space-y-2">
             <h2 className="text-sm font-semibold text-foreground">{group.label}</h2>
-            <div className="overflow-hidden rounded-xl border border-border bg-card">
+            <div className="overflow-hidden rounded-xl border border-border">
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">

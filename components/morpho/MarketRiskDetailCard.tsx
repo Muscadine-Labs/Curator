@@ -162,10 +162,8 @@ export function MarketRiskDetailCard({
   return (
     <div
       className={cn(
-        'border rounded-lg p-4 space-y-4',
-        isIdle
-          ? 'bg-slate-100/50 dark:bg-slate-800/50 opacity-75'
-          : 'bg-slate-50/50 dark:bg-slate-900/50',
+        'space-y-4 rounded-xl border border-border p-4',
+        isIdle && 'opacity-75',
         className
       )}
     >
@@ -173,7 +171,7 @@ export function MarketRiskDetailCard({
         <div className="flex-1">
           <div className="flex flex-wrap items-center gap-2">
             {marketTitle}
-            <span className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+            <span className="text-xs sm:text-sm text-muted-foreground">
               LTV: {lltvPercent}%
             </span>
             {isIdle && (
@@ -183,7 +181,7 @@ export function MarketRiskDetailCard({
             )}
           </div>
           <div className="mt-2">
-            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 break-words">
+            <p className="text-xs sm:text-sm text-muted-foreground break-words">
               Vault Supply: {formatCompactUSD(vaultSupplyUsd)} ·{' '}
               {vaultAllocationPercent.toFixed(2)}% of vault ·{' '}
               {marketSharePercent.toFixed(2)}% of market
@@ -201,7 +199,7 @@ export function MarketRiskDetailCard({
             >
               {scores.grade} · {scores.marketRiskScore.toFixed(2)}
             </Badge>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Total Risk Score</p>
+            <p className="text-xs text-muted-foreground mt-1">Total Risk Score</p>
           </div>
         )}
       </div>
@@ -271,7 +269,7 @@ export function MarketRiskDetailCard({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 pt-2 border-t">
             <div>
-              <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">Total Market Size</p>
+              <p className="text-xs text-muted-foreground mb-1">Total Market Size</p>
               <TokenUsdValue
                 underlying={market.state?.supplyAssets ?? null}
                 usd={marketDisplaySizeUsd}
@@ -283,7 +281,7 @@ export function MarketRiskDetailCard({
               />
             </div>
             <div>
-              <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">Total Liquidity</p>
+              <p className="text-xs text-muted-foreground mb-1">Total Liquidity</p>
               <TokenUsdValue
                 underlying={market.state?.liquidityAssets ?? null}
                 usd={marketDisplayLiquidityUsd}
@@ -331,7 +329,7 @@ function ScorePillar({
   return (
     <div>
       <div className="flex items-center gap-1 mb-1">
-        <p className="text-xs text-slate-600 dark:text-slate-400">{label}</p>
+        <p className="text-xs text-muted-foreground">{label}</p>
         <InfoTooltip text={tooltip} />
       </div>
       <div className="flex items-center gap-2">
@@ -347,7 +345,7 @@ function ScorePillar({
         </Badge>
       </div>
       {detail != null && (
-        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{detail}</p>
+        <p className="text-xs text-muted-foreground mt-1">{detail}</p>
       )}
     </div>
   );
@@ -356,8 +354,8 @@ function ScorePillar({
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">{label}</p>
-      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{value}</p>
+      <p className="text-xs text-muted-foreground mb-1">{label}</p>
+      <p className="text-sm font-semibold text-foreground">{value}</p>
     </div>
   );
 }
@@ -366,12 +364,12 @@ function InfoTooltip({ text }: { text: string }) {
   return (
     <div className="group relative">
       <Info
-        className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 cursor-help hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+        className="h-3.5 w-3.5 cursor-help text-muted-foreground transition-colors hover:text-foreground"
         aria-label="Information"
       />
-      <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-50 w-64 p-2 text-xs text-slate-900 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 rounded-md shadow-lg border border-slate-200 dark:border-slate-700 pointer-events-none">
+      <div className="pointer-events-none absolute bottom-full left-0 z-50 mb-2 hidden w-64 rounded-md border border-border bg-muted p-2 text-xs text-foreground group-hover:block">
         {text}
-        <div className="absolute left-4 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-200 dark:border-t-slate-700" />
+        <div className="absolute left-4 top-full h-0 w-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-border" />
       </div>
     </div>
   );

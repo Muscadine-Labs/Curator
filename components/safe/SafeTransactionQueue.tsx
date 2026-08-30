@@ -3,9 +3,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Cloud, CloudOff, ExternalLink, RefreshCw, Trash2 } from 'lucide-react';
 import { getAddress } from 'viem';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import {
+  CuratorEmptyText,
+  CuratorPanel,
+} from '@/components/morpho/CuratorChrome';
 import { useSafePendingForRole } from '@/lib/hooks/useSafePending';
 import { useSafeInfo } from '@/lib/hooks/useSafeInfo';
 import { useSafeTransactionActions } from '@/lib/hooks/useSafeTransactionActions';
@@ -43,7 +46,7 @@ function statusBadge(status: SafePendingTransaction['status']) {
       );
     case 'executed':
       return (
-        <Badge className="bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-200">
+        <Badge className="bg-muted text-foreground">
           Executed
         </Badge>
       );
@@ -68,7 +71,7 @@ function serviceBadge(tx: SafePendingTransaction) {
   return (
     <Badge
       variant="outline"
-      className="gap-1 border-slate-300 text-slate-600 dark:border-slate-700 dark:text-slate-400"
+        className="gap-1 border-border text-muted-foreground"
     >
       <CloudOff className="h-3 w-3" />
       Local only
@@ -122,11 +125,11 @@ function PendingTransactionCard({
       : undefined;
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-900/40">
+    <div className="rounded-xl border border-border px-4 py-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0 space-y-1">
-          <p className="font-medium text-slate-900 dark:text-slate-100">{tx.description}</p>
-          <p className="font-mono text-[11px] text-slate-500 break-all dark:text-slate-400">
+          <p className="font-medium text-foreground">{tx.description}</p>
+          <p className="break-all font-mono text-[11px] text-muted-foreground">
             {tx.safeTxHash}
           </p>
           {vaultAddress ? (
@@ -139,10 +142,10 @@ function PendingTransactionCard({
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-3 text-xs text-slate-600 dark:text-slate-400">
+      <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
         <span>
           Signatures:{' '}
-          <span className="font-semibold text-slate-900 dark:text-slate-100">
+          <span className="font-semibold text-foreground">
             {tx.signatures.length} / {threshold}
           </span>
         </span>
@@ -154,10 +157,10 @@ function PendingTransactionCard({
       )}
 
       {preview.changes.length > 0 && (
-        <ul className="mt-3 space-y-1 border-t border-slate-200 pt-3 dark:border-slate-700">
+        <ul className="mt-3 space-y-1 border-t border-border pt-3">
           {preview.changes.map((change, i) => (
-            <li key={`${change.label}-${i}`} className="text-xs text-slate-600 dark:text-slate-400">
-              <span className="font-medium text-slate-800 dark:text-slate-200">
+            <li key={`${change.label}-${i}`} className="text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">
                 {txPreviewActionLabel(change.action)}
               </span>
               {' — '}
@@ -234,12 +237,12 @@ function PendingTransactionCard({
       </div>
 
       {!walletAddress && (
-        <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+        <p className="mt-2 text-xs text-muted-foreground">
           Connect a wallet to execute. Connect a Safe owner to sign.
         </p>
       )}
       {walletAddress && !isOwner && canExecute && (
-        <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+        <p className="mt-2 text-xs text-muted-foreground">
           Not an owner — you can still execute once signatures are ready. Signing
           requires an owner wallet.
         </p>
@@ -310,16 +313,10 @@ export function SafeTransactionQueue({ account }: { account: SafeAccountConfig }
   }, [account.role, threshold]);
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-start justify-between gap-3">
-        <div>
-          <CardTitle className="text-base">Transaction queue</CardTitle>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            Proposals are always stored in this browser (localStorage). Export/import JSON for
-            offline sharing; use Sync from service manually so other owners&apos; proposals appear
-            here (no background polling — respects Safe API rate limits).
-          </p>
-        </div>
+    <CuratorPanel
+      title="Transaction queue"
+      description="Proposals are always stored in this browser (localStorage). Export/import JSON for offline sharing; use Sync from service manually so other owners' proposals appear here (no background polling — respects Safe API rate limits)."
+      actions={
         <div className="flex shrink-0 flex-wrap justify-end gap-2">
           {serviceEnabled && (
             <Button
@@ -335,16 +332,17 @@ export function SafeTransactionQueue({ account }: { account: SafeAccountConfig }
           )}
           <QueueImportExport onError={setImportError} />
         </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
+      }
+    >
+      <div className="space-y-3 p-4">
         {!serviceEnabled && (
-          <p className="text-xs text-slate-500 dark:text-slate-400">
+          <p className="text-xs text-muted-foreground">
             Set <span className="font-mono">NEXT_PUBLIC_SAFE_API_KEY</span> to enable Transaction
             Service sync and auto-share on queue.
           </p>
         )}
         {serviceEnabled && (
-          <p className="text-xs text-slate-500 dark:text-slate-400">
+          <p className="text-xs text-muted-foreground">
             Transaction Service: {SAFE_TX_SERVICE_RATE_LIMITS.requestsPerSecond} req/s max (client
             throttled); {SAFE_TX_SERVICE_RATE_LIMITS.requestsPerMonth.toLocaleString()} req/month
             on your API tier.
@@ -363,19 +361,15 @@ export function SafeTransactionQueue({ account }: { account: SafeAccountConfig }
         )}
 
         {pending.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-slate-300 px-4 py-8 text-center dark:border-slate-700">
-            <p className="text-sm text-slate-600 dark:text-slate-400">No pending transactions.</p>
+          <CuratorEmptyText>
+            No pending transactions.
             {account.role === 'allocator' && (
-              <p className="mt-2 text-xs text-slate-500 dark:text-slate-500">
-                Queue a rebalance from a vault&apos;s Allocation tab.
-              </p>
+              <> Queue a rebalance from a vault&apos;s Allocation tab.</>
             )}
             {account.role === 'sentinel' && (
-              <p className="mt-2 text-xs text-slate-500 dark:text-slate-500">
-                Queue cap decreases or deallocations from a vault&apos;s Sentinel tab.
-              </p>
+              <> Queue cap decreases or deallocations from a vault&apos;s Sentinel tab.</>
             )}
-          </div>
+          </CuratorEmptyText>
         ) : (
           pending.map((tx) => (
             <PendingTransactionCard
@@ -387,8 +381,8 @@ export function SafeTransactionQueue({ account }: { account: SafeAccountConfig }
             />
           ))
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </CuratorPanel>
   );
 }
 

@@ -14,7 +14,10 @@ import {
   Users,
 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
-import { Card, CardContent } from '@/components/ui/card';
+import {
+  CuratorPanel,
+  CuratorSectionHeader,
+} from '@/components/morpho/CuratorChrome';
 import {
   MORPHO_APP_VAULTS_URL,
   MORPHO_AUTOMATION_BOTS,
@@ -109,7 +112,7 @@ function HubLinkRow({ tool }: { tool: HubLink }) {
     'flex items-start gap-3 px-4 py-3 transition-colors hover:bg-muted/40';
   const inner = (
     <>
-      <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border/60 bg-muted/50">
+      <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border bg-muted/50">
         <Icon className="h-4 w-4 text-muted-foreground" />
       </span>
       <span className="min-w-0 flex-1">
@@ -149,47 +152,40 @@ export default function CuratorToolsPage() {
     >
       <div className="mx-auto w-full max-w-4xl space-y-8">
         <section className="space-y-3">
-          <div>
-            <h2 className="text-sm font-semibold text-foreground">In this app</h2>
-            <p className="text-xs text-muted-foreground">
-              Shortcuts into Vaults, Markets, and Safe. Primary nav is in the top bar.
-            </p>
-          </div>
-          <Card className="border-border/70">
-            <CardContent className="divide-y divide-border/60 p-0">
+          <CuratorSectionHeader
+            title="In this app"
+            description="Shortcuts into Vaults, Markets, and Safe. Primary nav is in the top bar."
+          />
+          <CuratorPanel>
+            <div className="divide-y divide-border">
               {IN_APP_TOOLS.map((tool) => (
                 <HubLinkRow key={tool.href} tool={tool} />
               ))}
-            </CardContent>
-          </Card>
+            </div>
+          </CuratorPanel>
         </section>
 
         <section className="space-y-3">
-          <div>
-            <h2 className="text-sm font-semibold text-foreground">External Morpho links</h2>
-            <p className="text-xs text-muted-foreground">
-              Official Morpho surfaces. Curator vault writes stay in this app.
-            </p>
-          </div>
-          <Card className="border-border/70">
-            <CardContent className="divide-y divide-border/60 p-0">
+          <CuratorSectionHeader
+            title="External Morpho links"
+            description="Official Morpho surfaces. Curator vault writes stay in this app."
+          />
+          <CuratorPanel>
+            <div className="divide-y divide-border">
               {EXTERNAL_TOOLS.map((tool) => (
                 <HubLinkRow key={tool.href} tool={tool} />
               ))}
-            </CardContent>
-          </Card>
+            </div>
+          </CuratorPanel>
         </section>
 
         <section className="space-y-3">
-          <div>
-            <h2 className="text-sm font-semibold text-foreground">Automation bots</h2>
-            <p className="text-xs text-muted-foreground">
-              Muscadine vault bots and Morpho bots monorepo.
-              Live activity watch is under Curator → Bots.
-            </p>
-          </div>
-          <Card className="border-border/70">
-            <CardContent className="divide-y divide-border/60 p-0">
+          <CuratorSectionHeader
+            title="Automation bots"
+            description="Muscadine vault bots and Morpho bots monorepo. Live activity watch is under Curator → Bots."
+          />
+          <CuratorPanel>
+            <div className="divide-y divide-border">
               {MORPHO_AUTOMATION_BOTS.map((bot) => (
                 <div
                   key={bot.href}
@@ -201,7 +197,7 @@ export default function CuratorToolsPage() {
                     rel="noopener noreferrer"
                     className="flex min-w-0 flex-1 items-start gap-3"
                   >
-                    <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border/60 bg-muted/50">
+                    <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border bg-muted/50">
                       <Bot className="h-4 w-4 text-muted-foreground" />
                     </span>
                     <span className="min-w-0 flex-1">
@@ -226,8 +222,8 @@ export default function CuratorToolsPage() {
                   ) : null}
                 </div>
               ))}
-            </CardContent>
-          </Card>
+            </div>
+          </CuratorPanel>
         </section>
       </div>
     </AppShell>

@@ -38,6 +38,7 @@ import {
 } from '@/lib/format/number';
 import { getTokenDisplayDecimals } from '@/lib/format/asset-decimals';
 import { getScanUrlForChain, BASE_CHAIN_ID } from '@/lib/constants';
+import { CuratorTableShell } from '@/components/morpho/CuratorChrome';
 import type {
   BotActivityItem,
   BotWatcher,
@@ -289,6 +290,7 @@ function ActivityRow({ item }: { item: BotActivityItem }) {
             })}
           </div>
           <div className="hidden sm:block">
+            <CuratorTableShell>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -343,6 +345,7 @@ function ActivityRow({ item }: { item: BotActivityItem }) {
                 })}
               </TableBody>
             </Table>
+            </CuratorTableShell>
           </div>
         </div>
       )}
@@ -393,7 +396,7 @@ function RoleActivityCard({
   }, [items]);
 
   return (
-    <Card className="border-border/70 min-w-0">
+    <Card className="min-w-0">
       <CardHeader className="space-y-3">
         {collapsible ? (
         <button
@@ -470,11 +473,13 @@ function RoleActivityCard({
             <p className="text-sm text-muted-foreground">{emptyMessage}</p>
           ) : (
             <>
-              <div className="divide-y divide-border/60 rounded-md border border-border/60">
+              <CuratorTableShell>
+                <div className="divide-y divide-border">
                 {paged.map((item) => (
                   <ActivityRow key={`${item.hash}-${item.panel}`} item={item} />
                 ))}
-              </div>
+                </div>
+              </CuratorTableShell>
               {items.length > PAGE_SIZE && (
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
                   <span className="min-w-0">
@@ -598,7 +603,7 @@ function RebaterCard({
   }, [items]);
 
   return (
-    <Card className="border-border/70 min-w-0">
+    <Card className="min-w-0">
       <CardHeader className="space-y-2">
         <CardTitle className="flex flex-wrap items-center gap-2 text-sm font-semibold">
           <Wallet className="h-4 w-4 shrink-0" />
@@ -663,7 +668,8 @@ function RebaterCard({
           </p>
         ) : (
           <>
-            <div className="divide-y divide-border/60 rounded-md border border-border/60">
+            <CuratorTableShell>
+              <div className="divide-y divide-border">
               {paged.map((item) => {
                 const displayDecimals = getTokenDisplayDecimals(
                   item.assetSymbol,
@@ -715,7 +721,8 @@ function RebaterCard({
                   </div>
                 );
               })}
-            </div>
+              </div>
+            </CuratorTableShell>
             {items.length > PAGE_SIZE && (
               <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
                 <span>

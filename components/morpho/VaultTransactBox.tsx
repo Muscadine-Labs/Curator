@@ -39,6 +39,20 @@ import { useQueryClient } from '@tanstack/react-query';
 import { formatAllocationEditInputExact } from '@/lib/format/allocation-display';
 import { formatPercentage } from '@/lib/format/number';
 import { cn } from '@/lib/utils';
+import {
+  CuratorEmptyText,
+  CuratorSegmented,
+  CuratorSegmentedButton,
+  CuratorTableShell,
+} from '@/components/morpho/CuratorChrome';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 type Tab = 'deposit' | 'withdraw';
 type PreferredAsset = 'ETH' | 'WETH' | 'ALL';
@@ -345,9 +359,9 @@ export function VaultTransactBox({
 
   return (
     <div className="mx-auto w-full max-w-xl space-y-4">
-      <Card className="border-border/70">
-        <CardHeader className="space-y-1 pb-2">
-          <CardTitle className="text-base">Your vault positions</CardTitle>
+      <Card>
+        <CardHeader>
+          <CardTitle>Your vault positions</CardTitle>
           <CardDescription>
             Any Morpho vault where this wallet holds shares — Use to deposit or withdraw below.
           </CardDescription>
@@ -363,74 +377,83 @@ export function VaultTransactBox({
               Loading positions…
             </p>
           ) : holdings.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
+            <CuratorEmptyText>
               No vault positions found for this wallet on Base.
-            </p>
+            </CuratorEmptyText>
           ) : (
-            <ul className="divide-y divide-border/60 rounded-lg border border-border/60">
-              {holdings.map((holding) => {
-                const selected =
-                  activeAddress?.toLowerCase() === holding.address.toLowerCase();
-                return (
-                  <li
-                    key={holding.address}
-                    className={cn(
-                      'flex flex-col gap-1.5 px-3 py-3 transition-colors hover:bg-muted/40 sm:flex-row sm:items-center sm:justify-between',
-                      selected && 'bg-muted/50'
-                    )}
-                  >
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <a
-                          href={holding.morphoHref}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm font-medium text-blue-600 underline-offset-2 hover:underline dark:text-blue-400"
-                        >
-                          {holding.name}
-                        </a>
-                        <CopyVaultAddressButton address={holding.address} />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="h-7 px-2 text-[11px]"
-                          onClick={() => selectHolding(holding)}
-                        >
-                          Use
-                        </Button>
-                      </div>
-                      <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
-                        {shortAddr(holding.address)}
-                      </p>
-                    </div>
-                    <div className="shrink-0 text-left text-xs tabular-nums text-muted-foreground sm:text-right">
-                      <p className="text-sm font-medium text-foreground">
-                        {formatAllocationEditInputExact(
-                          holding.assets,
-                          holding.assetSymbol,
-                          holding.assetDecimals,
-                          true
-                        )}{' '}
-                        {holding.assetSymbol}
-                      </p>
-                      <p>
-                        {holding.apy != null
-                          ? `${formatPercentage(holding.apy, 2)} APY`
-                          : '— APY'}
-                      </p>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+            <CuratorTableShell>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Vault</TableHead>
+                    <TableHead className="text-right">Assets</TableHead>
+                    <TableHead className="text-right">APY</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {holdings.map((holding) => {
+                    const selected =
+                      activeAddress?.toLowerCase() === holding.address.toLowerCase();
+                    return (
+                      <TableRow
+                        key={holding.address}
+                        className={selected ? 'bg-muted/50' : undefined}
+                      >
+                        <TableCell>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <a
+                              href={holding.morphoHref}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm font-medium text-blue-600 underline-offset-2 hover:underline dark:text-blue-400"
+                            >
+                              {holding.name}
+                            </a>
+                            <CopyVaultAddressButton address={holding.address} />
+                          </div>
+                          <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
+                            {shortAddr(holding.address)}
+                          </p>
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {formatAllocationEditInputExact(
+                            holding.assets,
+                            holding.assetSymbol,
+                            holding.assetDecimals,
+                            true
+                          )}{' '}
+                          {holding.assetSymbol}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums text-muted-foreground">
+                          {holding.apy != null
+                            ? `${formatPercentage(holding.apy, 2)} APY`
+                            : '—'}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-7 px-2 text-[11px]"
+                            onClick={() => selectHolding(holding)}
+                          >
+                            Use
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </CuratorTableShell>
           )}
         </CardContent>
       </Card>
 
-      <Card className="border-border/70">
-        <CardHeader className="space-y-1">
-          <CardTitle className="flex items-center gap-2 text-lg">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
             <ArrowDownUp className="h-4 w-4" />
             Deposit / Withdraw
           </CardTitle>
@@ -494,7 +517,7 @@ export function VaultTransactBox({
           {resolveError && <TxErrorBanner error={resolveError} />}
 
           {vault && (
-            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-muted/30 px-3 py-2">
+            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border px-3 py-2">
               <span className="text-sm font-medium tracking-tight">
                 {(() => {
                   const cfg = getVaultByAddress(vault.address);
@@ -523,11 +546,11 @@ export function VaultTransactBox({
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-2">
+          <CuratorSegmented>
             {(['deposit', 'withdraw'] as const).map((t) => (
-              <button
+              <CuratorSegmentedButton
                 key={t}
-                type="button"
+                active={tab === t}
                 onClick={() => {
                   setTab(t);
                   setAmount('');
@@ -536,17 +559,11 @@ export function VaultTransactBox({
                     setPreferredAsset(t === 'deposit' ? 'ALL' : 'WETH');
                   }
                 }}
-                className={cn(
-                  'rounded-lg border px-3 py-2.5 text-sm font-medium capitalize transition-colors',
-                  tab === t
-                    ? 'border-blue-600 bg-blue-600 text-white'
-                    : 'border-border bg-background text-muted-foreground hover:bg-muted/50'
-                )}
               >
-                {t}
-              </button>
+                {t === 'deposit' ? 'Deposit' : 'Withdraw'}
+              </CuratorSegmentedButton>
             ))}
-          </div>
+          </CuratorSegmented>
 
           {vault?.isWethVault && (
             <div className="space-y-2">

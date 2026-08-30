@@ -5,10 +5,15 @@ import { useRouter } from 'next/navigation';
 import { useAccount } from 'wagmi';
 import { useQueryClient } from '@tanstack/react-query';
 import { getAddress, type Address, type Hex } from 'viem';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import {
+  CuratorEmptyText,
+  CuratorErrorText,
+  CuratorPanel,
+  CuratorSegmented,
+  CuratorSegmentedButton,
+} from '@/components/morpho/CuratorChrome';
 import { useVaultV2Pending } from '@/lib/hooks/useVaultV2Pending';
 import { useVaultWrite } from '@/lib/hooks/useVaultWrite';
 import { v2WriteConfigs } from '@/lib/onchain/vault-writes';
@@ -455,53 +460,46 @@ export function VaultV2Pending({
     );
     if (embedded) return skeleton;
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Vault Pending Actions</CardTitle>
-        </CardHeader>
-        <CardContent>{skeleton}</CardContent>
-      </Card>
+      <CuratorPanel title="Pending actions">
+        <div className="p-4">{skeleton}</div>
+      </CuratorPanel>
     );
   }
 
   if (error || !data) {
     const err = (
-      <p className="text-sm text-red-600 dark:text-red-400">
+      <CuratorErrorText>
         Failed to load pending actions: {error instanceof Error ? error.message : 'Unknown error'}
-      </p>
+      </CuratorErrorText>
     );
     if (embedded) return err;
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Vault Pending Actions</CardTitle>
-        </CardHeader>
-        <CardContent>{err}</CardContent>
-      </Card>
+      <CuratorPanel title="Pending actions">
+        <div className="px-4 py-3">{err}</div>
+      </CuratorPanel>
     );
   }
 
   const body = (
     <>
       {!sentinelEmpty && (
-        <div className="flex flex-wrap gap-2">
+        <CuratorSegmented>
           {(['all', 'ready', 'waiting'] as PendingFilter[]).map((f) => (
-            <Button
+            <CuratorSegmentedButton
               key={f}
-              size="sm"
-              variant={filter === f ? 'default' : 'outline'}
+              active={filter === f}
               onClick={() => setFilter(f)}
             >
               {f === 'all' ? 'All' : f === 'ready' ? 'Executable now' : 'Pending'}
-            </Button>
+            </CuratorSegmentedButton>
           ))}
-        </div>
+        </CuratorSegmented>
       )}
 
       {filtered.length === 0 ? (
-        <p className="text-sm text-slate-600 dark:text-slate-400">
+        <CuratorEmptyText>
           {sentinelEmpty ? 'No pending actions' : 'No pending timelocked actions.'}
-        </p>
+        </CuratorEmptyText>
       ) : (
         <div className="space-y-3">
           {filtered.map((item) => {
@@ -516,14 +514,14 @@ export function VaultV2Pending({
             return (
               <div
                 key={rowId}
-                className="rounded-md border border-slate-200 p-4 dark:border-slate-800"
+                className="rounded-xl border border-border p-4"
               >
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium text-slate-900 dark:text-slate-100">
+                    <p className="font-medium text-foreground">
                       {formatVaultV2FunctionTitle(item.functionName)}
                     </p>
-                    <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{summary}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">{summary}</p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant={item.status === 'ready' ? 'default' : 'secondary'}>
@@ -560,13 +558,13 @@ export function VaultV2Pending({
                 </div>
                 <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-4">
                   <div>
-                    <dt className="text-slate-500 dark:text-slate-400">Executable at</dt>
-                    <dd className="font-medium text-slate-800 dark:text-slate-200">
+                    <dt className="text-muted-foreground">Executable at</dt>
+                    <dd className="font-medium text-foreground">
                       {formatExecutableAt(item.validAt, nowMs)}
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-slate-500 dark:text-slate-400">Submit tx</dt>
+                    <dt className="text-muted-foreground">Submit tx</dt>
                     <dd>
                       {item.txHash ? (
                         <a
@@ -667,17 +665,17 @@ export function VaultV2Pending({
   if (embedded) {
     if (sentinelEmpty && pending.length === 0) {
       return (
-        <p className="text-sm text-slate-600 dark:text-slate-400">No pending actions</p>
+        <CuratorEmptyText>No pending actions</CuratorEmptyText>
       );
     }
     return (
       <div className="space-y-4">
         {!sentinelEmpty && !compactEmbedded && (
           <div>
-            <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+            <h3 className="text-sm font-semibold text-foreground">
               Vault Pending Actions ({pending.length})
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-muted-foreground">
               Pending timelock actions queued on this vault.
             </p>
           </div>
@@ -688,18 +686,17 @@ export function VaultV2Pending({
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Vault Pending Actions ({pending.length})</CardTitle>
-        <CardDescription>
-          {allowAccept
-            ? 'Executable timelock actions (cap increases, liquidity adapter, roles, fees, …). After the waiting period, anyone may accept — any connected wallet or multisig Safe.'
-            : allowRevoke
-              ? 'Pending timelock actions. Sentinel or curator may revoke before execution (sentinel wallet/Safe preferred).'
-              : 'Pending timelock actions queued on this vault.'}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">{body}</CardContent>
-    </Card>
+    <CuratorPanel
+      title={`Pending actions (${pending.length})`}
+      description={
+        allowAccept
+          ? 'Executable timelock actions (cap increases, liquidity adapter, roles, fees, …). After the waiting period, anyone may accept — any connected wallet or multisig Safe.'
+          : allowRevoke
+            ? 'Pending timelock actions. Sentinel or curator may revoke before execution (sentinel wallet/Safe preferred).'
+            : 'Pending timelock actions queued on this vault.'
+      }
+    >
+      <div className="space-y-4 p-4">{body}</div>
+    </CuratorPanel>
   );
 }

@@ -32,6 +32,7 @@ import {
 } from '@/lib/format/number';
 import { getTokenDisplayDecimals } from '@/lib/format/asset-decimals';
 import { getScanUrlForChain } from '@/lib/constants';
+import { CuratorTableShell } from '@/components/morpho/CuratorChrome';
 
 interface VaultTransactionsProps {
   vaultAddress: string;
@@ -175,6 +176,7 @@ export function VaultTransactions({
     <p className="text-sm text-muted-foreground">No transactions match the selected filter.</p>
   ) : (
     <>
+      <CuratorTableShell>
       <Table>
         <TableHeader>
           <TableRow>
@@ -245,6 +247,7 @@ export function VaultTransactions({
           })}
         </TableBody>
       </Table>
+      </CuratorTableShell>
 
       {filtered.length > pageSize && (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">

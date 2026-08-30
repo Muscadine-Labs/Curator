@@ -25,6 +25,7 @@ import {
 } from '@/lib/format/number';
 import { getTokenDisplayDecimals } from '@/lib/format/asset-decimals';
 import { getScanUrlForChain } from '@/lib/constants';
+import { CuratorTableShell } from '@/components/morpho/CuratorChrome';
 
 interface VaultHoldersProps {
   vaultAddress: string;
@@ -165,7 +166,7 @@ export function VaultHolders({
           return (
             <div
               key={h.address}
-              className="flex items-start justify-between gap-3 rounded-md border border-border/60 px-3 py-2.5"
+              className="flex items-start justify-between gap-3 rounded-xl border border-border px-3 py-2.5"
             >
               <div className="min-w-0 space-y-0.5">
                 <p className="text-[10px] text-muted-foreground">#{rank}</p>
@@ -196,6 +197,7 @@ export function VaultHolders({
 
       {/* Desktop: table */}
       <div className="hidden sm:block">
+        <CuratorTableShell>
         <Table>
           <TableHeader>
             <TableRow>
@@ -237,7 +239,7 @@ export function VaultHolders({
                       href={`${scanUrl}/address/${h.address}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+                      className="text-muted-foreground hover:text-foreground"
                       aria-label="View on explorer"
                     >
                       <ExternalLink className="h-3.5 w-3.5" />
@@ -248,6 +250,7 @@ export function VaultHolders({
             })}
           </TableBody>
         </Table>
+        </CuratorTableShell>
       </div>
 
       <PaginationBar
