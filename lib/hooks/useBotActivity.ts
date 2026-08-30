@@ -3,12 +3,22 @@ import type { BotActivityResponse } from '@/app/api/bots/activity/route';
 import { apiFetch } from '@/lib/data/api-fetch';
 import { INDEXED_VAULT_QUERY_OPTIONS } from '@/lib/data/query-config';
 
-export function useBotActivity(options?: { enabled?: boolean; limit?: number }) {
+export type BotActivityPanel = 'allocator' | 'sentinel' | 'rebater';
+
+export function useBotActivity(options?: {
+  enabled?: boolean;
+  limit?: number;
+  panel?: BotActivityPanel;
+}) {
   const limit = options?.limit ?? 25;
+  const panel = options?.panel ?? 'allocator';
   return useQuery({
-    queryKey: ['bot-activity', 'v4', limit],
+    queryKey: ['bot-activity', 'v5', panel, limit],
     queryFn: async (): Promise<BotActivityResponse> => {
-      const params = new URLSearchParams({ limit: String(limit) });
+      const params = new URLSearchParams({
+        limit: String(limit),
+        panel,
+      });
       const res = await apiFetch(`/api/bots/activity?${params}`, {
         credentials: 'omit',
       });

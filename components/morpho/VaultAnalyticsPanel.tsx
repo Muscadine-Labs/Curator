@@ -12,7 +12,7 @@ export function VaultAnalyticsPanel({ vault, risk }: VaultAnalyticsPanelProps) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-base font-semibold text-foreground">Risk Analytics</h2>
+        <h2 className="text-base font-semibold text-foreground">Risk</h2>
         <p className="text-xs text-muted-foreground">
           Market risk grades for this vault&apos;s allocations.
         </p>

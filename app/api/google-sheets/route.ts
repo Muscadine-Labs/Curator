@@ -3,6 +3,7 @@ import { createRateLimitMiddleware, RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS } 
 import { handleApiError } from '@/lib/utils/error-handler';
 import { logger } from '@/lib/utils/logger';
 import { mergeApiCacheHeaders } from '@/lib/api/response-cache';
+import { unauthorizedUnlessAdmin } from '@/lib/auth/require-admin';
 
 // Ensure Node.js runtime for API routes
 export const runtime = 'nodejs';
@@ -95,6 +96,8 @@ function parseCSVLine(line: string): string[] {
 }
 
 export async function GET(request: Request) {
+  const denied = await unauthorizedUnlessAdmin(request);
+  if (denied) return denied;
   // Rate limiting
   const rateLimitMiddleware = createRateLimitMiddleware(
     RATE_LIMIT_REQUESTS_PER_MINUTE,

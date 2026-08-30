@@ -85,8 +85,8 @@ app/
   markets/             Morpho Markets browser (`/markets`)
   market/blue/[id]/    Blue market detail
   safe/                Multisig Safe workspace
-  morpho/              Curator Morpho tools (`/morpho`)
-  morpho/create-market/ On-chain Morpho Blue createMarket UI
+  curator/             Curator tools hub (`/curator`)
+  curator/bots/        Bot activity watch (`/curator/bots`)
   monthly-statement/   Treasury / DefiLlama statements
   muscadine-ledger/    Internal ledger
   muscadine-frontends/ Frontend links
@@ -282,10 +282,10 @@ Query (`useVaultV2Complete` → BFF + on-chain hooks). Keep the `[address]` segm
 **dynamic**; do not add `generateStaticParams` or SSG — TVL, allocations, caps,
 and risk change continuously and hooks refetch on tab switch and post-tx.
 
-**Tab order**: Overview → Risk Analytics → Allocation → Caps →
-Timelocks → Sentinel. Overview holds metrics, collapsible holders → recent txs →
-history (10 per page with arrows, default closed), fees, roles, and adapters; Risk Analytics
-holds market risk grades; Sentinel holds emergency actions at the bottom.
+**Tab order**: Overview → Allocation → Caps → Risk → Timelocks → Sentinel.
+Overview holds metrics, collapsible holders → recent txs → history (10 per page
+with arrows, default closed), fees, roles, and adapters; Risk holds market risk
+grades; Sentinel holds emergency actions at the bottom.
 
 1. `useVaultV2Complete` fans out to:
    - `useVault(address)` for base data
@@ -298,11 +298,15 @@ holds market risk grades; Sentinel holds emergency actions at the bottom.
 3. **Adapters** — `VaultV2Adapters.tsx` lists the idle adapter first, then
    **Morpho Blue market** strategy adapters from governance (MetaMorpho adapters
    are hidden). Pass `assetSymbol` / `assetDecimals` from the vault page.
-4. **Caps** — `VaultV2Caps.tsx`. Grouped adapter / collateral / market cap
-   tables (read-only). Embeds `VaultV2Pending` when `pending.length > 0`.
-   Tab label shows pending count. Pass `assetSymbol` / `assetDecimals` from
-   the vault page. Display **absolute cap** and **allocation** with
-   `formatRawTokenAmount` (not raw uint256).
+4. **Caps** — `VaultV2Caps.tsx`. Morpho-style tables grouped **markets →
+   collateral → adapters** (Name, Allocation, Absolute cap, Relative cap with
+   utilization rings). Embeds `VaultV2Pending` when `pending.length > 0`.
+   Tab label shows pending count. Pass `assetSymbol` / `assetDecimals` /
+   `totalAssetsUnderlying` from the vault page. Compact amounts
+   (`83.36k USDC`); infinite uint128/uint256 caps show **Infinite**. When the
+   Vault V2 Blue Public Allocator is an allocator, a **Vault | Public Allocator**
+   toggle shows idle-pull, penalty, per-market target ceiling, and allow
+   deallocation ([docs](https://docs.morpho.org/learn/concepts/public-allocator/)).
 5. **Timelocks** — `VaultV2Timelocks.tsx` (read-only).
 6. **Allocation** — `VaultV2Allocations.tsx` receives `preloadedData`
    (governance) **and** `preloadedRisk`. Caps are resolved via
@@ -314,10 +318,8 @@ holds market risk grades; Sentinel holds emergency actions at the bottom.
      APY/utilization GraphQL values are **decimals**; multiply by 100 before
      `formatPercentage`.
    - **Idle** — vault cash row; no on-chain cap; no direct writes.
-7. **Risk Analytics** — `VaultAnalyticsPanel` on the **Risk Analytics** tab:
-   market risk grades (`VaultRiskV2`) only. Holders, recent transactions (newest
-   first, 10/page with arrows), then the history chart live on **Overview**
-   (collapsible, default closed).
+7. **Risk** — `VaultAnalyticsPanel` on the **Risk** tab (`/vault/[address]/risk`;
+   `/analytics` redirects here): market risk grades (`VaultRiskV2`) only.
 8. **Sentinel** — `VaultV2Sentinel.tsx` (Morpho Curator–style; **only tab with
    sentinel writes**). **Emergency Actions** link at the bottom. Sections:
    - **Allocation Overview** — stacked bar + per-target token amounts and `%`.
@@ -355,16 +357,17 @@ surfaced on the vault **Risk** tab and Curator market detail pages.
 capped at **30 seconds** via `API_CACHE_MAX_AGE_SECONDS` / `API_CACHE_MAX_AGE_MS`
 in `lib/api/response-cache.ts` (`clampCacheMaxAgeSeconds`, `clampCacheTtlMs`).
 
-**BFF HTTP cache** — most routes use `mergeApiCacheHeaders()`:
-`public, s-maxage=N, stale-while-revalidate=30` where `N ≤ 30` (route arguments
-above 30 are clamped).
+**BFF HTTP cache** — authenticated routes use `mergeApiCacheHeaders()` →
+`private, no-store` (session cookie; do not CDN-cache). In-process
+`withServerResponseCache` still dedupes Morpho for 30s.
 
 **On-chain vault routes** — `GET /api/vaults/[id]/risk` and
 `.../governance` use `mergeApiOnChainVaultHeaders()` → `private, no-store`
 (no CDN cache; each request runs GraphQL + RPC overlay).
 
 **In-process dedupe** — `withServerResponseCache()` (`lib/api/server-response-cache.ts`)
-for expensive handlers (e.g. `protocol-stats`); TTL clamped to 30s.
+for expensive handlers (e.g. `protocol-stats`, vault list, treasury statement);
+TTL clamped to 30s; expired keys pruned; loader timeout 40s.
 
 **Client React Query** (`lib/data/query-config.ts`):
 
@@ -407,7 +410,9 @@ is business vaults only.
 **Top nav + Sidebar** — Topbar areas: Overview · Vaults · Markets · Curator ·
 Business (`lib/nav/areas.ts`). Sidebar is **area-scoped**. Under **Vaults**: All
 vaults (`/vaults`), Transact (`/vaults/transact`), then network vault trees
-(Prime → Frontier → Vineyard → Test) via `useVaultList` sidebar filters. Legacy
+(Prime → Frontier → Vineyard → Test) via `useVaultList` sidebar filters. The
+`/vaults` catalog (`VaultsCatalog`) is a Morpho-style table (deposits, liquidity
+adapter, liquidity, APY) with the same category grouping. Legacy
 page/API paths still **redirect** via `next.config.ts`. Catalog is `/vaults`;
 vault ops are `/vault/[address]/*`; user deposit/withdraw is `/vaults/transact`.
 
@@ -420,7 +425,7 @@ Ethereum appears in `SIDEBAR_NETWORKS` but has no configured vaults — expand
 
 - **Metrics card** — token amount **primary**, USD **secondary** via
   `TokenUsdValue` (`components/morpho/TokenUsdValue.tsx`): Total Assets, Liquidity,
-  Idle. Deployed % when available. History chart on Overview (not Risk Analytics).
+  Idle. Deployed % when available. History chart on Overview (not Risk).
 - **TVL** — V1: `vault.state.totalAssetsUsd`; V2: `vaultV2.totalAssetsUsd`.
 - **Liquidity (withdrawable)** — Morpho-computed amount users can actually redeem.
   - V1: `vault.liquidity { usd, underlying }` (vault root, not `state`).
@@ -611,8 +616,8 @@ tab switch, post-tx, and Rebalance (`lib/data/query-config.ts`).
 
 **UI** — `app/monthly-statement/page.tsx` (tabs: **By Treasury Wallet** /
 **DefiLlama**). Treasury view modes: **Total** (default), By Token, By Vault.
-Dashboard overview shows **Total Revenue** and **YTD Revenue** KPIs from treasury net
-month-over-month change (`app/page.tsx`). Toggle treasury vs DefiLlama via
+Dashboard overview shows **Total Revenue** and **YTD Revenue** KPIs from treasury
+daily token-change (`app/page.tsx`). Toggle treasury vs DefiLlama via
 `lib/RevenueSourceContext.tsx` (default: treasury). Home Revenue chart
 (`ChartRevenue`) uses the same treasury daily series when source = treasury.
 
@@ -622,29 +627,36 @@ month-over-month change (`app/page.tsx`). Toggle treasury vs DefiLlama via
 
 | Field | Meaning |
 | ----- | ------- |
-| `assets` / `total` | Net month-over-month change in treasury Morpho V2 vault **position** USD (`assetsUsd(end) − assetsUsd(baseline)`), summed across vaults |
+| `assets` / `total` | Positive **daily share-balance change** for `TREASURY_ADDRESS` (fee mints + inbound share transfers), converted to underlying tokens and valued at that day's implied USD. Self-deposits (GraphQL `Deposit` where sender is treasury) are subtracted. Price appreciation of a constant share amount is excluded. Outflows are not subtracted. |
 
 **How monthly revenue is calculated**
 
-1. Baseline = end of previous month (clamped ≥ `STATEMENT_START_DATE` = 2025-11-01).
-2. End = end of month, or “now” for the current month.
-3. Per vault position: token Δ and USD Δ from Morpho GraphQL
-   `user.vaultV2Positions[].history` (`assets` / `assetsUsd` daily).
-4. Month total USD = Σ USD deltas across the four business V2 vaults.
+1. One Morpho GraphQL `userByAddress` query: V1 `vaultPositions.historicalState` +
+   V2 `vaultV2Positions.history` (`shares` + `assets` + `assetsUsd`, `interval: DAY`).
+   No RPC, ABI, or Alchemy. Self-deposits come from `vaultV2transactions` (GraphQL).
+2. For each vault position, sort the DAY series. Income on day *t* =
+   `max(shares(t) − shares(t−1), 0)` converted via `assets/shares` that day.
+3. USD = share-weight × `assetsUsd(t)`. Do **not** use
+   `assetsUsd(t) − assetsUsd(t−1)` (that is mark-to-market).
+4. Subtract treasury self-deposits on the same UTC day. Opening balance on the
+   first history point is not income. Redeems / Rebater outflows are not
+   negative revenue.
+5. Response always includes `statements`, `daily`, and `vaults`. Cached 30s via
+   `withServerResponseCache` inside `computeTreasuryStatement()`.
 
 **Why the graph can go negative without withdrawals**
 
-“Revenue” here is **mark-to-market USD PnL** of vault share positions, not
-realized fee cash. If WETH/cbBTC prices fall, `assetsUsd` can drop even when
-token balances are flat or rising — daily/monthly points go negative. Token-side
-negatives only need share outflows (transfers/withdrawals).
+It should not from mark-to-market. A day can go slightly negative if a self-deposit
+is subtracted from a different GraphQL DAY bucket than the share increase.
+Outflows are tracked on Rebater, not as negative revenue.
 
 **Scope — what is / isn’t included**
 
 | Included | Excluded |
 | -------- | -------- |
-| Morpho V2 vault **share** positions for `TREASURY_ADDRESS` | Loose wallet balances (bare USDC/WETH/cbBTC/ETH) |
-| Four business vaults via `getVaultAddressesForBusinessViews()` | Test vault (`excludeFromBusinessViews`) |
+| V1 MetaMorpho + V2 vault **token** positions for `TREASURY_ADDRESS` | Loose wallet balances (bare USDC/WETH/cbBTC/ETH) |
+| V1 mvUSDC / mvWETH / mvcbBTC (fee accounting only) | Test vaults (`excludeFromBusinessViews`) |
+| Unknown Morpho vaults whose asset is USDC / WETH / cbBTC | Spam / unknown ERC-20s |
 
 **Treasury wallet:** `TREASURY_ADDRESS` in `lib/morpho/treasury-statement.ts`
 (`0x057f…266A`, Base Safe). **Start date:** `2025-11-01`.
@@ -658,13 +670,30 @@ the treasury dashboard without restoring the tx-classification pipeline in
 
 ### 4.7 Curator Morpho Markets browser
 
-**Routes** — `/markets` (list), `/markets/create`, `/markets/positions`, and
-`/market/blue/[id]?chainId=` (detail). Markets sidebar: Browse · Create · Positions.
-Curator top-nav area holds Morpho Tools (`/morpho`) + Multisig Safe. Business area:
+**Routes** — `/markets` (list), `/markets/create`, `/markets/positions`,
+`/market/blue/[id]?chainId=` (Blue detail), and `/midnight/[id]?chainId=`
+(Midnight detail). Markets sidebar: Browse · Create · Positions.
+**Product toggle** on Browse: **All / Blue / Midnight** (default Blue, listed-only).
+Midnight is Morpho’s fixed-term (tenor) **order book** — not Blue (no IRM,
+utilization, or variable APY). GraphQL does **not** expose it.
+`GET /api/markets/midnight` lists books; `GET /api/markets/midnight/[id]`
+loads market + state + full book (`https://api.morpho.org/v0/midnight/…`).
+External app: [Morpho Markets](https://markets.morpho.org/fixed/base/0x549cd072daf99328554f3a6d2d4d6f4a07f1c59369e891e6391946f9cf75f221)
+`https://markets.morpho.org/fixed/{chain}/{marketId}`
+(`morphoMidnightMarketHref`). In-app: `curatorMidnightMarketHref`.
+Tenor = remaining time to `maturity`. List columns: network, loan, collateral(s),
+LLTV, oracle, maturity/tenor, lend depth, borrow depth, best lend APR from top ask.
+Detail KPIs: outstanding units, book depths, best lend/borrow rates, per-collateral
+LLTV / liquidation cursor / oracle, asks & bids.
+Curator top-nav area holds Curator tools (`/curator`) + Bots + Multisig Safe. Business area:
 `/monthly-statement`, `/muscadine-ledger`, `/muscadine-frontends`.
 
+**Wallet positions** — `/markets` shows connected-wallet Blue supply/borrow/collateral
+with Manage → `/markets/positions?market=` (same pattern as `projects/app` holdings).
+
 **BFF** — `GET /api/markets` and `GET /api/markets/[marketId]`
-(`lib/morpho/curator-markets.ts`). Networks (same as top-bar wallet): Base,
+(`lib/morpho/curator-markets.ts`). Midnight: `GET /api/markets/midnight` and
+`GET /api/markets/midnight/[id]` (`lib/morpho/midnight-markets.ts`). Networks (same as top-bar wallet): Base,
 Ethereum, HyperEVM, Robinhood, Polygon (`CURATOR_MARKET_NETWORKS`). `/markets`
 mirrors the wallet chain (no independent network `<select>`). List query uses
 `orderBy: SizeUsd` server-side; client re-sorts via column headers.
@@ -788,8 +817,8 @@ These rules are baked into `VaultV2Allocations.tsx`, `VaultV2Sentinel.tsx`,
 - **Adapters** (`VaultV2Adapters.tsx`): idle row first, then strategy adapters.
   **Allocated** shows decimal token amount + symbol only — no USD line, no
   “Raw: … units”. Pass `assetSymbol` / `assetDecimals` from the vault page.
-- **Caps** (`VaultV2Caps.tsx`): absolute cap and allocation use
-  `formatRawTokenAmount` with vault asset decimals. Relative cap stays as %.
+- **Caps** (`VaultV2Caps.tsx`): Morpho-style grouped tables; compact token
+  amounts; utilization rings; Public Allocator view when PA is an allocator.
   Cap edit absolute inputs are human token amounts (`parseUnits`).
 
 ---
@@ -849,13 +878,18 @@ components.
 
 ## 9. Auth & Gating
 
-- Curator tools routes: `/markets`, `/market/blue/[id]`, `/safe`, `/morpho`,
+- Curator tools routes: `/markets`, `/market/blue/[id]`, `/midnight/[id]`, `/safe`, `/curator`,
   `/monthly-statement`, etc. Entire app is behind `AuthGuard` in `app/providers.tsx`.
-- Server auth verification lives in `app/api/auth/verify/route.ts` and
- `lib/auth/curator-auth.ts`. The **only** username is **`admin`**
- (case-sensitive, role `'admin'`); password from env `CURATOR_ADMIN_PASSWORD`
- (legacy `CURATOR_OWNER_PASSWORD` still accepted as fallback; must be
- uncommented in `.env.local`; server restart required after changes).
+- Server auth: `POST /api/auth/verify` sets an HttpOnly `curator_session`
+  cookie (HMAC). `proxy.ts` requires it on `/api/*` except
+  `/api/auth/verify`, `/api/auth/me`, `/api/auth/logout`.
+  `GET /api/auth/me` is the session check. LocalStorage is not a session.
+  Each BFF also calls `unauthorizedUnlessAdmin` (proxy is not an auth
+  boundary).
+- The **only** username is **`admin`** (case-sensitive, role `'admin'`);
+  password from env `CURATOR_ADMIN_PASSWORD` (legacy `CURATOR_OWNER_PASSWORD`
+  still accepted as fallback; must be uncommented in `.env.local`; server
+  restart required after changes).
 - Write UI (reallocate, caps, etc.) is gated on both wallet connection and
   curator role.
 - **All on-chain writes** (V1/V2 reallocate, caps, etc.) go through
@@ -1062,6 +1096,7 @@ npm run build
 | Allocation filter persistence  | `lib/allocation/allocation-filters-storage.ts`, `usePersistedAllocationFilters.ts` |
 | V2 adapters UI (incl. idle)      | `components/morpho/VaultV2Adapters.tsx`                 |
 | V2 caps UI (read-only + pending) | `components/morpho/VaultV2Caps.tsx`                      |
+| V2 Public Allocator reads        | `lib/morpho/v2-public-allocator.ts`                     |
 | V2 roles / timelocks UI          | `components/morpho/VaultV2Roles.tsx`, `VaultV2Timelocks.tsx` |
 | V2 Sentinel UI + writes          | `components/morpho/VaultV2Sentinel.tsx`                  |
 | Cap decrease input parsing     | `lib/morpho/cap-decrease-input.ts`                       |
@@ -1097,7 +1132,8 @@ npm run build
 | Vault list API                   | `app/api/vaults/route.ts`, `app/api/vaults/[id]/route.ts`|
 | Vault history + share price      | `lib/morpho/vault-history.ts`, `useVaultHistory.ts`, `VaultOverviewHistoryChart.tsx` |
 | Sidebar vault sections           | `components/layout/Sidebar.tsx`, `lib/config/vaults.ts` (`getVaultCategory`) |
-| Market id helpers                | `lib/morpho/morpho-app-links.ts` (`marketKeyFromGraphQL`, `curatorBlueMarketHref`) |
+| Market id helpers                | `lib/morpho/morpho-app-links.ts` (`marketKeyFromGraphQL`, `curatorBlueMarketHref`, `curatorMidnightMarketHref`, `morphoMidnightMarketHref`) |
+| Midnight markets                 | `lib/morpho/midnight-markets.ts`, `app/midnight/[id]/page.tsx`, `GET /api/markets/midnight`, `GET /api/markets/midnight/[id]` |
 | Oracle address from GraphQL      | `lib/morpho/market-oracle-address.ts` (`resolveMarketOracleAddress`) |
 | Morpho GraphQL client + warnings | `lib/morpho/graphql-client.ts` |
 | Curator markets BFF + scoring    | `lib/morpho/curator-markets.ts`, `app/api/markets/` |
@@ -1137,7 +1173,7 @@ npm run build
 ## 13. Multisig Safe (Curator)
 
 `/safe` manages Muscadine role Safes on Base. Default tab: `/safe/allocator`. Under
-top-nav **Curator**: Morpho Tools → Multisig Safe.
+top-nav **Curator**: Curator tools → Bots → Multisig Safe.
 
 ### 13.1 Role Safes (`lib/safe/config.ts`)
 
@@ -1406,7 +1442,7 @@ Deployments (Morpho / AdaptiveCurveIRM / chainlinkOracleFactory) live in
 - `components/morpho/MarketPositionBox.tsx` — `/markets/positions`
 - `components/NetworkSwitcher.tsx` — top-bar select
 - `app/markets/create/page.tsx` — route
-- Hub entry: `app/morpho/page.tsx` (Curator top-nav area)
+- Hub entry: `app/curator/page.tsx` (Curator top-nav area)
 
 ---
 

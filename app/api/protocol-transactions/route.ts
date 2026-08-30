@@ -19,6 +19,8 @@ import {
 } from '@/lib/utils/rate-limit';
 import { mergeApiCacheHeaders, API_CACHE_MAX_AGE_MS } from '@/lib/api/response-cache';
 import { withServerResponseCache } from '@/lib/api/server-response-cache';
+import { bigintShareOf } from '@/lib/format/bigint-ratio';
+import { unauthorizedUnlessAdmin } from '@/lib/auth/require-admin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -43,23 +45,7 @@ export type ProtocolTransactionsResponse = {
 };
 
 const V2_TX_QUERY = gql`
-  query ProtocolVaultTransactions(
-    $address: String!
-    $chainId: Int!
-    $first: Int!
-    $vaultAddress: [String!]!
-    $chainIds: [Int!]
-  ) {
-    vaultV2ByAddress(address: $address, chainId: $chainId) {
-      name
-      asset {
-        symbol
-        decimals
-      }
-      totalAssets
-      totalAssetsUsd
-      totalSupply
-    }
+  query ProtocolVaultTransactions($first: Int!, $vaultAddress: [String!]!, $chainIds: [Int!]) {
     vaultV2transactions(
       first: $first
       skip: 0
@@ -73,6 +59,18 @@ const V2_TX_QUERY = gql`
         timestamp
         type
         shares
+        assets
+        vault {
+          address
+          name
+          asset {
+            symbol
+            decimals
+          }
+          totalAssets
+          totalAssetsUsd
+          totalSupply
+        }
         data {
           __typename
           ... on VaultV2DepositData {
@@ -97,13 +95,6 @@ const V2_TX_QUERY = gql`
 `;
 
 type V2TxGraphResponse = {
-  vaultV2ByAddress?: {
-    name?: string | null;
-    asset?: { symbol?: string | null; decimals?: number | null } | null;
-    totalAssets?: string | number | null;
-    totalAssetsUsd?: number | null;
-    totalSupply?: string | number | null;
-  } | null;
   vaultV2transactions?: {
     items?: Array<{
       txHash?: string | null;
@@ -111,6 +102,15 @@ type V2TxGraphResponse = {
       timestamp?: number | string | null;
       type?: string | null;
       shares?: string | null;
+      assets?: string | number | null;
+      vault?: {
+        address?: string | null;
+        name?: string | null;
+        asset?: { symbol?: string | null; decimals?: number | null } | null;
+        totalAssets?: string | number | null;
+        totalAssetsUsd?: number | null;
+        totalSupply?: string | number | null;
+      } | null;
       data?: VaultV2TxData & { assets?: string | number | null };
     } | null> | null;
   } | null;
@@ -153,7 +153,7 @@ function assetsToUsd(
   try {
     const assetAmount = BigInt(assets);
     if (assetAmount <= 0n) return null;
-    return (Number(assetAmount) / Number(totalAssets)) * totalAssetsUsd;
+    return bigintShareOf(assetAmount, totalAssets, totalAssetsUsd);
   } catch {
     return null;
   }
@@ -176,6 +176,8 @@ function mapAssets(
 }
 
 export async function GET(request: NextRequest) {
+  const denied = await unauthorizedUnlessAdmin(request);
+  if (denied) return denied;
   const rateLimit = createRateLimitMiddleware(RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS);
   const rateLimitResult = rateLimit(request);
   if (!rateLimitResult.allowed) {
@@ -190,65 +192,61 @@ export async function GET(request: NextRequest) {
     const perVault = Math.min(Number(url.searchParams.get('perVault') || '40'), 100);
 
     const payload = await withServerResponseCache(
-      `protocol-txs-v1-${perVault}`,
+      `protocol-txs-v2-${perVault}`,
       API_CACHE_MAX_AGE_MS,
       async (): Promise<ProtocolTransactionsResponse> => {
         const vaults = getActiveVaultAddressesForStats();
-        const results = await Promise.all(
-          vaults.map(async (vault) => {
-            const address = getAddress(vault.address);
-            const chainId = vault.chainId ?? BASE_CHAIN_ID;
-            try {
-              const data = await morphoGraphQLClient.request<V2TxGraphResponse>(V2_TX_QUERY, {
-                address,
-                chainId,
-                first: perVault,
-                vaultAddress: [address.toLowerCase()],
-                chainIds: [chainId],
-              });
-              return { vault, address, chainId, data };
-            } catch {
-              return {
-                vault,
-                address,
-                chainId,
-                data: null as V2TxGraphResponse | null,
-              };
-            }
-          })
+        const addresses = vaults.map((v) => getAddress(v.address));
+        const chainIds = Array.from(
+          new Set(vaults.map((v) => v.chainId ?? BASE_CHAIN_ID))
         );
+        const vaultByAddr = new Map(
+          vaults.map((v) => [v.address.toLowerCase(), v] as const)
+        );
+
+        let data: V2TxGraphResponse | null = null;
+        try {
+          data = await morphoGraphQLClient.request<V2TxGraphResponse>(V2_TX_QUERY, {
+            first: Math.min(perVault * vaults.length, 200),
+            vaultAddress: addresses.map((a) => a.toLowerCase()),
+            chainIds,
+          });
+        } catch {
+          data = null;
+        }
 
         const transactions: ProtocolTransaction[] = [];
 
-        for (const { vault, address, chainId, data } of results) {
+        for (const tx of data?.vaultV2transactions?.items ?? []) {
+          if (!tx?.txHash || !tx.vault?.address) continue;
+          const vaultAddr = tx.vault.address.toLowerCase();
+          const cfg = vaultByAddr.get(vaultAddr);
           const vaultName =
-            data?.vaultV2ByAddress?.name?.trim() ||
-            getConfiguredVaultDisplayName(vault);
-          const assetSymbol =
-            data?.vaultV2ByAddress?.asset?.symbol ?? vault.assetSymbol;
-          const assetDecimals = data?.vaultV2ByAddress?.asset?.decimals ?? null;
-          const totalAssets = parseBigIntSafe(data?.vaultV2ByAddress?.totalAssets);
-          const totalSupply = parseBigIntSafe(data?.vaultV2ByAddress?.totalSupply);
-          const totalAssetsUsd = data?.vaultV2ByAddress?.totalAssetsUsd ?? null;
+            tx.vault.name?.trim() ||
+            (cfg ? getConfiguredVaultDisplayName(cfg) : tx.vault.address);
+          const assetSymbol = tx.vault.asset?.symbol ?? cfg?.assetSymbol ?? 'TOKEN';
+          const assetDecimals = tx.vault.asset?.decimals ?? null;
+          const totalAssets = parseBigIntSafe(tx.vault.totalAssets);
+          const totalSupply = parseBigIntSafe(tx.vault.totalSupply);
+          const totalAssetsUsd = tx.vault.totalAssetsUsd ?? null;
+          const assets =
+            mapAssets(tx.data, tx.shares, totalAssets, totalSupply) ??
+            (tx.assets != null ? String(tx.assets) : null);
 
-          for (const tx of data?.vaultV2transactions?.items ?? []) {
-            if (!tx?.txHash) continue;
-            const assets = mapAssets(tx.data, tx.shares, totalAssets, totalSupply);
-            transactions.push({
-              hash: String(tx.txHash),
-              blockNumber: tx.blockNumber != null ? Number(tx.blockNumber) : null,
-              timestamp: tx.timestamp != null ? Number(tx.timestamp) : null,
-              type: tx.type ?? 'Unknown',
-              user: vaultV2TransactionUser(tx.data ?? null),
-              assets,
-              assetsUsd: assetsToUsd(assets, totalAssets, totalAssetsUsd),
-              vaultAddress: address,
-              vaultName,
-              assetSymbol,
-              assetDecimals,
-              chainId,
-            });
-          }
+          transactions.push({
+            hash: String(tx.txHash),
+            blockNumber: tx.blockNumber != null ? Number(tx.blockNumber) : null,
+            timestamp: tx.timestamp != null ? Number(tx.timestamp) : null,
+            type: tx.type ?? 'Unknown',
+            user: vaultV2TransactionUser(tx.data ?? null),
+            assets,
+            assetsUsd: assetsToUsd(assets, totalAssets, totalAssetsUsd),
+            vaultAddress: getAddress(tx.vault.address),
+            vaultName,
+            assetSymbol,
+            assetDecimals,
+            chainId: cfg?.chainId ?? BASE_CHAIN_ID,
+          });
         }
 
         transactions.sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0));

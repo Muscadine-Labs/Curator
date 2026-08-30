@@ -10,8 +10,13 @@ import { mapCap, type GraphCap } from '@/lib/morpho/vault-v2-governance-map';
 import { enrichCollateralCapSymbols, enrichMarketCapParams } from '@/lib/morpho/fetch-markets-by-id';
 import { overlayV2OnChainCaps } from '@/lib/morpho/overlay-v2-onchain-caps';
 import { resolveMarketOracleAddress } from '@/lib/morpho/market-oracle-address';
+import {
+  fetchVaultV2PublicAllocatorState,
+  type VaultV2PublicAllocatorState,
+} from '@/lib/morpho/v2-public-allocator';
 import { mergeApiOnChainVaultHeaders } from '@/lib/api/response-cache';
 import { logger } from '@/lib/utils/logger';
+import { unauthorizedUnlessAdmin } from '@/lib/auth/require-admin';
 
 type GraphAdapter = {
   __typename?: 'MetaMorphoAdapter' | 'MorphoMarketV1Adapter' | string | null;
@@ -91,6 +96,8 @@ export type VaultV2GovernanceResponse = {
   adapters: AdapterInfo[];
   caps: CapInfo[];
   timelocks: TimelockInfo[];
+  /** Present when the Vault V2 Blue Public Allocator is an allocator of this vault. */
+  publicAllocator: VaultV2PublicAllocatorState | null;
 };
 
 export type AdapterInfo = {
@@ -354,6 +361,8 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await unauthorizedUnlessAdmin(request);
+  if (denied) return denied;
   const rateLimitMiddleware = createRateLimitMiddleware(
     RATE_LIMIT_REQUESTS_PER_MINUTE,
     MINUTE_MS
@@ -430,6 +439,26 @@ export async function GET(
         ?.map(mapTimelock)
         .filter((t): t is TimelockInfo => t !== null) ?? [];
 
+    const allocators =
+      data.vault.allocators
+        ?.map((a) => a?.allocator?.address)
+        .filter((addr): addr is string => Boolean(addr)) ?? [];
+
+    let publicAllocator: VaultV2PublicAllocatorState | null = null;
+    try {
+      publicAllocator = await fetchVaultV2PublicAllocatorState(
+        address,
+        chainId,
+        allocators,
+        caps
+      );
+    } catch (paError) {
+      logger.warn('Public Allocator overlay failed; omitting PA caps', {
+        vaultAddress: address,
+        error: paError instanceof Error ? paError : new Error(String(paError)),
+      });
+    }
+
     const response: VaultV2GovernanceResponse = {
       vaultAddress: address,
       idleAssets:
@@ -445,10 +474,7 @@ export async function GET(
       liquidityData: mapLiquidityData(data.vault.liquidityData ?? null),
       owner: data.vault.owner?.address ?? null,
       curator: data.vault.curator?.address ?? null,
-      allocators:
-        data.vault.allocators
-          ?.map((a) => a?.allocator?.address)
-          .filter((addr): addr is string => Boolean(addr)) ?? [],
+      allocators,
       sentinels:
         data.vault.sentinels
           ?.map((s) => s?.sentinel?.address)
@@ -463,6 +489,7 @@ export async function GET(
       adapters,
       caps,
       timelocks,
+      publicAllocator,
     };
 
     const responseHeaders = mergeApiOnChainVaultHeaders(rateLimitResult.headers);

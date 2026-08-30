@@ -10,11 +10,25 @@ import type { V2VaultRiskResponse } from '@/app/api/vaults/[id]/risk/route';
 import { formatLltvPill, formatMarketPairLabel } from '@/components/morpho/AllocationListView';
 import { marketKeyFromGraphQL } from '@/lib/morpho/morpho-app-links';
 
+const UINT128_MAX = (1n << 128n) - 1n;
+const UINT256_MAX = (1n << 256n) - 1n;
+
+/** Morpho Vault V2 treats uint128 max (and similarly huge values) as uncapped. */
+export function isInfiniteCapValue(value: string | bigint): boolean {
+  try {
+    const raw = typeof value === 'bigint' ? value : BigInt(value);
+    return raw === UINT128_MAX || raw === UINT256_MAX || raw >= 10n ** 30n;
+  } catch {
+    return false;
+  }
+}
+
 export function formatCapTokenAmount(
   value: string,
   symbol: string | null | undefined,
   apiDecimals: number | null | undefined
 ): string {
+  if (isInfiniteCapValue(value)) return 'Infinite';
   try {
     const raw = BigInt(value);
     const chainDecimals = resolveAssetDecimals(symbol ?? undefined, apiDecimals ?? undefined);
@@ -23,6 +37,87 @@ export function formatCapTokenAmount(
     return symbol ? `${formatted} ${symbol}` : formatted;
   } catch {
     return value;
+  }
+}
+
+function formatCompactHuman(n: number): string {
+  if (n === 0) return '0';
+  const sign = n < 0 ? '-' : '';
+  const abs = Math.abs(n);
+  const withSuffix = (x: number, suffix: string) => {
+    const s = x.toFixed(2).replace(/\.?0+$/, '');
+    return `${sign}${s}${suffix}`;
+  };
+  if (abs >= 1_000_000) return withSuffix(abs / 1_000_000, 'M');
+  if (abs >= 1_000) return withSuffix(abs / 1_000, 'k');
+  return `${sign}${abs.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
+}
+
+/** Morpho Curator-style compact amounts (`83.36k USDC`, `1M USDC`). */
+export function formatCapCompactAmount(
+  value: string | null | undefined,
+  symbol: string | null | undefined,
+  apiDecimals: number | null | undefined
+): string {
+  if (value == null || value === '') return '—';
+  if (isInfiniteCapValue(value)) return 'Infinite';
+  try {
+    const raw = BigInt(value);
+    const chainDecimals = resolveAssetDecimals(symbol ?? undefined, apiDecimals ?? undefined);
+    const human = Number(raw) / 10 ** chainDecimals;
+    if (!Number.isFinite(human)) {
+      return formatCapTokenAmount(value, symbol, apiDecimals);
+    }
+    const compact = formatCompactHuman(human);
+    return symbol ? `${compact} ${symbol}` : compact;
+  } catch {
+    return '—';
+  }
+}
+
+export function sortCapsByAllocationDesc(caps: CapInfo[]): CapInfo[] {
+  return [...caps].sort((a, b) => {
+    try {
+      const diff = BigInt(b.allocation ?? '0') - BigInt(a.allocation ?? '0');
+      if (diff > 0n) return 1;
+      if (diff < 0n) return -1;
+      return 0;
+    } catch {
+      return 0;
+    }
+  });
+}
+
+export function absoluteCapUtilizationPercent(
+  allocation: string,
+  absoluteCap: string
+): number | null {
+  try {
+    const alloc = BigInt(allocation);
+    const cap = BigInt(absoluteCap);
+    if (isInfiniteCapValue(cap) || cap === 0n) return null;
+    return Number((alloc * 10_000n) / cap) / 100;
+  } catch {
+    return null;
+  }
+}
+
+export function relativeCapUtilizationPercent(
+  allocation: string,
+  relativeCapWad: string,
+  totalAssets: string | null | undefined
+): number | null {
+  if (totalAssets == null || totalAssets === '') return null;
+  try {
+    const alloc = BigInt(allocation);
+    const relative = BigInt(relativeCapWad);
+    const total = BigInt(totalAssets);
+    if (relative === 0n || total === 0n) return null;
+    const capAssets = (total * relative) / 10n ** 18n;
+    if (capAssets === 0n) return null;
+    return Number((alloc * 10_000n) / capAssets) / 100;
+  } catch {
+    return null;
   }
 }
 

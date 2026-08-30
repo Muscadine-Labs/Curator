@@ -87,8 +87,16 @@ export const DAYS_30_MS = 30 * DAY_MS;
 export const SECONDS_PER_YEAR = 365 * 24 * 60 * 60;
 
 export const MORPHO_GRAPHQL_ENDPOINT = 'https://api.morpho.org/graphql';
+/** Morpho REST (Midnight books/markets — GraphQL is Blue-only). */
+export const MORPHO_REST_ORIGIN = 'https://api.morpho.org';
 export const MORPHO_APP_ORIGIN = 'https://app.morpho.org';
+/** Morpho Markets app (Midnight / fixed-term books). */
+export const MORPHO_MARKETS_ORIGIN = 'https://markets.morpho.org';
 
+/** Base USDC. */
+export const BASE_USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as const;
+/** Base cbBTC. */
+export const BASE_CBBTC_ADDRESS = '0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf' as const;
 /** Base WETH (canonical wrapped ETH). */
 export const BASE_WETH_ADDRESS = '0x4200000000000000000000000000000000000006' as const;
 /** Morpho Bundler3 on Base — atomic multi-step vault/WETH flows. */

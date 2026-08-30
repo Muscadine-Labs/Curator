@@ -1,24 +1,39 @@
-import { getVaultAddressesForBusinessViews } from '@/lib/config/vaults';
+/**
+ * Treasury income from Morpho GraphQL daily share-balance history (no RPC / ABI).
+ *
+ * Income = positive day-over-day **share** change (fee mints + inbound share
+ * transfers), valued at that day's USD per share. Self-deposits (GraphQL Deposit
+ * where sender is the treasury) are subtracted. Yield and price moves on a
+ * constant share balance are not income. Outflows are not subtracted.
+ */
+import { getVaultByAddress } from '@/lib/config/vaults';
 import { BASE_CHAIN_ID } from '@/lib/constants';
+import { API_CACHE_MAX_AGE_MS } from '@/lib/api/response-cache';
+import { withServerResponseCache } from '@/lib/api/server-response-cache';
 import { morphoGraphQLClient } from '@/lib/morpho/graphql-client';
 import {
   STATEMENT_START_DATE,
   TREASURY_ADDRESS,
-  VAULT_ASSET_MAP,
   emptyTreasuryAssetBreakdown,
   sumTreasuryBreakdownUsd,
+  treasuryAssetKeyForVault,
   type TreasuryAssetBreakdown,
   type TreasuryAssetKey,
 } from '@/lib/morpho/treasury-statement';
+import { fetchTreasuryVaultTransfers } from '@/lib/morpho/treasury-transfers';
+import { resolveAssetDecimals } from '@/lib/format/asset-decimals';
+import { bigintRatio } from '@/lib/format/bigint-ratio';
+import {
+  utcDayKeyFromTimestamp,
+  utcMonthKeyFromTimestamp,
+  utcMonthsFrom,
+} from '@/lib/utils/utc-calendar';
 import { gql } from 'graphql-request';
-import { getAddress } from 'viem';
+import { formatUnits, getAddress, isAddress } from 'viem';
 import { logger } from '@/lib/utils/logger';
-
-// Treasury address and vault maps live in lib/morpho/treasury-statement.ts
 
 export interface MonthlyStatementData {
   month: string;
-  /** Net month-over-month change in treasury vault holdings by asset. */
   assets: TreasuryAssetBreakdown;
   total: {
     tokens: number;
@@ -41,428 +56,440 @@ export interface TreasuryStatementResult {
   vaults: VaultMonthlyData[];
 }
 
-/**
- * Get the baseline (end of previous month) and end timestamps for a given month
- * We use end of previous month as baseline to capture revenue accrued during the month
- * For the current month, use current timestamp instead of end of month
- */
-function getMonthTimestamps(year: number, month: number): { baseline: number; end: number } {
-  // Baseline: end of previous month (or start date if this is the first month)
-  const prevMonth = month === 1 ? 12 : month - 1;
-  const prevYear = month === 1 ? year - 1 : year;
-  const baselineDate = new Date(prevYear, prevMonth, 0, 23, 59, 59, 999);
-  
-  // End: end of current month, or current time if this is the current month
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth() + 1; // JavaScript months are 0-indexed
-  
-  let endDate: Date;
-  if (year === currentYear && month === currentMonth) {
-    // This is the current month - use current timestamp
-    endDate = now;
-  } else {
-    // Past or future month - use end of month
-    endDate = new Date(year, month, 0, 23, 59, 59, 999);
-  }
-  
-  // Ensure baseline is not before statement start date
-  const statementStartTimestamp = Math.floor(STATEMENT_START_DATE.getTime() / 1000);
-  const baselineTimestamp = Math.floor(baselineDate.getTime() / 1000);
-  
-  return {
-    baseline: Math.max(baselineTimestamp, statementStartTimestamp),
-    end: Math.floor(endDate.getTime() / 1000),
-  };
-}
+type TimeseriesPoint = { x?: number | null; y?: number | string | null };
 
-/**
- * Get all months from start date to now
- */
-function getAllMonths(): Array<{ year: number; month: number; key: string }> {
-  const months: Array<{ year: number; month: number; key: string }> = [];
-  const now = new Date();
-  const start = new Date(STATEMENT_START_DATE);
-  
-  let current = new Date(start.getFullYear(), start.getMonth(), 1);
-  
-  while (current <= now) {
-    months.push({
-      year: current.getFullYear(),
-      month: current.getMonth() + 1,
-      key: `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}`,
-    });
-    current = new Date(current.getFullYear(), current.getMonth() + 1, 1);
-  }
-  
-  return months;
-}
-
-/**
- * Get value at specific timestamp from historical data
- * Returns the value at or just before the target timestamp
- * If target is before first data point, returns 0 (no position yet)
- * If target is after all data points, returns the most recent value
- */
-function getValueAtTimestamp(
-  data: Array<{ x?: number; y?: number }>,
-  targetTimestamp: number
-): number | null {
-  if (!data || data.length === 0) return null;
-  
-  // Find valid data points
-  const validPoints = data.filter(p => p.x !== undefined && p.y !== undefined) as Array<{ x: number; y: number }>;
-  if (validPoints.length === 0) return null;
-  
-  // Find the closest data point before or at the target timestamp
-  let closest: { x: number; y: number } | null = null;
-  let closestDiff = Infinity;
-  
-  for (const point of validPoints) {
-    const diff = targetTimestamp - point.x;
-    // Accept points at or before the target timestamp
-    if (diff >= 0 && diff < closestDiff) {
-      closestDiff = diff;
-      closest = point;
-    }
-  }
-  
-  // If we found a point at or before the target, use it
-  if (closest) {
-    return closest.y;
-  }
-  
-  // If no point at or before target, check if target is before the first data point
-  const firstPoint = validPoints[0];
-  if (targetTimestamp < firstPoint.x) {
-    // Target is before first data point - position didn't exist, return 0
-    return 0;
-  }
-  
-  // Target is after all data points - use the most recent value
-  // This handles cases where we're querying the current month and data hasn't been updated yet
-  const lastPoint = validPoints[validPoints.length - 1];
-  return lastPoint.y;
-}
-
-type PositionWithHistory = {
-  vaultAddress: string;
-  asset: TreasuryAssetKey;
-  assetDecimals: number;
-  historicalAssets: Array<{ x?: number; y?: number }>;
-  historicalAssetsUsd: Array<{ x?: number; y?: number }>;
+type GqlVault = {
+  address?: string | null;
+  name?: string | null;
+  asset?: {
+    address?: string | null;
+    symbol?: string | null;
+    decimals?: number | null;
+  } | null;
 };
 
-function resolvePositionValueAt(
-  position: PositionWithHistory,
-  timestampSec: number,
-  useLatestIfCurrentPeriod: boolean
-): { assets: number; assetsUsd: number } {
-  let assets = getValueAtTimestamp(position.historicalAssets, timestampSec);
-  let assetsUsd = getValueAtTimestamp(position.historicalAssetsUsd, timestampSec);
+type GqlHistory = {
+  shares?: TimeseriesPoint[] | null;
+  assets?: TimeseriesPoint[] | null;
+  assetsUsd?: TimeseriesPoint[] | null;
+};
 
-  if (useLatestIfCurrentPeriod) {
-    const validAssets = position.historicalAssets.filter(
-      (p): p is { x: number; y: number } => p.x !== undefined && p.y !== undefined
-    );
-    const validAssetsUsd = position.historicalAssetsUsd.filter(
-      (p): p is { x: number; y: number } => p.x !== undefined && p.y !== undefined
-    );
-    const nowSec = Math.floor(Date.now() / 1000);
-
-    if (validAssets.length > 0 && validAssetsUsd.length > 0) {
-      const lastAssetPoint = validAssets[validAssets.length - 1];
-      const lastUsdPoint = validAssetsUsd[validAssetsUsd.length - 1];
-
-      if (
-        assets === null ||
-        (lastAssetPoint.x > timestampSec && lastAssetPoint.x <= nowSec)
-      ) {
-        assets = lastAssetPoint.y;
-      }
-      if (
-        assetsUsd === null ||
-        (lastUsdPoint.x > timestampSec && lastUsdPoint.x <= nowSec)
-      ) {
-        assetsUsd = lastUsdPoint.y;
-      }
-    }
-  }
-
-  return {
-    assets: assets ?? 0,
-    assetsUsd: assetsUsd ?? 0,
-  };
-}
-
-/**
- * Build a daily treasury revenue series from position history.
- * Each day: total USD held across vault positions minus prior day (net change).
- */
-function getDailyTreasuryRevenue(
-  validPositions: PositionWithHistory[]
-): Array<{ date: string; value: number }> {
-  const daily: Array<{ date: string; value: number }> = [];
-  const start = new Date(STATEMENT_START_DATE);
-  start.setUTCHours(0, 0, 0, 0);
-  const now = new Date();
-  const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
-
-  const d = new Date(start);
-  d.setUTCHours(0, 0, 0, 0);
-
-  const nowSec = Math.floor(Date.now() / 1000);
-
-  while (d <= todayUTC) {
-    const endOfDay = new Date(d);
-    endOfDay.setUTCHours(23, 59, 59, 999);
-    let endOfDaySec = Math.floor(endOfDay.getTime() / 1000);
-    // For the current day, cap at "now" so we use the most recent available data (avoids future timestamps)
-    if (endOfDaySec > nowSec) {
-      endOfDaySec = nowSec;
-    }
-
-    const prevDay = new Date(d);
-    prevDay.setUTCDate(prevDay.getUTCDate() - 1);
-    const endOfPrevDay = new Date(prevDay);
-    endOfPrevDay.setUTCHours(23, 59, 59, 999);
-    const endOfPrevDaySec = Math.floor(endOfPrevDay.getTime() / 1000);
-
-    let totalToday = 0;
-    let totalPrev = 0;
-    for (const pos of validPositions) {
-      totalToday += getValueAtTimestamp(pos.historicalAssetsUsd, endOfDaySec) ?? 0;
-      totalPrev += getValueAtTimestamp(pos.historicalAssetsUsd, endOfPrevDaySec) ?? 0;
-    }
-    const value = totalToday - totalPrev;
-    daily.push({ date: d.toISOString().slice(0, 10), value });
-
-    d.setUTCDate(d.getUTCDate() + 1);
-  }
-
-  return daily;
-}
-
-export async function computeTreasuryStatement(): Promise<TreasuryStatementResult> {
-    const addresses = getVaultAddressesForBusinessViews().map((v) => getAddress(v.address));
-    const allMonths = getAllMonths();
-    const treasuryAddr = getAddress(TREASURY_ADDRESS);
-
-        const startTimestampSec = Math.floor(STATEMENT_START_DATE.getTime() / 1000);
-        const endTimestampSec = Math.floor(Date.now() / 1000);
-    const timeseriesOptions = {
-      startTimestamp: startTimestampSec,
-      endTimestamp: endTimestampSec,
-      interval: 'DAY' as const,
-    };
-
-    const v2PositionQuery = gql`
-      query VaultV2Position($vaultAddress: String!, $userAddress: String!, $chainId: Int!, $options: TimeseriesOptions) {
-        vaultV2: vaultV2ByAddress(address: $vaultAddress, chainId: $chainId) {
+const TREASURY_HISTORY_QUERY = gql`
+  query TreasuryPositionHistory(
+    $userAddress: String!
+    $chainId: Int!
+    $options: TimeseriesOptions
+  ) {
+    userByAddress(address: $userAddress, chainId: $chainId) {
+      vaultPositions {
+        vault {
           address
+          name
           asset {
+            address
             symbol
             decimals
           }
         }
-        user: userByAddress(address: $userAddress, chainId: $chainId) {
+        historicalState {
+          shares(options: $options) {
+            x
+            y
+          }
+          assets(options: $options) {
+            x
+            y
+          }
+          assetsUsd(options: $options) {
+            x
+            y
+          }
+        }
+      }
+      vaultV2Positions {
+        vault {
           address
-          vaultV2Positions {
-            shares
-            assets
-            assetsUsd
-            vault {
-              address
-            }
-            history {
-              shares(options: $options) {
-                x
-                y
-              }
-              assets(options: $options) {
-                x
-                y
-              }
-              assetsUsd(options: $options) {
-                x
-                y
-              }
-            }
+          name
+          asset {
+            address
+            symbol
+            decimals
+          }
+        }
+        history {
+          shares(options: $options) {
+            x
+            y
+          }
+          assets(options: $options) {
+            x
+            y
+          }
+          assetsUsd(options: $options) {
+            x
+            y
           }
         }
       }
-    `;
+    }
+  }
+`;
 
-        type V2PositionResponse = {
-          vaultV2?: {
-            address?: string | null;
-            asset?: { symbol?: string | null; decimals?: number | null } | null;
-          } | null;
-          user?: {
-            address?: string | null;
-            vaultV2Positions?: Array<{
-              shares?: string | null;
-              assets?: string | null;
-              assetsUsd?: number | null;
-              vault?: { address?: string | null } | null;
-              history?: {
-                shares?: Array<{ x?: number; y?: number }> | null;
-                assets?: Array<{ x?: number; y?: number }> | null;
-                assetsUsd?: Array<{ x?: number; y?: number }> | null;
-              } | null;
-            } | null>;
-          } | null;
-        };
+function yToFloat(y: number | string | null | undefined): number | null {
+  if (y == null) return null;
+  if (typeof y === 'number') return Number.isFinite(y) ? y : null;
+  const n = Number(y);
+  return Number.isFinite(n) ? n : null;
+}
 
-    // Query treasury wallet positions in each vault (optimized: only query appropriate API)
-    const vaultPositionPromises = addresses.map(async (vaultAddress) => {
+function parseRaw(y: number | string | null | undefined): bigint | null {
+  if (y == null) return null;
+  try {
+    if (typeof y === 'string') {
+      const s = y.trim();
+      if (/^-?\d+$/.test(s)) return BigInt(s);
+    }
+    if (typeof y === 'number' && Number.isSafeInteger(y)) {
+      return BigInt(y);
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function humanFromRaw(raw: bigint, decimals: number): number {
+  try {
+    return Number(formatUnits(raw, decimals));
+  } catch {
+    return 0;
+  }
+}
+
+type DayPoint = {
+  x: number;
+  shares: bigint;
+  tokens: number;
+  usd: number | null;
+};
+
+function mergeDailySeries(
+  shares: TimeseriesPoint[] | null | undefined,
+  assets: TimeseriesPoint[] | null | undefined,
+  assetsUsd: TimeseriesPoint[] | null | undefined,
+  decimals: number
+): DayPoint[] {
+  const assetsByX = new Map<number, bigint>();
+  for (const p of assets ?? []) {
+    if (p.x == null) continue;
+    const raw = parseRaw(p.y);
+    if (raw == null) continue;
+    assetsByX.set(p.x, raw);
+  }
+  const usdByX = new Map<number, number>();
+  for (const p of assetsUsd ?? []) {
+    if (p.x == null) continue;
+    const usd = yToFloat(p.y);
+    if (usd == null) continue;
+    usdByX.set(p.x, usd);
+  }
+
+  const points: DayPoint[] = [];
+  for (const p of shares ?? []) {
+    if (p.x == null) continue;
+    const shareRaw = parseRaw(p.y);
+    if (shareRaw == null) continue;
+    const assetRaw = assetsByX.get(p.x);
+    points.push({
+      x: p.x,
+      shares: shareRaw,
+      tokens: assetRaw != null ? humanFromRaw(assetRaw, decimals) : 0,
+      usd: usdByX.get(p.x) ?? null,
+    });
+  }
+  points.sort((a, b) => a.x - b.x);
+  return points;
+}
+
+type PositionIncome = {
+  vaultAddress: string;
+  asset: TreasuryAssetKey;
+  timestamp: number;
+  tokens: number;
+  usd: number;
+};
+
+function incomesFromHistory(
+  points: DayPoint[],
+  vaultAddress: string,
+  asset: TreasuryAssetKey
+): PositionIncome[] {
+  const out: PositionIncome[] = [];
+  for (let i = 1; i < points.length; i++) {
+    const prev = points[i - 1];
+    const cur = points[i];
+    const deltaShares = cur.shares - prev.shares;
+    if (deltaShares <= 0n || cur.shares <= 0n) continue;
+
+    const weight = bigintRatio(deltaShares, cur.shares);
+    if (!(weight > 0)) continue;
+    const tokens = weight * cur.tokens;
+    const usd = cur.usd != null && cur.usd > 0 ? weight * cur.usd : 0;
+    if (tokens <= 0 && usd <= 0) continue;
+
+    out.push({
+      vaultAddress,
+      asset,
+      timestamp: cur.x,
+      tokens,
+      usd,
+    });
+  }
+  return out;
+}
+
+function includeVault(address: string): boolean {
+  const cfg = getVaultByAddress(address);
+  return !cfg?.excludeFromBusinessViews;
+}
+
+type FetchedPosition = {
+  vault: GqlVault;
+  history: GqlHistory | null;
+};
+
+async function fetchTreasuryPositionHistories(): Promise<FetchedPosition[]> {
+  const treasuryAddr = getAddress(TREASURY_ADDRESS);
+  const startTimestamp = Math.floor(STATEMENT_START_DATE.getTime() / 1000);
+  const endTimestamp = Math.floor(Date.now() / 1000);
+
+  const data = await morphoGraphQLClient.request<{
+    userByAddress?: {
+      vaultPositions?: Array<{
+        vault?: GqlVault | null;
+        historicalState?: GqlHistory | null;
+      } | null> | null;
+      vaultV2Positions?: Array<{
+        vault?: GqlVault | null;
+        history?: GqlHistory | null;
+      } | null> | null;
+    } | null;
+  }>(TREASURY_HISTORY_QUERY, {
+    userAddress: treasuryAddr,
+    chainId: BASE_CHAIN_ID,
+    options: {
+      startTimestamp,
+      endTimestamp,
+      interval: 'DAY',
+    },
+  });
+
+  const user = data.userByAddress;
+  const byAddress = new Map<string, FetchedPosition>();
+
+  for (const row of user?.vaultPositions ?? []) {
+    const vault = row?.vault;
+    const address = vault?.address;
+    if (!address || !isAddress(address)) continue;
+    byAddress.set(address.toLowerCase(), {
+      vault,
+      history: row?.historicalState ?? null,
+    });
+  }
+
+  for (const row of user?.vaultV2Positions ?? []) {
+    const vault = row?.vault;
+    const address = vault?.address;
+    if (!address || !isAddress(address)) continue;
+    byAddress.set(address.toLowerCase(), {
+      vault,
+      history: row?.history ?? null,
+    });
+  }
+
+  return Array.from(byAddress.values());
+}
+
+function addIncome(
+  monthlyStatements: Map<string, TreasuryAssetBreakdown>,
+  vaultMonthlyMap: Map<string, VaultMonthlyData>,
+  dailyMap: Map<string, number>,
+  inflow: PositionIncome
+): void {
+  const month = utcMonthKeyFromTimestamp(inflow.timestamp);
+  const statement = monthlyStatements.get(month);
+  if (statement) {
+    statement[inflow.asset].tokens += inflow.tokens;
+    statement[inflow.asset].usd += inflow.usd;
+  }
+
+  const vaultKey = `${inflow.vaultAddress}|${month}`;
+  const existing = vaultMonthlyMap.get(vaultKey);
+  if (existing) {
+    existing.tokens += inflow.tokens;
+    existing.usd += inflow.usd;
+  } else {
+    vaultMonthlyMap.set(vaultKey, {
+      vaultAddress: inflow.vaultAddress,
+      asset: inflow.asset,
+      month,
+      tokens: inflow.tokens,
+      usd: inflow.usd,
+    });
+  }
+
+  const day = utcDayKeyFromTimestamp(inflow.timestamp);
+  dailyMap.set(day, (dailyMap.get(day) ?? 0) + inflow.usd);
+}
+
+function subtractIncome(
+  monthlyStatements: Map<string, TreasuryAssetBreakdown>,
+  vaultMonthlyMap: Map<string, VaultMonthlyData>,
+  dailyMap: Map<string, number>,
+  inflow: PositionIncome
+): void {
+  addIncome(monthlyStatements, vaultMonthlyMap, dailyMap, {
+    ...inflow,
+    tokens: -inflow.tokens,
+    usd: -inflow.usd,
+  });
+}
+
+async function computeTreasuryStatementUncached(): Promise<TreasuryStatementResult> {
+  const allMonths = utcMonthsFrom(STATEMENT_START_DATE);
+  const [positions, transferFetch] = await Promise.all([
+    fetchTreasuryPositionHistories(),
+    fetchTreasuryVaultTransfers(),
+  ]);
+
+  const monthlyStatements = new Map<string, TreasuryAssetBreakdown>();
+  for (const month of allMonths) {
+    monthlyStatements.set(month.key, emptyTreasuryAssetBreakdown());
+  }
+
+  const vaultMonthlyMap = new Map<string, VaultMonthlyData>();
+  const dailyMap = new Map<string, number>();
+  const priceByVaultDay = new Map<string, number>();
+  let positionCount = 0;
+  let inflowCount = 0;
+
+  for (const position of positions) {
+    const addressRaw = position.vault.address;
+    if (!addressRaw || !isAddress(addressRaw)) continue;
+    if (!includeVault(addressRaw)) continue;
+
+    const vaultAddress = getAddress(addressRaw).toLowerCase();
+    const symbol = position.vault.asset?.symbol ?? null;
+    const asset = treasuryAssetKeyForVault(vaultAddress, symbol);
+    if (!asset) continue;
+
+    const decimals = resolveAssetDecimals(symbol, position.vault.asset?.decimals ?? null);
+    const points = mergeDailySeries(
+      position.history?.shares,
+      position.history?.assets,
+      position.history?.assetsUsd,
+      decimals
+    );
+    for (const p of points) {
+      if (p.tokens > 0 && p.usd != null && p.usd > 0) {
+        priceByVaultDay.set(`${vaultAddress}|${utcDayKeyFromTimestamp(p.x)}`, p.usd / p.tokens);
+      }
+    }
+
+    const inflows = incomesFromHistory(points, vaultAddress, asset);
+    if (inflows.length === 0) continue;
+    positionCount += 1;
+    inflowCount += inflows.length;
+    for (const inflow of inflows) {
+      addIncome(monthlyStatements, vaultMonthlyMap, dailyMap, inflow);
+    }
+  }
+
+  let depositCount = 0;
+  for (const dep of transferFetch.transfers) {
+    if (!dep.isSelfDeposit || !dep.asset) continue;
+    const vaultAddress = dep.vaultAddress.toLowerCase();
+    const decimals = dep.assetDecimals;
+    let tokens = 0;
+    if (dep.assetsRaw) {
       try {
-        const vaultAddr = vaultAddress.toLowerCase();
-        const asset = VAULT_ASSET_MAP[vaultAddr];
-
-        if (!asset) {
-          logger.warn('Vault address not in asset map', { address: vaultAddress });
-          return null;
-        }
-
-        const v2Result = await morphoGraphQLClient.request<V2PositionResponse>(
-          v2PositionQuery,
-          {
-            vaultAddress,
-            userAddress: treasuryAddr,
-            chainId: BASE_CHAIN_ID,
-            options: timeseriesOptions,
-          }
-        );
-
-        logger.debug('V2 vault query result', {
-          vaultAddress,
-          hasVault: !!v2Result.vaultV2,
-          hasUser: !!v2Result.user,
-          positionsCount: v2Result.user?.vaultV2Positions?.length ?? 0,
-        });
-
-        if (v2Result.user?.vaultV2Positions && v2Result.user.vaultV2Positions.length > 0) {
-          const position = v2Result.user.vaultV2Positions.find(
-            (p) => p?.vault?.address?.toLowerCase() === vaultAddr
-          );
-
-          if (position?.history?.assets && position.history.assetsUsd) {
-            const assetDecimals = v2Result.vaultV2?.asset?.decimals ?? 18;
-            return {
-              vaultAddress: vaultAddr,
-              asset,
-              assetDecimals,
-              historicalAssets: position.history.assets,
-              historicalAssetsUsd: position.history.assetsUsd,
-            };
-          }
-        }
-
-        return null;
-      } catch (error) {
-        logger.warn('Failed to fetch vault position for treasury', {
-          vaultAddress,
-          error: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-        });
-        return null;
-      }
-    });
-
-    const vaultPositionResults = await Promise.all(vaultPositionPromises);
-    const validPositions = vaultPositionResults.filter((v): v is NonNullable<typeof v> => v !== null);
-
-    if (validPositions.length === 0) {
-      return { statements: [], daily: [], vaults: [] };
-    }
-
-    const daily = getDailyTreasuryRevenue(validPositions);
-
-    const monthlyStatements = new Map<string, TreasuryAssetBreakdown>();
-    for (const month of allMonths) {
-      monthlyStatements.set(month.key, emptyTreasuryAssetBreakdown());
-    }
-
-    const vaultMonthlyData: VaultMonthlyData[] = [];
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth() + 1;
-
-    for (const position of validPositions) {
-      for (const month of allMonths) {
-        const { baseline, end } = getMonthTimestamps(month.year, month.month);
-        const isCurrentMonth =
-          month.year === currentYear && month.month === currentMonth;
-
-        const baselineValues = resolvePositionValueAt(position, baseline, false);
-        const endValues = resolvePositionValueAt(position, end, isCurrentMonth);
-
-        const baselineTokens = baselineValues.assets / Math.pow(10, position.assetDecimals);
-        const endTokens = endValues.assets / Math.pow(10, position.assetDecimals);
-        const tokenChange = endTokens - baselineTokens;
-        const usdChange = endValues.assetsUsd - baselineValues.assetsUsd;
-
-        if (tokenChange === 0 && usdChange === 0) continue;
-
-        const statement = monthlyStatements.get(month.key);
-        if (statement) {
-          statement[position.asset].tokens += tokenChange;
-          statement[position.asset].usd += usdChange;
-        }
-
-        vaultMonthlyData.push({
-          vaultAddress: position.vaultAddress,
-          asset: position.asset,
-          month: month.key,
-          tokens: tokenChange,
-          usd: usdChange,
-        });
+        tokens = humanFromRaw(BigInt(dep.assetsRaw), decimals);
+      } catch {
+        tokens = 0;
       }
     }
-
-    logger.info('Monthly statement calculated from treasury wallet balances', {
-      positionsProcessed: validPositions.length,
-      monthsWithData: Array.from(monthlyStatements.values()).filter(
-        (m) => m.USDC.tokens !== 0 || m.cbBTC.tokens !== 0 || m.WETH.tokens !== 0
-      ).length,
+    if (!(tokens > 0)) continue;
+    const day = utcDayKeyFromTimestamp(dep.timestamp);
+    const price =
+      priceByVaultDay.get(`${vaultAddress}|${day}`) ?? (dep.asset === 'USDC' ? 1 : null);
+    const usd = price != null ? tokens * price : 0;
+    subtractIncome(monthlyStatements, vaultMonthlyMap, dailyMap, {
+      vaultAddress,
+      asset: dep.asset,
+      timestamp: dep.timestamp,
+      tokens,
+      usd,
     });
+    depositCount += 1;
+  }
 
-    const nowForComplete = new Date();
-    nowForComplete.setHours(23, 59, 59, 999);
+  const daily: Array<{ date: string; value: number }> = [];
+  const start = new Date(STATEMENT_START_DATE);
+  start.setUTCHours(0, 0, 0, 0);
+  const now = new Date();
+  const todayUTC = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0)
+  );
+  const d = new Date(start);
+  d.setUTCHours(0, 0, 0, 0);
+  while (d <= todayUTC) {
+    const date = d.toISOString().slice(0, 10);
+    daily.push({ date, value: dailyMap.get(date) ?? 0 });
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
 
-    const isCurrentMonth = (monthKey: string) => {
-      const [y, mo] = monthKey.split('-').map(Number);
-      return nowForComplete.getUTCFullYear() === y && nowForComplete.getUTCMonth() + 1 === mo;
-    };
+  const nowMs = Date.now();
+  const isCurrentMonth = (monthKey: string) => {
+    const [y, mo] = monthKey.split('-').map(Number);
+    return now.getUTCFullYear() === y && now.getUTCMonth() + 1 === mo;
+  };
 
-    const statements: MonthlyStatementData[] = Array.from(monthlyStatements.entries())
-      .map(([month, assets]) => {
-        const [year, monthNum] = month.split('-').map(Number);
-        const lastDayOfMonth = new Date(year, monthNum, 0);
-        lastDayOfMonth.setHours(23, 59, 59, 999);
-        const isComplete = nowForComplete > lastDayOfMonth;
+  const statements: MonthlyStatementData[] = Array.from(monthlyStatements.entries())
+    .map(([month, assets]) => {
+      const [year, monthNum] = month.split('-').map(Number);
+      const lastDayMs = Date.UTC(year, monthNum, 0, 23, 59, 59, 999);
+      const isComplete = nowMs > lastDayMs;
+      const totalTokens = assets.USDC.tokens + assets.cbBTC.tokens + assets.WETH.tokens;
+      const totalUsd = sumTreasuryBreakdownUsd(assets);
+      return {
+        month,
+        assets,
+        total: { tokens: totalTokens, usd: totalUsd },
+        isComplete,
+      };
+    })
+    .filter((s) => s.total.tokens !== 0 || s.total.usd !== 0 || isCurrentMonth(s.month))
+    .sort((a, b) => a.month.localeCompare(b.month));
 
-        const totalTokens = assets.USDC.tokens + assets.cbBTC.tokens + assets.WETH.tokens;
-        const totalUsd = sumTreasuryBreakdownUsd(assets);
+  logger.info('Monthly statement from GraphQL daily share change', {
+    positions: positionCount,
+    inflowDays: inflowCount,
+    selfDepositsExcluded: depositCount,
+    transferError: transferFetch.error,
+    monthsWithData: statements.length,
+  });
 
-        return {
-          month,
-          assets,
-          total: {
-            tokens: totalTokens,
-            usd: totalUsd,
-          },
-          isComplete,
-        };
-      })
-      .filter(
-        (s) =>
-          s.total.tokens !== 0 ||
-          s.total.usd !== 0 ||
-          isCurrentMonth(s.month)
-      )
-      .sort((a, b) => a.month.localeCompare(b.month));
+  return {
+    statements,
+    daily,
+    vaults: Array.from(vaultMonthlyMap.values()),
+  };
+}
 
-    return { statements, daily, vaults: vaultMonthlyData };
+export function computeTreasuryStatement(): Promise<TreasuryStatementResult> {
+  return withServerResponseCache(
+    'treasury-statement-daily-shares-v2',
+    API_CACHE_MAX_AGE_MS,
+    computeTreasuryStatementUncached
+  );
 }

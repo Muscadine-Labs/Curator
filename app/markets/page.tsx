@@ -7,7 +7,7 @@ export default function CuratorMarketsPage() {
   return (
     <AppShell
       title="Morpho Markets"
-      description="Browse Morpho Blue markets, filter by network and listing status, and see Muscadine vault caps."
+      description="Browse Morpho Blue and Midnight markets, filter by network and listing status, and see Muscadine vault caps."
     >
       <CuratorMarketsBrowser />
     </AppShell>

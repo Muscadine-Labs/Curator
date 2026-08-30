@@ -11,8 +11,6 @@ import {
 } from 'react';
 import {
   clearCuratorAuthCache,
-  isCuratorAuthCacheValid,
-  readCuratorAuthCache,
   writeCuratorAuthCache,
 } from './curator-auth';
 
@@ -42,17 +40,34 @@ export function CuratorAuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<UserRole>(null);
 
   useEffect(() => {
-    const cache = readCuratorAuthCache();
-    if (isCuratorAuthCacheValid(cache)) {
-      // cache is guaranteed to be non-null if isCuratorAuthCacheValid returns true
-      setIsAuthenticated(true);
-      setRole(cache!.role);
-    } else {
-      if (cache) clearCuratorAuthCache();
-      setIsAuthenticated(false);
-      setRole(null);
-    }
-    setIsReady(true);
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/auth/me', { credentials: 'same-origin', cache: 'no-store' });
+        const data = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        if (res.ok && data?.ok === true && data?.role === 'admin') {
+          writeCuratorAuthCache('admin');
+          setIsAuthenticated(true);
+          setRole('admin');
+        } else {
+          clearCuratorAuthCache();
+          setIsAuthenticated(false);
+          setRole(null);
+        }
+      } catch {
+        if (!cancelled) {
+          clearCuratorAuthCache();
+          setIsAuthenticated(false);
+          setRole(null);
+        }
+      } finally {
+        if (!cancelled) setIsReady(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const login = useCallback(
@@ -60,6 +75,7 @@ export function CuratorAuthProvider({ children }: { children: ReactNode }) {
       const res = await fetch('/api/auth/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
         body: JSON.stringify({ username, password }),
       });
       const data = await res.json().catch(() => ({}));
@@ -75,6 +91,7 @@ export function CuratorAuthProvider({ children }: { children: ReactNode }) {
   );
 
   const logout = useCallback(() => {
+    void fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
     clearCuratorAuthCache();
     setIsAuthenticated(false);
     setRole(null);

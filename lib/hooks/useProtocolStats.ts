@@ -37,7 +37,7 @@ export interface VaultWithData {
   performanceFeeBps: number | null;
   status: 'active' | 'paused' | 'deprecated';
   riskTier: 'low' | 'medium' | 'high';
-  createdAt: string;
+  createdAt: string | null;
   description?: string;
   version?: 'v2';
   listCategory?: 'prime' | 'vineyard' | 'frontier' | 'test' | null;
@@ -49,13 +49,20 @@ export interface VaultWithData {
   revenueAllTime: number | null;
   feesAllTime: number | null;
   lastHarvest: string | null;
+  idleAssetsUnderlying?: string | null;
+  liquidityUnderlying?: string | null;
+  liquidityUsd?: number | null;
+  liquidityAdapter?: {
+    label: string;
+    utilizationPercent: number | null;
+  } | null;
 }
 
 export interface VaultDetail extends VaultWithData {
   apy: number | null;
   apyBase: number | null;
   apyBoosted: number | null;
-  feesYtd: number | null;
+  treasuryRevenueYtd: number | null;
   utilization: number | null;
   analytics?: {
     totalAssetsUnderlying: string | null;

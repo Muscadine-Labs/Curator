@@ -13,6 +13,7 @@ import Link from 'next/link';
 import { Info } from 'lucide-react';
 import { apiFetch } from '@/lib/data/api-fetch';
 import { STATEMENT_QUERY_OPTIONS } from '@/lib/data/query-config';
+import { isUtcPeriodComplete } from '@/lib/utils/utc-calendar';
 
 interface TreasuryAssetBreakdown {
   USDC: { tokens: number; usd: number };
@@ -40,9 +41,7 @@ interface VaultMonthlyData {
 
 interface MonthlyStatementResponse {
   statements: MonthlyStatementData[];
-}
-
-interface VaultStatementResponse {
+  daily?: Array<{ date: string; value: number }>;
   vaults: VaultMonthlyData[];
 }
 
@@ -72,6 +71,9 @@ const VAULT_NAMES: Record<string, string> = {
   '0x314fd07319ef645ba7d548915ccd91f4788a1839': 'USDC Frontier',
   '0x99dcd0d75822ba398f13b2a8852b07c7e137ec70': 'cbBTC Prime',
   '0xd6dcad2f7da91fbb27bda471540d9770c97a5a43': 'WETH Prime',
+  '0xf7e26fa48a568b8b0038e104dfd8abdf0f99074f': 'mvUSDC (V1)',
+  '0x21e0d366272798da3a977feba699fcb91959d120': 'mvWETH (V1)',
+  '0xaecc8113a7bd0cfaf7000ea7a31affd4691ff3e9': 'mvcbBTC (V1)',
 };
 
 export default function MonthlyStatementPage() {
@@ -96,38 +98,22 @@ export default function MonthlyStatementPage() {
   const { data, isLoading, error } = useQuery<MonthlyStatementResponse>({
     queryKey: ['monthly-statement', 'wallet-balance'],
     queryFn: async () => {
-      const response = await apiFetch('/api/monthly-statement-morphoql', {
-        credentials: 'omit',
-      });
+      const response = await apiFetch('/api/monthly-statement-morphoql');
       if (!response.ok) throw new Error('Failed to fetch monthly statement');
       return response.json();
     },
     ...STATEMENT_QUERY_OPTIONS,
   });
 
-  const { data: vaultData, isLoading: isVaultDataLoading } = useQuery<VaultStatementResponse>({
-    queryKey: ['monthly-statement-vaults'],
-    queryFn: async () => {
-      const response = await apiFetch('/api/monthly-statement-morphoql?perVault=true', {
-        credentials: 'omit',
-      });
-      if (!response.ok) throw new Error('Failed to fetch vault statement');
-      return response.json();
-    },
-    enabled: viewMode === 'byVault' && activeTab === 'treasury',
-    ...STATEMENT_QUERY_OPTIONS,
-  });
-
   const { data: defiLlamaData, isLoading: isDefiLlamaLoading, error: defiLlamaError } = useQuery<DefiLlamaStatementResponse>({
     queryKey: ['monthly-statement-defillama'],
     queryFn: async () => {
-      const response = await apiFetch('/api/monthly-statement-defillama', {
-        credentials: 'omit',
-      });
+      const response = await apiFetch('/api/monthly-statement-defillama');
       if (!response.ok) throw new Error('Failed to fetch DefiLlama statement');
       return response.json();
     },
     enabled: activeTab === 'defillama',
+    ...STATEMENT_QUERY_OPTIONS,
   });
 
   const formatMonth = (monthKey: string) => {
@@ -184,14 +170,14 @@ export default function MonthlyStatementPage() {
 
   // Filter vault data by year
   const filteredVaultData = useMemo(() => {
-    const allVaults = vaultData?.vaults || [];
+    const allVaults = data?.vaults || [];
     if (yearFilter === 'all') return allVaults;
     
     return allVaults.filter(vault => {
       const [year] = vault.month.split('-');
       return year === yearFilter;
     });
-  }, [vaultData?.vaults, yearFilter]);
+  }, [data?.vaults, yearFilter]);
 
   // Format token amount with specific decimals per asset
   const formatTokenAmount = (amount: number, asset: 'USDC' | 'cbBTC' | 'WETH'): string => {
@@ -300,41 +286,7 @@ export default function MonthlyStatementPage() {
     return defiLlamaViewModeOptions.find(opt => opt.value === value)?.label || 'Month';
   };
 
-  // Check if a period is complete (works for both treasury and defillama)
-  const isPeriodComplete = (periodKey: string): boolean => {
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth() + 1; // JavaScript months are 0-indexed, convert to 1-indexed
-    
-    // Check if it's a month format (YYYY-MM)
-    if (/^\d{4}-\d{2}$/.test(periodKey)) {
-      const [year, month] = periodKey.split('-').map(Number);
-      // Compare year and month directly to avoid timezone issues
-      if (currentYear > year) return true;
-      if (currentYear < year) return false;
-      // Same year - check if current month is past the period month
-      return currentMonth > month;
-    } 
-    // Check if it's a quarter format (YYYY-Q1, YYYY-Q2, etc.)
-    else if (periodKey.includes('-Q')) {
-      const [year, quarter] = periodKey.split('-Q').map((v, i) => i === 0 ? parseInt(v) : parseInt(v));
-      const quarterEndMonth = quarter * 3; // Q1 ends in March (month 3), Q2 in June (6), etc.
-      // Compare year and quarter end month directly
-      if (currentYear > year) return true;
-      if (currentYear < year) return false;
-      // Same year - check if current month is past the quarter end month
-      return currentMonth > quarterEndMonth;
-    } 
-    // Check if it's a year format (YYYY)
-    else if (/^\d{4}$/.test(periodKey)) {
-      const year = parseInt(periodKey);
-      // Simply compare years
-      return currentYear > year;
-    }
-    
-    // Default: if we can't parse it, assume it's complete
-    return true;
-  };
+  const isPeriodComplete = (periodKey: string): boolean => isUtcPeriodComplete(periodKey);
 
   // Aggregate treasury statements by period (month, quarter, year)
   const mergeAssetBreakdown = (
@@ -471,6 +423,9 @@ export default function MonthlyStatementPage() {
       '0x314fd07319ef645ba7d548915ccd91f4788a1839',
       '0x99dcd0d75822ba398f13b2a8852b07c7e137ec70',
       '0xd6dcad2f7da91fbb27bda471540d9770c97a5a43',
+      '0xf7e26fa48a568b8b0038e104dfd8abdf0f99074f',
+      '0x21e0d366272798da3a977feba699fcb91959d120',
+      '0xaecc8113a7bd0cfaf7000ea7a31affd4691ff3e9',
     ];
 
     return addressArray.sort((a, b) => {
@@ -518,7 +473,7 @@ export default function MonthlyStatementPage() {
   }, [vaultAddresses, aggregatedVaultData]);
 
   const isLoadingData = activeTab === 'treasury' 
-    ? (isLoading || (viewMode === 'byVault' && isVaultDataLoading))
+    ? isLoading
     : isDefiLlamaLoading;
 
   // Aggregate DefiLlama data by period (month, quarter, year)
@@ -636,7 +591,9 @@ export default function MonthlyStatementPage() {
           >
             Treasury wallet
           </Link>
-          . Month-over-month net change in vault share holdings held by the treasury (gains = revenue).<br />
+          . Income is daily vault-share increases (performance fees and inbound
+          transfers), valued at that day USD. Self-deposits and price
+          appreciation are not counted. Outflows are not subtracted.<br />
           <span className="text-sm text-slate-600 dark:text-slate-400">
             Revenue flows periodically when vaults have activity.
           </span>

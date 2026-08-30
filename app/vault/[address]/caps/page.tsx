@@ -15,6 +15,7 @@ export default function VaultCapsPage() {
       preloadedPending={pending}
       assetSymbol={vault.asset}
       assetDecimals={vault.assetDecimals}
+      totalAssetsUnderlying={vault.totalAssetsUnderlying}
     />
   );
 }

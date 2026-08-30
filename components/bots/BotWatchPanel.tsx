@@ -11,7 +11,9 @@ import {
   ExternalLink,
   RefreshCw,
   ShieldAlert,
+  Wallet,
 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
@@ -24,7 +26,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { useBotActivity } from '@/lib/hooks/useBotActivity';
+import { useBotActivity, type BotActivityPanel } from '@/lib/hooks/useBotActivity';
+import {
+  MUSCADINE_BOTS_GITHUB_URL,
+  MUSCADINE_VAULT_BOT_TELEGRAM_URL,
+} from '@/lib/constants';
 import {
   formatAddress,
   formatRawTokenAmount,
@@ -35,6 +41,8 @@ import { getScanUrlForChain, BASE_CHAIN_ID } from '@/lib/constants';
 import type {
   BotActivityItem,
   BotWatcher,
+  RebaterActivityItem,
+  RebaterWatcher,
 } from '@/app/api/bots/activity/route';
 
 const PAGE_SIZE = 10;
@@ -65,11 +73,11 @@ function deltaClass(value: number | null): string {
 }
 
 function actorBadgeClass(kind: BotActivityItem['actorKind']): string {
-  if (kind === 'bot') {
-    return 'border-violet-500/30 bg-violet-500/10 text-violet-800 dark:text-violet-300';
-  }
   if (kind === 'allocator_safe' || kind === 'sentinel_safe') {
     return 'border-sky-500/30 bg-sky-500/10 text-sky-800 dark:text-sky-300';
+  }
+  if (kind === 'public_allocator') {
+    return 'border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300';
   }
   return '';
 }
@@ -355,6 +363,7 @@ function RoleActivityCard({
   error,
   collapsed,
   onToggleCollapsed,
+  collapsible = true,
 }: {
   title: string;
   description: string;
@@ -368,6 +377,7 @@ function RoleActivityCard({
   error: Error | null;
   collapsed: boolean;
   onToggleCollapsed: () => void;
+  collapsible?: boolean;
 }) {
   const [page, setPage] = useState(0);
   const scanUrl = getScanUrlForChain(BASE_CHAIN_ID);
@@ -385,6 +395,7 @@ function RoleActivityCard({
   return (
     <Card className="border-border/70 min-w-0">
       <CardHeader className="space-y-3">
+        {collapsible ? (
         <button
           type="button"
           onClick={onToggleCollapsed}
@@ -416,6 +427,20 @@ function RoleActivityCard({
             )}
           </span>
         </button>
+        ) : (
+          <div>
+            <CardTitle className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+              <Icon className="h-4 w-4 shrink-0" />
+              <span>{title}</span>
+              {!isLoading && (
+                <Badge variant="secondary" className="text-[10px] tabular-nums">
+                  {items.length}
+                </Badge>
+              )}
+            </CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+          </div>
+        )}
         {!collapsed && (
           <div className="space-y-1.5">
             <p className="text-[10px] text-muted-foreground">
@@ -494,25 +519,49 @@ function RoleActivityCard({
   );
 }
 
-/** Default: every watcher address is on. Track only the ones the user turns off. */
+/** Role Safes on by default; other role holders stay off until toggled. */
+function defaultWatcherOn(kind: BotWatcher['kind']): boolean {
+  return kind === 'allocator_safe' || kind === 'sentinel_safe';
+}
+
 function useEnabledWatcherSet(watchers: BotWatcher[]) {
-  const [disabled, setDisabled] = useState<Set<string>>(() => new Set());
+  const [overrides, setOverrides] = useState<Map<string, boolean>>(() => new Map());
+  const watcherKey = watchers.map((w) => w.address.toLowerCase()).sort().join(',');
+
+  useEffect(() => {
+    const valid = new Set(watchers.map((w) => w.address.toLowerCase()));
+    setOverrides((prev) => {
+      let changed = false;
+      const next = new Map<string, boolean>();
+      for (const [k, v] of prev) {
+        if (valid.has(k)) next.set(k, v);
+        else changed = true;
+      }
+      return changed || next.size !== prev.size ? next : prev;
+    });
+  }, [watcherKey, watchers]);
 
   const enabled = useMemo(() => {
     const set = new Set<string>();
     for (const w of watchers) {
       const key = w.address.toLowerCase();
-      if (!disabled.has(key)) set.add(key);
+      const on = overrides.has(key) ? Boolean(overrides.get(key)) : defaultWatcherOn(w.kind);
+      if (on) set.add(key);
     }
     return set;
-  }, [watchers, disabled]);
+  }, [watchers, overrides]);
 
   const toggle = (address: string) => {
     const key = address.toLowerCase();
-    setDisabled((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
+    setOverrides((prev) => {
+      const next = new Map(prev);
+      const watcher = watchers.find((w) => w.address.toLowerCase() === key);
+      const current = next.has(key)
+        ? Boolean(next.get(key))
+        : watcher
+          ? defaultWatcherOn(watcher.kind)
+          : false;
+      next.set(key, !current);
       return next;
     });
   };
@@ -520,11 +569,197 @@ function useEnabledWatcherSet(watchers: BotWatcher[]) {
   return { enabled, toggle };
 }
 
+function RebaterCard({
+  watchers,
+  items,
+  isLoading,
+  error,
+  truncated,
+  fetchError,
+}: {
+  watchers: RebaterWatcher[];
+  items: RebaterActivityItem[];
+  isLoading: boolean;
+  error: Error | null;
+  truncated?: boolean;
+  fetchError?: string | null;
+}) {
+  const [page, setPage] = useState(0);
+  const scanUrl = getScanUrlForChain(BASE_CHAIN_ID);
+  const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages - 1);
+  const paged = useMemo(
+    () => items.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE),
+    [items, safePage]
+  );
+
+  useEffect(() => {
+    setPage(0);
+  }, [items]);
+
+  return (
+    <Card className="border-border/70 min-w-0">
+      <CardHeader className="space-y-2">
+        <CardTitle className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+          <Wallet className="h-4 w-4 shrink-0" />
+          <span>Rebater</span>
+          {!isLoading && (
+            <Badge variant="secondary" className="text-[10px] tabular-nums">
+              {items.length}
+            </Badge>
+          )}
+        </CardTitle>
+        <p className="text-xs text-muted-foreground">
+          Funds leaving the treasury Safe (vault share transfers and withdrawals).
+          The Rebater bot is not deployed yet — GraphQL rows appear when an outflow
+          is indexed.
+        </p>
+        {(truncated || fetchError) && (
+          <p className="text-xs text-amber-600 dark:text-amber-400">
+            {fetchError
+              ? `Could not load all treasury outflows: ${fetchError}`
+              : 'Transfer history was truncated; older outflows may be missing.'}
+          </p>
+        )}
+        <div className="flex flex-wrap gap-1.5">
+          {watchers.map((w) => (
+            <div
+              key={w.address}
+              className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-muted/40 px-1.5 py-0.5 text-[10px]"
+            >
+              <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" aria-hidden />
+              <Badge variant="outline" className="h-4 border-0 px-1 text-[9px]">
+                {w.label}
+              </Badge>
+              <span className="font-mono text-muted-foreground">
+                {formatAddress(w.address, 4, 4)}
+              </span>
+              <a
+                href={`${scanUrl}/address/${w.address}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                aria-label={`Open ${w.label} on explorer`}
+              >
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            </div>
+          ))}
+        </div>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="space-y-2">
+            <Skeleton className="h-16 w-full" />
+            <Skeleton className="h-16 w-full" />
+          </div>
+        ) : error ? (
+          <p className="text-sm text-red-600 dark:text-red-400">
+            Failed to load: {error.message}
+          </p>
+        ) : paged.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No treasury outflows indexed yet.
+          </p>
+        ) : (
+          <>
+            <div className="divide-y divide-border/60 rounded-md border border-border/60">
+              {paged.map((item) => {
+                const displayDecimals = getTokenDisplayDecimals(
+                  item.assetSymbol,
+                  item.assetDecimals
+                );
+                return (
+                  <div key={item.hash} className="space-y-1 px-3 py-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="outline" className="text-[10px]">
+                        {item.type}
+                      </Badge>
+                      <span className="text-sm font-medium">{item.vaultName}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {formatRelativeTime(new Date(item.timestamp * 1000))}
+                      </span>
+                    </div>
+                    <p className="font-mono text-xs tabular-nums">
+                      {item.assets
+                        ? `${formatRawTokenAmount(item.assets, item.assetDecimals, displayDecimals)} ${item.assetSymbol}`
+                        : `${item.shares} shares`}
+                    </p>
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
+                      <Link
+                        href={`/vault/${item.vaultAddress}`}
+                        className="text-blue-600 hover:underline dark:text-blue-400"
+                      >
+                        Open vault
+                      </Link>
+                      <a
+                        href={`${scanUrl}/tx/${item.hash}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 font-mono text-blue-600 hover:underline dark:text-blue-400"
+                      >
+                        {formatAddress(item.hash, 8, 6)}
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                      {item.to ? (
+                        <a
+                          href={`${scanUrl}/address/${item.to}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="font-mono text-muted-foreground hover:underline"
+                        >
+                          to {formatAddress(item.to, 4, 4)}
+                        </a>
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {items.length > PAGE_SIZE && (
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                <span>
+                  Showing {safePage * PAGE_SIZE + 1}–
+                  {Math.min(items.length, (safePage + 1) * PAGE_SIZE)} of {items.length}
+                </span>
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9 w-9 p-0 sm:h-7 sm:w-7"
+                    disabled={safePage === 0}
+                    onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                  </Button>
+                  <span className="min-w-[3.5rem] text-center tabular-nums">
+                    {safePage + 1} / {totalPages}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9 w-9 p-0 sm:h-7 sm:w-7"
+                    disabled={safePage >= totalPages - 1}
+                    onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                  >
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export function BotWatchPanel() {
-  const { data, isLoading, error, refetch, isFetching } = useBotActivity();
+  const [tab, setTab] = useState<BotActivityPanel>('allocator');
+  const { data, isLoading, error, refetch, isFetching } = useBotActivity({ panel: tab });
   const [vaultFilter, setVaultFilter] = useState<string>('all');
-  const [allocatorCollapsed, setAllocatorCollapsed] = useState(false);
-  const [sentinelCollapsed, setSentinelCollapsed] = useState(false);
 
   const vaults = useMemo(() => data?.vaults ?? [], [data?.vaults]);
   const allocators = useMemo(() => data?.allocators ?? [], [data?.allocators]);
@@ -551,6 +786,15 @@ export function BotWatchPanel() {
     return items.filter((i) => sentinelWatch.enabled.has(i.from.toLowerCase()));
   }, [data?.sentinelItems, vaultFilter, sentinelWatch.enabled]);
 
+  const rebaterItems = useMemo(() => {
+    let items = data?.rebaterItems ?? [];
+    if (vaultFilter !== 'all') {
+      const needle = vaultFilter.toLowerCase();
+      items = items.filter((i) => i.vaultAddress.toLowerCase() === needle);
+    }
+    return items;
+  }, [data?.rebaterItems, vaultFilter]);
+
   const err = error instanceof Error ? error : error ? new Error(String(error)) : null;
 
   const emptyFor = (role: 'allocator' | 'sentinel') => {
@@ -571,72 +815,118 @@ export function BotWatchPanel() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
-        <p className="text-xs text-muted-foreground max-w-2xl">
-          Allocate / deallocate and roles come from Morpho GraphQL. Liquidity
-          adapter, cap decreases, revoke pending, and remove-allocator are decoded
-          from calldata when GraphQL has no row.
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="flex flex-col gap-1 text-xs">
-            <span className="text-muted-foreground">Vault</span>
-            <select
-              value={vaultFilter}
-              onChange={(e) => setVaultFilter(e.target.value)}
-              className="h-9 min-w-[12rem] max-w-full rounded-md border border-input bg-background px-2 text-sm touch-manipulation sm:h-8 sm:text-xs"
-            >
-              <option value="all">All vaults</option>
-              {vaults.map((v) => (
-                <option key={v.address} value={v.address}>
-                  {v.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="h-9 touch-manipulation sm:h-8"
-            onClick={() => refetch()}
-            disabled={isFetching}
-          >
-            <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-        </div>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+        <a
+          href={MUSCADINE_VAULT_BOT_TELEGRAM_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-blue-600 hover:underline dark:text-blue-400"
+        >
+          Telegram @MuscadineVaultBot
+          <ExternalLink className="h-3 w-3" />
+        </a>
+        <a
+          href={MUSCADINE_BOTS_GITHUB_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-muted-foreground hover:underline"
+        >
+          muscadine-bots
+          <ExternalLink className="h-3 w-3" />
+        </a>
       </div>
 
-      <div className="grid grid-cols-1 gap-4">
-        <RoleActivityCard
-          title="Allocator"
-          description="Allocate, rebalance (alloc+dealloc), and liquidity-adapter market changes."
-          emptyMessage={emptyFor('allocator')}
-          icon={Bot}
-          watchers={allocators}
-          enabledAddresses={allocatorWatch.enabled}
-          onToggleAddress={allocatorWatch.toggle}
-          items={allocatorItems}
-          isLoading={isLoading}
-          error={err}
-          collapsed={allocatorCollapsed}
-          onToggleCollapsed={() => setAllocatorCollapsed((v) => !v)}
-        />
-        <RoleActivityCard
-          title="Sentinel"
-          description="Deallocate-only, decrease absolute/relative caps, revoke pending, and remove allocator. Never allocate."
-          emptyMessage={emptyFor('sentinel')}
-          icon={ShieldAlert}
-          watchers={sentinels}
-          enabledAddresses={sentinelWatch.enabled}
-          onToggleAddress={sentinelWatch.toggle}
-          items={sentinelItems}
-          isLoading={isLoading}
-          error={err}
-          collapsed={sentinelCollapsed}
-          onToggleCollapsed={() => setSentinelCollapsed((v) => !v)}
-        />
-      </div>
+      <Tabs
+        value={tab}
+        onValueChange={(value) => setTab(value as BotActivityPanel)}
+      >
+        <TabsList className="w-full sm:w-fit">
+          <TabsTrigger value="allocator">Allocator</TabsTrigger>
+          <TabsTrigger value="sentinel">Sentinel</TabsTrigger>
+          <TabsTrigger value="rebater">Rebater</TabsTrigger>
+        </TabsList>
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+          <p className="text-xs text-muted-foreground max-w-2xl">
+            Allocate / deallocate and roles come from Morpho GraphQL. Liquidity
+            adapter, cap decreases, revoke pending, and remove-allocator are decoded
+            from calldata when GraphQL has no row.
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="flex flex-col gap-1 text-xs">
+              <span className="text-muted-foreground">Vault</span>
+              <select
+                value={vaultFilter}
+                onChange={(e) => setVaultFilter(e.target.value)}
+                className="h-9 min-w-[12rem] max-w-full rounded-md border border-input bg-background px-2 text-sm touch-manipulation sm:h-8 sm:text-xs"
+              >
+                <option value="all">All vaults</option>
+                {vaults.map((v) => (
+                  <option key={v.address} value={v.address}>
+                    {v.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-9 touch-manipulation sm:h-8"
+              onClick={() => refetch()}
+              disabled={isFetching}
+            >
+              <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
+        </div>
+
+        <TabsContent value="allocator">
+          <RoleActivityCard
+            title="Allocator"
+            description="Allocate, rebalance (alloc+dealloc), and liquidity-adapter market changes."
+            emptyMessage={emptyFor('allocator')}
+            icon={Bot}
+            watchers={allocators}
+            enabledAddresses={allocatorWatch.enabled}
+            onToggleAddress={allocatorWatch.toggle}
+            items={allocatorItems}
+            isLoading={isLoading}
+            error={err}
+            collapsed={false}
+            onToggleCollapsed={() => undefined}
+            collapsible={false}
+          />
+        </TabsContent>
+        <TabsContent value="sentinel">
+          <RoleActivityCard
+            title="Sentinel"
+            description="Deallocate-only, decrease absolute/relative caps, revoke pending, and remove allocator. Never allocate."
+            emptyMessage={emptyFor('sentinel')}
+            icon={ShieldAlert}
+            watchers={sentinels}
+            enabledAddresses={sentinelWatch.enabled}
+            onToggleAddress={sentinelWatch.toggle}
+            items={sentinelItems}
+            isLoading={isLoading}
+            error={err}
+            collapsed={false}
+            onToggleCollapsed={() => undefined}
+            collapsible={false}
+          />
+        </TabsContent>
+        <TabsContent value="rebater">
+          <RebaterCard
+            watchers={data?.rebaterWatchers ?? []}
+            items={rebaterItems}
+            isLoading={isLoading}
+            error={err}
+            truncated={data?.rebaterTruncated}
+            fetchError={data?.rebaterError}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

@@ -1,10 +1,12 @@
 /**
  * Date/range filtering helpers for chart data.
  *
- * We always hide anything before the product launch cutoff (June 1, 2025).
+ * We always hide anything before the product launch cutoff (June 1, 2025 UTC).
  * On top of that, the user can narrow to the last week / last month / all time.
  */
-const CUTOFF_DATE = new Date('2025-06-01');
+import { utcDayStartMs, utcTodayStartMs } from '@/lib/utils/utc-calendar';
+
+const CUTOFF_MS = Date.UTC(2025, 5, 1);
 
 export type TimeRange = 'all' | '90d' | 'month' | 'week';
 
@@ -15,15 +17,17 @@ export const TIME_RANGE_OPTIONS: ReadonlyArray<{ value: TimeRange; label: string
   { value: 'week', label: '7D' },
 ];
 
-function rangeStart(range: TimeRange): Date {
-  if (range === 'all') return CUTOFF_DATE;
-  const now = new Date();
-  const d = new Date(now);
-  if (range === 'week') d.setDate(now.getDate() - 7);
-  else if (range === 'month') d.setDate(now.getDate() - 30);
-  else if (range === '90d') d.setDate(now.getDate() - 90);
-  const bound = d < CUTOFF_DATE ? CUTOFF_DATE : d;
-  return bound;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function rangeStartMs(range: TimeRange): number {
+  if (range === 'all') return CUTOFF_MS;
+  const today = utcTodayStartMs();
+  let days = 30;
+  if (range === 'week') days = 7;
+  else if (range === 'month') days = 30;
+  else if (range === '90d') days = 90;
+  const bound = today - days * DAY_MS;
+  return bound < CUTOFF_MS ? CUTOFF_MS : bound;
 }
 
 export function filterDataByRange<T extends { date: string }>(
@@ -31,9 +35,10 @@ export function filterDataByRange<T extends { date: string }>(
   range: TimeRange
 ): T[] {
   if (!data || data.length === 0) return data;
-  const start = rangeStart(range);
+  const start = rangeStartMs(range);
   return data.filter((item) => {
-    const itemDate = new Date(item.date);
-    return itemDate >= start;
+    const itemMs = utcDayStartMs(item.date);
+    if (!Number.isFinite(itemMs)) return false;
+    return itemMs >= start;
   });
 }

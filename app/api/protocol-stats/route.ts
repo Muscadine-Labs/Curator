@@ -27,6 +27,7 @@ import {
   getDailyInflowsChart,
   getCumulativeInflowsChart,
 } from '@/lib/defillama/service';
+import { unauthorizedUnlessAdmin } from '@/lib/auth/require-admin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -156,6 +157,8 @@ function padSinglePointSeries(series: VaultTvlSeries): VaultTvlSeries {
 }
 
 export async function GET(request: Request) {
+  const denied = await unauthorizedUnlessAdmin(request);
+  if (denied) return denied;
   const rateLimitMiddleware = createRateLimitMiddleware(
     RATE_LIMIT_REQUESTS_PER_MINUTE,
     MINUTE_MS

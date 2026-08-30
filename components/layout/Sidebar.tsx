@@ -268,22 +268,12 @@ function AreaSidebar({
                               href={href}
                               onClick={onLinkClick}
                               className={cn(
-                                'flex min-h-[36px] w-full touch-manipulation items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition',
+                                'flex min-h-[36px] w-full touch-manipulation items-center rounded-lg px-2 py-1.5 text-sm transition',
                                 active
                                   ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
                                   : 'text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'
                               )}
                             >
-                              <span
-                                className={cn(
-                                  'inline-flex h-4 w-4 shrink-0 items-center justify-center rounded text-[10px] font-semibold',
-                                  section.type === 'frontier'
-                                    ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-300'
-                                    : 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300'
-                                )}
-                              >
-                                {(vault.asset ?? 'U').slice(0, 1)}
-                              </span>
                               <span className="truncate min-w-0">
                                 {vault.name ?? 'Unknown Vault'}
                               </span>
@@ -310,7 +300,7 @@ function AreaSidebar({
           href="/markets"
           label="Browse"
           icon={LineChart}
-          active={pathname === '/markets'}
+          active={pathname === '/markets' || pathname.startsWith('/market/') || pathname.startsWith('/midnight')}
           onClick={onLinkClick}
         />
         <NavLink
@@ -336,17 +326,17 @@ function AreaSidebar({
       <div className="space-y-1">
         <SectionLabel>Curator</SectionLabel>
         <NavLink
-          href="/morpho"
-          label="Morpho Tools"
+          href="/curator"
+          label="Curator tools"
           icon={Wrench}
-          active={pathname === '/morpho'}
+          active={pathname === '/curator'}
           onClick={onLinkClick}
         />
         <NavLink
-          href="/morpho/bots"
+          href="/curator/bots"
           label="Bots"
           icon={Bot}
-          active={isActive('/morpho/bots')}
+          active={isActive('/curator/bots')}
           onClick={onLinkClick}
         />
         <NavLink

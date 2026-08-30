@@ -18,7 +18,9 @@ npm run build   # next build
 ## Key invariants (do not regress)
 
 - **Auth:** the only login username is `admin` (role `'admin'`); password from
-  `CURATOR_ADMIN_PASSWORD` (legacy `CURATOR_OWNER_PASSWORD` accepted).
+  `CURATOR_ADMIN_PASSWORD` (legacy `CURATOR_OWNER_PASSWORD` accepted). BFF
+  routes require the HttpOnly `curator_session` cookie (`proxy.ts` plus
+  a route-level check). `apiFetch` sends `credentials: 'same-origin'`.
 - **V2-only vault config:** all tracked vaults are Morpho V2 (`lib/config/vaults.ts`).
   No MetaMorpho / V1 vault routes. Blue market risk uses `blue-market-data.ts` +
   `compute-blue-market-risk.ts`. MetaMorpho adapters are ignored in risk, allocation,
@@ -35,10 +37,10 @@ npm run build   # next build
   allocate/deallocate adapter `data` is `encodeMarketParamsData(market)` for Morpho
   Blue markets only. Never pass bare addresses or raw MarketParams as cap `idData`.
 - **V2 vault routes** (Morpho-style segments under `/vault/[address]/…`):
-  Overview (`/vault/[address]`) → `/analytics` (Risk Analytics) → `/allocation` → `/caps` → `/timelocks` →
-  `/sentinel`. Overview: metrics (token + USD), collapsible holders → recent txs → history
+  Overview (`/vault/[address]`) → `/allocation` → `/caps` → `/risk` → `/timelocks` →
+  `/sentinel`. `/analytics` redirects to `/risk`. Overview: metrics (token + USD), collapsible holders → recent txs → history
   (10 per page with arrows, default closed), fees, roles, adapters.
-  Risk Analytics: market risk grades. Emergency actions on Sentinel (bottom).
+  Risk: market risk grades. Emergency actions on Sentinel (bottom).
   Pending actions embed in Caps; Sentinel is the only tab with sentinel writes (decrease caps,
   deallocate).
 - **Allocation edit amounts** — Rebalance inputs show **display** (Allocated
@@ -51,9 +53,11 @@ npm run build   # next build
   dead deposit/seed — `/markets/create` (Morpho app link after create).
   Vault transact holdings — any Morpho vault via indexed positions API.
   Top nav: Overview · Vaults · Markets · Curator · Business; sidebar is
-  area-scoped (`lib/nav/areas.ts`). Curator area: Morpho Tools · Bots ·
+  area-scoped (`lib/nav/areas.ts`). Curator area: Curator tools · Bots ·
   Multisig Safe. Overview Protocol KPIs open drill-downs (Users: holdings +
-  combined txs). Bots (`/morpho/bots`) watches allocator/sentinel EOA activity.
+  combined txs). Bots (`/curator/bots`) watches allocator/sentinel/rebater activity
+  (Allocator + Sentinel Safes on by default; other role holders off until toggled). Telegram:
+  @MuscadineVaultBot.
 - **Tx preview** — Allocation and Sentinel confirm writes through
   `TxPreviewDialog` + `lib/morpho/tx-preview.ts` before the wallet signs.
 - **V2 pending revoke** — per-row `rowId` + `activeRowId`; never key tx state by
@@ -88,7 +92,7 @@ npm run build   # next build
   `lib/morpho/graphql-client.ts`. See `CLAUDE.md` §4.4.1.
 - **App routes** — `/` (Overview), `/vaults`, `/vault/[address]/*`,
   `/vaults/transact`, `/markets`, `/markets/create`, `/markets/positions`,
-  `/market/blue/[id]`,   `/safe`, `/morpho` (Curator tools hub), `/morpho/bots` (bot watch + repos),
+  `/market/blue/[id]`, `/midnight/[id]`, `/safe`, `/curator` (Curator tools hub), `/curator/bots` (bot watch + repos),
   `/monthly-statement`, `/muscadine-ledger`, `/muscadine-frontends`.
   Old `/morpho/create-market` and `/morpho/transact` pages are gone (use
   `/markets/create`, `/vaults/transact`, `/markets/positions`). Vault pages live
@@ -98,17 +102,22 @@ npm run build   # next build
   `GET /api/vaults/[id]/risk`, `…/governance`, `…/pending` (alongside
   `…/history`, `…/holders`, etc.); protocol drill-downs at
   `GET /api/protocol-users`, `GET /api/protocol-transactions`; bot watch at
-  `GET /api/bots/activity`.
+  `GET /api/bots/activity?panel=allocator|sentinel|rebater`; Midnight books at
+  `GET /api/markets/midnight`, `GET /api/markets/midnight/[id]`.
 - **Vault pages** — `app/vault/[address]/{page,allocation,caps,…}` via
   `VaultPageShell` (`'use client'` + React Query); keep **dynamic** (no
   SSG/`generateStaticParams` for vault addresses).
-- **Curator Morpho Markets** — `/markets` (default: listed only, sort market size
-  desc) and `/market/blue/[id]`; use `sizeUsd` / `totalLiquidityUsd` for sort
-  columns; display token primary + USD secondary via `TokenUsdValue` (§4.7).
-  `MarketOraclePanel` shows oracle price, spot gap, feed bounds, freshness, and
-  block-explorer link. Allocation tab market names link in-app via
-  `curatorBlueMarketHref`. Vault Risk Analytics tab uses the same helper.
-  Sidebar Curator area: Morpho Tools + Multisig Safe. Markets area: Browse /
+- **Curator Morpho Markets** — `/markets` (default: listed Blue only, sort market size
+  desc; product toggle All / Blue / Midnight), `/market/blue/[id]` (Blue), and
+  `/midnight/[id]` (Midnight order book — not Blue KPIs). Midnight REST
+  (`/v0/midnight/markets`, `/state`, `/books`); Morpho app is
+  `https://markets.morpho.org/fixed/{chain}/{id}`. Use `sizeUsd` /
+  `totalLiquidityUsd` for Blue sort columns; display token primary + USD
+  secondary via `TokenUsdValue` (§4.7). Wallet supply/borrow strip on `/markets`
+  links to `/markets/positions`. `MarketOraclePanel` is Blue-only. Allocation
+  tab market names link in-app via `curatorBlueMarketHref`. Vault Risk
+  Analytics tab uses the same helper. Midnight rows use `curatorMidnightMarketHref`.
+  Sidebar Curator area: Curator tools + Bots + Multisig Safe. Markets area: Browse /
   Create / Positions. Vaults area: All vaults + Transact + vault tree.
 - **Oracle freshness** — `resolveMarketOracleAddress` accepts `oracleAddress` or
   `oracle.address`; risk BFF GraphQL keeps minimal oracle fragments (`baseFeedOne`

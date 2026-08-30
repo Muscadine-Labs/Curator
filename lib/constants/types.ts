@@ -11,4 +11,6 @@ export type MorphoAutomationBot = {
   description: string;
   body: string;
   href: string;
+  /** Optional Telegram bot for live alerts. */
+  telegramHref?: string;
 };

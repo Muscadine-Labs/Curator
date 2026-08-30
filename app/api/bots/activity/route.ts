@@ -7,7 +7,7 @@ import {
   getVaultAssetSymbol,
 } from '@/lib/config/vaults';
 import { BASE_CHAIN_ID } from '@/lib/constants';
-import { BOT_EOA_ADDRESS, labelForActor } from '@/lib/constants/bots';
+import { labelForActor, type BotActorKind } from '@/lib/constants/bots';
 import {
   decodeVaultV2Calldata,
   type DecodedMarketParams,
@@ -17,7 +17,9 @@ import { formatMarketNameWithLltv } from '@/lib/morpho/market-label';
 import { formatRelativeCapWad } from '@/lib/morpho/vault-v2-api';
 import { formatRawTokenAmount } from '@/lib/format/number';
 import { morphoGraphQLClient } from '@/lib/morpho/graphql-client';
+import { batchVaultV2ByAddress, batchVaultV2AllocationTransactions } from '@/lib/morpho/batch-vault-graphql';
 import { publicClient } from '@/lib/onchain/client';
+import { getAlchemyBaseRpcUrl } from '@/lib/onchain/rpc-url';
 import { handleApiError } from '@/lib/utils/error-handler';
 import {
   createRateLimitMiddleware,
@@ -28,6 +30,8 @@ import { mergeApiCacheHeaders, API_CACHE_MAX_AGE_MS } from '@/lib/api/response-c
 import { withServerResponseCache } from '@/lib/api/server-response-cache';
 import { logger } from '@/lib/utils/logger';
 import { getSafeByRole } from '@/lib/safe/config';
+import { fetchRebaterActivity, type RebaterActivityItem, type RebaterWatcher } from '@/lib/bots/rebater-activity';
+import { unauthorizedUnlessAdmin } from '@/lib/auth/require-admin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -48,9 +52,9 @@ export type BotActivityItem = {
   timestamp: number | null;
   blockNumber: number | null;
   from: string;
-  /** Display label for signer — "Bot", "Allocator Safe", etc. */
+  /** Display label for signer — "Allocator Safe", "Sentinel Safe", etc. */
   actorLabel: string;
-  actorKind: 'bot' | 'allocator_safe' | 'sentinel_safe' | 'other';
+  actorKind: BotActorKind;
   vaultAddress: string;
   vaultName: string;
   assetSymbol: string;
@@ -65,10 +69,12 @@ export type BotActivityItem = {
   riskNote: string;
 };
 
+export type { RebaterActivityItem, RebaterWatcher } from '@/lib/bots/rebater-activity';
+
 export type BotWatcher = {
   address: string;
   label: string;
-  kind: 'bot' | 'allocator_safe' | 'sentinel_safe' | 'other';
+  kind: BotActorKind;
 };
 
 export type BotVaultOption = {
@@ -83,55 +89,11 @@ export type BotActivityResponse = {
   sentinels: BotWatcher[];
   allocatorItems: BotActivityItem[];
   sentinelItems: BotActivityItem[];
+  rebaterWatchers: RebaterWatcher[];
+  rebaterItems: RebaterActivityItem[];
+  rebaterTruncated: boolean;
+  rebaterError: string | null;
 };
-
-const ROLES_QUERY = gql`
-  query VaultRoles($address: String!, $chainId: Int!) {
-    vaultV2ByAddress(address: $address, chainId: $chainId) {
-      allocators {
-        allocator {
-          address
-        }
-      }
-      sentinels {
-        sentinel {
-          address
-        }
-      }
-    }
-  }
-`;
-
-const REALLOC_QUERY = gql`
-  query BotVaultReallocations(
-    $vaultAddress: String!
-    $chainId: Int!
-    $first: Int!
-    $senders: [String!]
-  ) {
-    vaultV2AllocationTransactions(
-      vaultAddress: $vaultAddress
-      chainId: $chainId
-      first: $first
-      skip: 0
-      orderBy: Timestamp
-      orderDirection: Desc
-      where: { sender_in: $senders }
-    ) {
-      items {
-        txHash
-        blockNumber
-        timestamp
-        type
-        assets
-        change
-        adapter
-        ids
-        sender
-      }
-    }
-  }
-`;
 
 const APY_QUERY = gql`
   query BotVaultApy($address: String!, $chainId: Int!, $options: TimeseriesOptions) {
@@ -203,29 +165,6 @@ type MarketsByAssetsGraph = {
       lltv?: string | number | null;
       loanAsset?: { symbol?: string | null } | null;
       collateralAsset?: { symbol?: string | null } | null;
-    } | null> | null;
-  } | null;
-};
-
-type RolesGraph = {
-  vaultV2ByAddress?: {
-    allocators?: Array<{ allocator?: { address?: string | null } | null } | null> | null;
-    sentinels?: Array<{ sentinel?: { address?: string | null } | null } | null> | null;
-  } | null;
-};
-
-type ReallocGraph = {
-  vaultV2AllocationTransactions?: {
-    items?: Array<{
-      txHash?: string | null;
-      blockNumber?: number | string | null;
-      timestamp?: number | string | null;
-      type?: string | null;
-      assets?: string | number | null;
-      change?: string | number | null;
-      adapter?: string | null;
-      ids?: string[] | null;
-      sender?: string | null;
     } | null> | null;
   } | null;
 };
@@ -346,33 +285,6 @@ function nearestApy(
     return last ? last.y * 100 : null;
   }
   return best.y * 100;
-}
-
-async function fetchApyAround(
-  vaultAddress: Address,
-  chainId: number,
-  timestampSec: number
-): Promise<{ before: number | null; after: number | null }> {
-  const startTimestamp = Math.max(0, timestampSec - 3 * 24 * 60 * 60);
-  const endTimestamp = timestampSec + 3 * 24 * 60 * 60;
-  try {
-    const data = await morphoGraphQLClient.request<ApyGraph>(APY_QUERY, {
-      address: vaultAddress,
-      chainId,
-      options: { startTimestamp, endTimestamp },
-    });
-    const raw = data.vaultV2ByAddress?.historicalState?.avgNetApy ?? [];
-    const points = raw
-      .filter((p): p is { x: number; y: number } => p?.x != null && p?.y != null)
-      .map((p) => ({ x: Number(p.x), y: Number(p.y) }))
-      .sort((a, b) => a.x - b.x);
-    return {
-      before: nearestApy(points, timestampSec, 'before'),
-      after: nearestApy(points, timestampSec + 1, 'after'),
-    };
-  } catch {
-    return { before: null, after: null };
-  }
 }
 
 async function resolveMarketLabel(
@@ -537,14 +449,8 @@ function pickPanel(opts: {
   return null;
 }
 
-function getRpcUrl(): string {
-  if (process.env.ALCHEMY_API_KEY) {
-    return `https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`;
-  }
-  if (process.env.NEXT_PUBLIC_ALCHEMY_API_KEY) {
-    return `https://base-mainnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`;
-  }
-  return 'https://base-mainnet.g.alchemy.com/v2/demo';
+function getAlchemyUrl(): string | null {
+  return getAlchemyBaseRpcUrl();
 }
 
 async function fetchActorVaultTxHashes(
@@ -553,7 +459,9 @@ async function fetchActorVaultTxHashes(
   maxCount = 15
 ): Promise<Array<{ hash: Hex; to: Address; timestamp: number | null }>> {
   try {
-    const res = await fetch(getRpcUrl(), {
+    const rpcUrl = getAlchemyUrl();
+    if (!rpcUrl) return [];
+    const res = await fetch(rpcUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -601,6 +509,8 @@ async function fetchActorVaultTxHashes(
 }
 
 export async function GET(request: NextRequest) {
+  const denied = await unauthorizedUnlessAdmin(request);
+  if (denied) return denied;
   const rateLimit = createRateLimitMiddleware(RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS);
   const rateLimitResult = rateLimit(request);
   if (!rateLimitResult.allowed) {
@@ -614,9 +524,17 @@ export async function GET(request: NextRequest) {
     const url = new URL(request.url);
     const perVault = Math.min(Number(url.searchParams.get('perVault') || '40'), 100);
     const limit = Math.min(Number(url.searchParams.get('limit') || '25'), 50);
+    const panelParam = url.searchParams.get('panel');
+    const panelFilter: 'allocator' | 'sentinel' | 'rebater' | 'all' =
+      panelParam === 'allocator' ||
+      panelParam === 'sentinel' ||
+      panelParam === 'rebater' ||
+      panelParam === 'all'
+        ? panelParam
+        : 'all';
 
     const payload = await withServerResponseCache(
-      `bot-activity-v7-${perVault}-${limit}`,
+      `bot-activity-v8-${perVault}-${limit}-${panelFilter}`,
       API_CACHE_MAX_AGE_MS,
       async (): Promise<BotActivityResponse> => {
         // Include test vaults — bots may run there.
@@ -633,38 +551,54 @@ export async function GET(request: NextRequest) {
           }))
           .sort((a, b) => a.name.localeCompare(b.name));
 
+        if (panelFilter === 'rebater') {
+          const rebater = await fetchRebaterActivity(limit);
+          return {
+            vaults: vaultOptions,
+            allocators: [],
+            sentinels: [],
+            allocatorItems: [],
+            sentinelItems: [],
+            rebaterWatchers: rebater.watchers,
+            rebaterItems: rebater.items,
+            rebaterTruncated: rebater.truncated,
+            rebaterError: rebater.error,
+          };
+        }
+
         const allocatorSet = new Set<string>();
         const sentinelSet = new Set<string>();
 
-        // Always include known Safe + bot EOAs.
-        allocatorSet.add(BOT_EOA_ADDRESS.toLowerCase());
         allocatorSet.add(getSafeByRole('allocator').address.toLowerCase());
-        sentinelSet.add(BOT_EOA_ADDRESS.toLowerCase());
         sentinelSet.add(getSafeByRole('sentinel').address.toLowerCase());
 
-        await Promise.all(
-          allVaults.map(async (vault) => {
-            try {
-              const data = await morphoGraphQLClient.request<RolesGraph>(ROLES_QUERY, {
-                address: getAddress(vault.address),
-                chainId: vault.chainId ?? BASE_CHAIN_ID,
-              });
-              for (const row of data.vaultV2ByAddress?.allocators ?? []) {
-                const a = row?.allocator?.address;
-                if (a && isAddress(a)) allocatorSet.add(a.toLowerCase());
-              }
-              for (const row of data.vaultV2ByAddress?.sentinels ?? []) {
-                const a = row?.sentinel?.address;
-                if (a && isAddress(a)) sentinelSet.add(a.toLowerCase());
-              }
-            } catch (error) {
-              logger.warn('Failed to fetch vault roles for bot watch', {
-                vault: vault.address,
-                error: error instanceof Error ? error : new Error(String(error)),
-              });
+        const vaultRefs = allVaults.map((v) => ({
+          address: v.address,
+          chainId: v.chainId ?? BASE_CHAIN_ID,
+        }));
+        try {
+          const roleMap = await batchVaultV2ByAddress<{
+            allocators?: Array<{ allocator?: { address?: string | null } | null } | null> | null;
+            sentinels?: Array<{ sentinel?: { address?: string | null } | null } | null>;
+          }>(
+            vaultRefs,
+            `allocators { allocator { address } } sentinels { sentinel { address } }`
+          );
+          for (const row of roleMap.values()) {
+            for (const a of row?.allocators ?? []) {
+              const addr = a?.allocator?.address;
+              if (addr && isAddress(addr)) allocatorSet.add(addr.toLowerCase());
             }
-          })
-        );
+            for (const s of row?.sentinels ?? []) {
+              const a = s?.sentinel?.address;
+              if (a && isAddress(a)) sentinelSet.add(a.toLowerCase());
+            }
+          }
+        } catch (error) {
+          logger.warn('Failed to batch-fetch vault roles for bot watch', {
+            error: error instanceof Error ? error : new Error(String(error)),
+          });
+        }
 
         type Candidate = {
           vaultAddress: Address;
@@ -720,55 +654,70 @@ export async function GET(request: NextRequest) {
           }
         };
 
-        await Promise.all(
-          allVaults.map(async (vault) => {
+        try {
+          const reallocMap = await batchVaultV2AllocationTransactions<{
+            items?: Array<{
+              txHash?: string | null;
+              sender?: string | null;
+              timestamp?: number | string | null;
+              blockNumber?: number | string | null;
+              type?: string | null;
+              change?: string | number | null;
+              assets?: string | number | null;
+              ids?: string[] | null;
+              adapter?: string | null;
+            } | null> | null;
+          }>(vaultRefs, perVault, watcherAddresses);
+          for (const vault of allVaults) {
             const vaultAddress = getAddress(vault.address);
             const chainId = vault.chainId ?? BASE_CHAIN_ID;
             const assetSymbol = vault.assetSymbol;
             const vaultName = getConfiguredVaultDisplayName(vault);
-            try {
-              const data = await morphoGraphQLClient.request<ReallocGraph>(REALLOC_QUERY, {
+            const packed = reallocMap.get(vault.address.toLowerCase());
+            for (const item of packed?.items ?? []) {
+              if (!item?.txHash) continue;
+              const rowSender =
+                item.sender && isAddress(item.sender) ? getAddress(item.sender) : null;
+              upsertGraphqlRow(
+                item.txHash as Hex,
                 vaultAddress,
+                vaultName,
+                assetSymbol,
                 chainId,
-                first: perVault,
-                senders: watcherAddresses,
-              });
-              for (const item of data.vaultV2AllocationTransactions?.items ?? []) {
-                if (!item?.txHash) continue;
-                const rowSender =
-                  item.sender && isAddress(item.sender)
-                    ? getAddress(item.sender)
-                    : null;
-                upsertGraphqlRow(
-                  item.txHash as Hex,
-                  vaultAddress,
-                  vaultName,
-                  assetSymbol,
-                  chainId,
-                  item.timestamp != null ? Number(item.timestamp) : null,
-                  item.blockNumber != null ? Number(item.blockNumber) : null,
-                  rowSender,
-                  {
-                    type: item.type ?? 'Unknown',
-                    change: item.change != null ? String(item.change) : null,
-                    assets: item.assets != null ? String(item.assets) : null,
-                    allocationId: item.ids?.[0] ?? null,
-                    adapterAddress: item.adapter ?? null,
-                  }
-                );
-              }
-            } catch (error) {
-              logger.warn('Failed to fetch reallocations for bot filter', {
-                vaultAddress,
-                error: error instanceof Error ? error : new Error(String(error)),
-              });
+                item.timestamp != null ? Number(item.timestamp) : null,
+                item.blockNumber != null ? Number(item.blockNumber) : null,
+                rowSender,
+                {
+                  type: item.type ?? 'Unknown',
+                  change: item.change != null ? String(item.change) : null,
+                  assets: item.assets != null ? String(item.assets) : null,
+                  allocationId: item.ids?.[0] ?? null,
+                  adapterAddress: item.adapter ?? null,
+                }
+              );
             }
-          })
-        );
+          }
+        } catch (error) {
+          logger.warn('Failed to batch-fetch reallocations for bot filter', {
+            error: error instanceof Error ? error : new Error(String(error)),
+          });
+        }
 
         // Supplement with Alchemy transfers so liquidity-only multicalls show up.
+        // Alchemy only for role Safes (not every GraphQL role holder).
+        const alchemyWatchers: Address[] = [];
+        if (panelFilter === 'all' || panelFilter === 'allocator') {
+          alchemyWatchers.push(getSafeByRole('allocator').address);
+        }
+        if (panelFilter === 'all' || panelFilter === 'sentinel') {
+          alchemyWatchers.push(getSafeByRole('sentinel').address);
+        }
+        const alchemyUnique = Array.from(
+          new Set(alchemyWatchers.map((a) => a.toLowerCase()))
+        ).map((a) => getAddress(a));
+
         await Promise.all(
-          watcherAddresses.map(async (addr) => {
+          alchemyUnique.map(async (addr) => {
             const transfers = await fetchActorVaultTxHashes(addr, vaultSet, 12);
             for (const t of transfers) {
               const key = t.hash.toLowerCase();
@@ -804,7 +753,7 @@ export async function GET(request: NextRequest) {
         };
 
         const matched: Matched[] = [];
-        const BATCH = 6;
+        const BATCH = 8;
         const marketLabelCache = new Map<string, string | null>();
 
         for (let i = 0; i < sorted.length && matched.length < limit * 2; i += BATCH) {
@@ -873,18 +822,6 @@ export async function GET(request: NextRequest) {
                     );
                   });
                   changes = [...nonAlloc, ...labeledLegs];
-                } else {
-                  // Enrich GraphQL allocate/deallocate rows when we can't decode legs.
-                  changes = await Promise.all(
-                    changes.map(async (ch) => {
-                      if (ch.marketLabel) return ch;
-                      const t = ch.type.toLowerCase();
-                      if (!t.includes('allocate') && !t.includes('dealloc')) return ch;
-                      if (!ch.allocationId) return ch;
-                      // allocationId from Morpho is often not a Blue marketId — skip bad lookups.
-                      return ch;
-                    })
-                  );
                 }
 
                 if (decoded.liquiditySwitch) {
@@ -982,23 +919,14 @@ export async function GET(request: NextRequest) {
                 // Drop empty candidates (Alchemy-only with undecodable input).
                 if (changes.length === 0) return null;
 
-                const decodedAllocLegs = decoded.allocationLegs.length > 0;
                 const graphqlHasAllocate = changes.some((ch) =>
                   isAllocateGraphType(ch.type)
                 );
                 const graphqlHasDeallocate = changes.some((ch) =>
                   isDeallocateGraphType(ch.type)
                 );
-                const hasAllocate =
-                  decoded.hasAllocate ||
-                  graphqlHasAllocate ||
-                  (!decodedAllocLegs &&
-                    changes.some((ch) => isAllocateGraphType(ch.type)));
-                const hasDeallocate =
-                  decoded.hasDeallocate ||
-                  graphqlHasDeallocate ||
-                  (!decodedAllocLegs &&
-                    changes.some((ch) => isDeallocateGraphType(ch.type)));
+                const hasAllocate = decoded.hasAllocate || graphqlHasAllocate;
+                const hasDeallocate = decoded.hasDeallocate || graphqlHasDeallocate;
                 const hasLiquidity = Boolean(decoded.liquiditySwitch);
                 const hasSentinelAction =
                   decoded.hasSentinelAction ||
@@ -1020,6 +948,8 @@ export async function GET(request: NextRequest) {
                   hasSentinelAction,
                 });
                 if (!panel) return null;
+                if (panelFilter === 'allocator' && panel !== 'allocator') return null;
+                if (panelFilter === 'sentinel' && panel !== 'sentinel') return null;
 
                 const actor = labelForActor(from);
                 return {
@@ -1044,13 +974,61 @@ export async function GET(request: NextRequest) {
           }
         }
 
+        const apySeriesByVault = new Map<string, Array<{ x: number; y: number }>>();
+        const vaultApyWindows = new Map<
+          string,
+          { address: Address; chainId: number; minTs: number; maxTs: number }
+        >();
+        for (const row of matched) {
+          if (row.timestamp == null) continue;
+          const key = `${row.chainId}:${row.vaultAddress.toLowerCase()}`;
+          const existing = vaultApyWindows.get(key);
+          if (existing) {
+            existing.minTs = Math.min(existing.minTs, row.timestamp);
+            existing.maxTs = Math.max(existing.maxTs, row.timestamp);
+          } else {
+            vaultApyWindows.set(key, {
+              address: row.vaultAddress,
+              chainId: row.chainId,
+              minTs: row.timestamp,
+              maxTs: row.timestamp,
+            });
+          }
+        }
+        await Promise.all(
+          Array.from(vaultApyWindows.entries()).map(async ([key, win]) => {
+            const startTimestamp = Math.max(0, win.minTs - 3 * 24 * 60 * 60);
+            const endTimestamp = win.maxTs + 3 * 24 * 60 * 60;
+            try {
+              const data = await morphoGraphQLClient.request<ApyGraph>(APY_QUERY, {
+                address: win.address,
+                chainId: win.chainId,
+                options: { startTimestamp, endTimestamp },
+              });
+              const raw = data.vaultV2ByAddress?.historicalState?.avgNetApy ?? [];
+              const points = raw
+                .filter((p): p is { x: number; y: number } => p?.x != null && p?.y != null)
+                .map((p) => ({ x: Number(p.x), y: Number(p.y) }))
+                .sort((a, b) => a.x - b.x);
+              apySeriesByVault.set(key, points);
+            } catch {
+              apySeriesByVault.set(key, []);
+            }
+          })
+        );
+
         const enrich = async (row: Matched): Promise<BotActivityItem> => {
           const cfg = vaultByAddr.get(row.vaultAddress.toLowerCase());
           const symbol =
             getVaultAssetSymbol(row.vaultAddress) ?? cfg?.assetSymbol ?? row.assetSymbol;
+          const seriesKey = `${row.chainId}:${row.vaultAddress.toLowerCase()}`;
+          const points = apySeriesByVault.get(seriesKey) ?? [];
           const apy =
             row.timestamp != null
-              ? await fetchApyAround(row.vaultAddress, row.chainId, row.timestamp)
+              ? {
+                  before: nearestApy(points, row.timestamp, 'before'),
+                  after: nearestApy(points, row.timestamp + 1, 'after'),
+                }
               : { before: null, after: null };
           const apyDeltaPp =
             apy.before != null && apy.after != null ? apy.after - apy.before : null;
@@ -1098,7 +1076,11 @@ export async function GET(request: NextRequest) {
             })
             .sort((a, b) => {
               const rank = (k: string) =>
-                k === 'bot' ? 0 : k === 'allocator_safe' || k === 'sentinel_safe' ? 1 : 2;
+                k === 'allocator_safe' || k === 'sentinel_safe'
+                  ? 0
+                  : k === 'public_allocator'
+                    ? 1
+                    : 2;
               return rank(a.kind) - rank(b.kind) || a.label.localeCompare(b.label);
             });
 
@@ -1108,6 +1090,10 @@ export async function GET(request: NextRequest) {
           sentinels: toWatchers(sentinelSet),
           allocatorItems,
           sentinelItems,
+          rebaterWatchers: [],
+          rebaterItems: [],
+          rebaterTruncated: false,
+          rebaterError: null,
         };
       }
     );

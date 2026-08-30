@@ -11,6 +11,7 @@ import {
   MINUTE_MS,
 } from '@/lib/utils/rate-limit';
 import { mergeApiOnChainVaultHeaders } from '@/lib/api/response-cache';
+import { unauthorizedUnlessAdmin } from '@/lib/auth/require-admin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -28,6 +29,8 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ marketId: string }> }
 ) {
+  const denied = await unauthorizedUnlessAdmin(request);
+  if (denied) return denied;
   const rateLimitMiddleware = createRateLimitMiddleware(
     RATE_LIMIT_REQUESTS_PER_MINUTE,
     MINUTE_MS

@@ -2,22 +2,26 @@
 
 Running task list for agents and humans. Work **Today** top-to-bottom unless directed otherwise. **Later** is out of scope unless asked. Log finished work under **Done** and in `docs/brain/CHANGELOG.md`.
 
----
-
 ## Today
 
-- new features like /curator/bots load really slowly, same with on overview on users for users and transactions load slowly, is there a bug or is that just how long it loads?
-- on curator/bots, keep default only on for the allocator safe and sentinel safe, the other two are EOAs, should stay toggle off. Add another bot called Rebater, as of now it has not been created yet, but it is when funds move out of the treasury safe, so you can log those from grapgh ql id transactions leave. Also, on the bot page, make it so its tabbed, with three tabs for the three bots so i can easily go to each one, all on one page makes it hard to view the others. You can be the three tab on top of "Allocate / deallocate and roles come from Morpho GraphQL. Liquidity adapter, cap decreases, revoke pending, and remove-allocator are decoded from calldata when GraphQL has no row." Lastly,
-- add this bot https://t.me/MuscadineVaultBot to our bots, its a telegram bot that gets updates from our three bots 
-
----
+- [ ] AI review all repo files find any bugs, update dependencies that can be updated (wagmi, typescript and eslint have certain limitations, also https://github.com/Muscadine-Labs/curator/security/dependabot)
 
 ## Later
-
-- [ ] on /markets support now morpho midnight though graph ql when it is supported. Have a toggle between All, midnight and Blue. Review how midnight works to successfully implement it, such as "Network, Loan, Collateral, LLTV, Oracle, Maturity, Active loans, Borrow depth, Lend depth, Best rate"
 
 - [ ] Upgrade risk scoring (Liquidation Headroom, Utilization, Coverage Ratio, Oracle Freshness) — review params for V1/V2; Utilization + oracle freshness required. Look at top documentations like https://docs.kpk.io/vaults/
 
 ---
 
 ## Done
+
+- `/vaults` Morpho-style table (Prime / Frontier / Vineyard / Test). Vault tabs Overview → Allocation → Caps → Risk. Caps grouped tables + Public Allocator view when PA is an allocator.
+
+- Bots: no **Bot** label on `0xf35B…B333`; bots execute via Allocator/Sentinel Safes.
+- Curator tools hub is `/curator` (was `/morpho`); bots at `/curator/bots`.
+- Removed Morpho-org/vault-v2-reallocation-bot from `/curator` Automation bots.
+- Bots + overview users/txs slowness: not a hang. Bots was N GraphQL APY queries per tx + Alchemy for every role holder; now one APY series per vault, Alchemy only for known bot/Safes, and each tab fetches its own panel. Protocol txs is one GraphQL query instead of one per vault. First click is still Morpho-latency bound (~seconds on a cold 30s cache).
+- `/morpho/bots`: Allocator / Sentinel / Rebater tabs; Allocator Safe + Sentinel Safe on by default, bot EOAs off; Rebater logs treasury Safe outflows from GraphQL (bot not deployed yet). Telegram [@MuscadineVaultBot](https://t.me/MuscadineVaultBot) + [muscadine-bots](https://github.com/Muscadine-Labs/muscadine-bots).
+- Review findings: session cookie on BFFs, treasury share-Δ minus self-deposits, vault list cache/batch, UTC dates, no Alchemy `/demo`.
+- Treasury income: GraphQL daily **share** change × that day's USD; self-deposits subtracted; no RPC/ABI; HTTP session cookie on BFFs.
+- Midnight detail pages at `/midnight/[id]` (order book, not Blue). Morpho Markets link is `https://markets.morpho.org/fixed/{chain}/{id}`.
+- `/markets`: All / Blue / Midnight toggle. Midnight via REST books API (GraphQL is Blue-only). Wallet supply/borrow strip with Manage → `/markets/positions`.

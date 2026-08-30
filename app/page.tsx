@@ -11,6 +11,7 @@ import { useRevenueSource, type RevenueSource } from '@/lib/RevenueSourceContext
 import { sumTreasuryRevenueYtd, sumTreasuryRevenueYtdFromDaily } from '@/lib/morpho/treasury-statement';
 import { apiFetch } from '@/lib/data/api-fetch';
 import { STATEMENT_QUERY_OPTIONS } from '@/lib/data/query-config';
+import { utcCalendarYear } from '@/lib/utils/utc-calendar';
 import {
   ProtocolStatsDetail,
   type ProtocolStatKey,
@@ -57,7 +58,7 @@ export default function Home() {
   const { data: monthlyData, isLoading: isTreasuryLoading } = useQuery<MonthlyStatementResponse>({
     queryKey: ['monthly-statement', 'wallet-balance'],
     queryFn: async () => {
-      const res = await apiFetch('/api/monthly-statement-morphoql', { credentials: 'omit' });
+      const res = await apiFetch('/api/monthly-statement-morphoql');
       if (!res.ok) throw new Error('Failed to fetch monthly statement');
       return res.json();
     },
@@ -98,7 +99,7 @@ export default function Home() {
   }, [monthlyData?.daily, monthlyData?.statements]);
 
   const defillamaRevenueYtd = useMemo(() => {
-    const year = String(new Date().getFullYear());
+    const year = String(utcCalendarYear());
     return (stats?.revenueTrendDaily ?? [])
       .filter((d) => d.date.startsWith(year))
       .reduce((sum, d) => sum + d.value, 0);
