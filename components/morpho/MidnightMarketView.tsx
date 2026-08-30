@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/table';
 import { formatPercentage } from '@/lib/format/number';
 import { formatMarketTokenAmount } from '@/components/morpho/TokenUsdValue';
+import { MarketOraclePanel } from '@/components/morpho/MarketOraclePanel';
 import {
   formatLltvWad,
   formatMidnightMaturityUtc,
@@ -22,7 +23,7 @@ import {
   type MidnightBookLevelView,
   type MidnightMarketDetail,
 } from '@/lib/morpho/midnight-markets';
-import { getAddressScanUrl, getScanNameForChain } from '@/lib/constants';
+import { BASE_CHAIN_ID, getAddressScanUrl, getScanNameForChain } from '@/lib/constants';
 import { bigintRatio } from '@/lib/format/bigint-ratio';
 import { getAddress, isAddress } from 'viem';
 import { CuratorTableShell } from '@/components/morpho/CuratorChrome';
@@ -224,8 +225,10 @@ export function MidnightMarketView({ market }: { market: MidnightMarketDetail })
 
       {market.collaterals.map((c) => {
         const incentive = midnightLiquidationIncentive(c.lltv, c.liquidationCursor);
+        const showOraclePanel = Boolean(c.oraclePrice || c.oracleTimestampData);
         return (
-        <Card key={`${c.token}-${c.oracle}`}>
+        <div key={`${c.token}-${c.oracle}`} className="space-y-4">
+        <Card>
           <CardHeader>
             <CardTitle className="text-base">
               Collateral {c.symbol}
@@ -239,19 +242,40 @@ export function MidnightMarketView({ market }: { market: MidnightMarketDetail })
             <Metric label="Liquidation incentive">
               {incentive != null ? formatPercentage(incentive * 100) : '—'}
             </Metric>
-            <Metric label={`Oracle (${scanName})`}>
-              {c.oracle ? (
-                <AddrLink address={c.oracle} chainId={market.chainId} />
-              ) : (
-                '—'
-              )}
-            </Metric>
+            {!showOraclePanel ? (
+              <Metric label={`Oracle (${scanName})`}>
+                {c.oracle ? (
+                  <AddrLink address={c.oracle} chainId={market.chainId} />
+                ) : (
+                  '—'
+                )}
+              </Metric>
+            ) : null}
             <div className="sm:col-span-2">
               <p className="text-xs text-muted-foreground">Token</p>
               <AddrLink address={c.token} chainId={market.chainId} />
             </div>
           </CardContent>
         </Card>
+
+        {showOraclePanel ? (
+          <MarketOraclePanel
+            collateralSymbol={c.symbol}
+            loanSymbol={market.loanSymbol}
+            chainId={market.chainId}
+            oraclePrice={c.oraclePrice ?? null}
+            oracleTimestampData={c.oracleTimestampData}
+          />
+        ) : market.chainId !== BASE_CHAIN_ID && c.oracle ? (
+          <Card>
+            <CardContent className="pt-6 text-sm text-muted-foreground">
+              Oracle freshness, feed bounds, and price reads use the{' '}
+              <span className="font-medium text-foreground">Base RPC</span> only today.
+              Add a {scanName} RPC to enable the full oracle panel on this network.
+            </CardContent>
+          </Card>
+        ) : null}
+        </div>
         );
       })}
 

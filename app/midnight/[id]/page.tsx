@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { MidnightMarketView } from '@/components/morpho/MidnightMarketView';
+import { MarketInteractButton } from '@/components/morpho/MarketInteractButton';
 import { useMidnightMarketDetail } from '@/lib/hooks/useCuratorMarkets';
 import { morphoMidnightMarketHref } from '@/lib/morpho/morpho-app-links';
 import { formatMidnightMaturityUtc } from '@/lib/morpho/midnight-markets';
@@ -52,7 +53,9 @@ export default function MidnightMarketPage() {
       backHref="/markets"
       backLabel="Morpho Markets"
       actions={
-        morphoHref ? (
+        market ? (
+          <MarketInteractButton product="midnight" marketId={marketId} chainId={chainId} />
+        ) : morphoHref ? (
           <Button variant="outline" size="sm" asChild>
             <a href={morphoHref} target="_blank" rel="noopener noreferrer">
               Morpho Markets

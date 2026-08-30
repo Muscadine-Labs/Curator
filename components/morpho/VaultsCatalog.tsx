@@ -53,17 +53,6 @@ function categoryOf(vault: VaultWithData): (typeof CATEGORY_ORDER)[number] {
   return 'prime';
 }
 
-function isEmptyVault(vault: VaultWithData): boolean {
-  try {
-    if (vault.totalAssetsUnderlying != null && vault.totalAssetsUnderlying !== '') {
-      if (BigInt(vault.totalAssetsUnderlying) > 0n) return false;
-    }
-  } catch {
-    /* fall through */
-  }
-  return !vault.tvl;
-}
-
 function networkName(chainId: number): string {
   return SIDEBAR_NETWORKS.find((n) => n.chainId === chainId)?.name ?? `Chain ${chainId}`;
 }
@@ -83,7 +72,6 @@ export function VaultsCatalog() {
   const { data: vaults = [], isLoading } = useVaultList(SIDEBAR_VAULT_LIST_FILTERS);
   const { data: stats, isLoading: statsLoading } = useProtocolStats();
   const [search, setSearch] = useState('');
-  const [showEmpty, setShowEmpty] = useState(true);
   const [assetFilter, setAssetFilter] = useState<string | 'all'>('all');
   const [networkFilter, setNetworkFilter] = useState<number | 'all'>('all');
 
@@ -103,7 +91,6 @@ export function VaultsCatalog() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return vaults.filter((v) => {
-      if (!showEmpty && isEmptyVault(v)) return false;
       if (assetFilter !== 'all' && v.asset !== assetFilter) return false;
       if (networkFilter !== 'all' && v.chainId !== networkFilter) return false;
       if (!q) return true;
@@ -112,7 +99,7 @@ export function VaultsCatalog() {
       const asset = (v.asset ?? '').toLowerCase();
       return name.includes(q) || addr.includes(q) || asset.includes(q);
     });
-  }, [vaults, search, showEmpty, assetFilter, networkFilter]);
+  }, [vaults, search, assetFilter, networkFilter]);
 
   const groups = useMemo(
     () =>
@@ -148,27 +135,29 @@ export function VaultsCatalog() {
         />
       </div>
 
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-wrap items-center gap-2">
-          {networks.length > 1 ? (
-            <div className="flex flex-wrap items-center gap-1">
-              <FilterChip
-                active={networkFilter === 'all'}
-                onClick={() => setNetworkFilter('all')}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div className="flex flex-wrap items-end gap-3">
+          {networks.length > 0 ? (
+            <div className="space-y-1">
+              <label htmlFor="vault-network-filter" className="text-xs font-medium text-muted-foreground">
+                Network
+              </label>
+              <select
+                id="vault-network-filter"
+                value={networkFilter === 'all' ? 'all' : String(networkFilter)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setNetworkFilter(value === 'all' ? 'all' : Number(value));
+                }}
+                className="h-9 min-w-[10rem] rounded-md border border-border bg-background px-3 text-sm"
               >
-                Networks
-              </FilterChip>
-              {networks.map((n) => (
-                <FilterChip
-                  key={n.chainId}
-                  active={networkFilter === n.chainId}
-                  onClick={() =>
-                    setNetworkFilter((prev) => (prev === n.chainId ? 'all' : n.chainId))
-                  }
-                >
-                  {n.name}
-                </FilterChip>
-              ))}
+                <option value="all">All networks</option>
+                {networks.map((n) => (
+                  <option key={n.chainId} value={n.chainId}>
+                    {n.name}
+                  </option>
+                ))}
+              </select>
             </div>
           ) : null}
           {assets.length > 1 ? (
@@ -190,28 +179,6 @@ export function VaultsCatalog() {
               ))}
             </div>
           ) : null}
-          <button
-            type="button"
-            role="switch"
-            aria-checked={showEmpty}
-            onClick={() => setShowEmpty((v) => !v)}
-            className="inline-flex items-center gap-2 rounded-md border border-border px-2.5 py-1.5 text-xs font-medium text-foreground"
-          >
-            <span
-              className={cn(
-                'relative inline-flex h-4 w-7 items-center rounded-full transition-colors',
-                showEmpty ? 'bg-blue-600' : 'bg-muted'
-              )}
-            >
-              <span
-                className={cn(
-                  'inline-block h-3 w-3 rounded-full bg-white transition-transform',
-                  showEmpty ? 'translate-x-3.5' : 'translate-x-0.5'
-                )}
-              />
-            </span>
-            Show empty vaults
-          </button>
         </div>
         <div className="relative w-full lg:max-w-xs">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />

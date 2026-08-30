@@ -4,9 +4,12 @@
  * Docs: https://docs.morpho.org/developers/api/morpho-midnight/
  */
 import { BASE_CHAIN_ID, MORPHO_REST_ORIGIN, SECONDS_PER_YEAR } from '@/lib/constants';
-import { resolveTokenMeta } from '@/lib/morpho/known-tokens';
+import { fetchAssetUsdPrice, resolveTokenMeta } from '@/lib/morpho/known-tokens';
+import { getOraclePriceSnapshot, type OraclePriceSnapshot } from '@/lib/morpho/oracle-price';
+import { getOracleTimestampData, type OracleTimestampData } from '@/lib/morpho/oracle-utils';
 import { logger } from '@/lib/utils/logger';
 import { AppError } from '@/lib/utils/error-handler';
+import type { Address } from 'viem';
 
 export type MidnightCollateral = {
   token: string;
@@ -15,6 +18,8 @@ export type MidnightCollateral = {
   lltv: string;
   liquidationCursor: string;
   oracle: string;
+  oracleTimestampData?: OracleTimestampData | null;
+  oraclePrice?: OraclePriceSnapshot | null;
 };
 
 export type MidnightMarketListItem = {
@@ -361,22 +366,47 @@ function mapBookLevels(
 
 async function mapCollaterals(
   raw: MidnightBookCollateral[] | undefined,
-  chainId: number
+  chainId: number,
+  loanDecimals: number,
+  loanSpotUsd: number | null
 ): Promise<MidnightCollateral[]> {
-  const collaterals: MidnightCollateral[] = [];
-  for (const c of raw ?? []) {
-    if (!c.token) continue;
-    const meta = await resolveTokenMeta(c.token, chainId);
-    collaterals.push({
-      token: c.token,
-      symbol: meta.symbol,
-      decimals: meta.decimals,
-      lltv: c.lltv ?? '0',
-      liquidationCursor: c.liquidation_cursor ?? '0',
-      oracle: c.oracle ?? '',
-    });
-  }
-  return collaterals;
+  const entries = (raw ?? []).filter((c): c is MidnightBookCollateral & { token: string } =>
+    Boolean(c.token)
+  );
+
+  return Promise.all(
+    entries.map(async (c) => {
+      const meta = await resolveTokenMeta(c.token, chainId);
+      const oracle = c.oracle ?? '';
+      let oracleTimestampData: OracleTimestampData | null = null;
+      let oraclePrice: OraclePriceSnapshot | null = null;
+
+      if (chainId === BASE_CHAIN_ID && oracle) {
+        const collateralSpotUsd = await fetchAssetUsdPrice(c.token, chainId);
+        [oracleTimestampData, oraclePrice] = await Promise.all([
+          getOracleTimestampData(oracle as Address),
+          getOraclePriceSnapshot({
+            oracleAddress: oracle,
+            loanDecimals,
+            collateralDecimals: meta.decimals,
+            spotCollateralUsd: collateralSpotUsd,
+            spotLoanUsd: loanSpotUsd,
+          }),
+        ]);
+      }
+
+      return {
+        token: c.token,
+        symbol: meta.symbol,
+        decimals: meta.decimals,
+        lltv: c.lltv ?? '0',
+        liquidationCursor: c.liquidation_cursor ?? '0',
+        oracle,
+        oracleTimestampData,
+        oraclePrice,
+      };
+    })
+  );
 }
 
 export async function fetchMidnightMarketDetail(
@@ -409,9 +439,15 @@ export async function fetchMidnightMarketDetail(
   const nowSec = Math.floor(Date.now() / 1000);
   const tenorSeconds = Math.max(0, maturity - nowSec);
   const loanMeta = await resolveTokenMeta(loanAddress, resolvedChain);
+  const loanSpotUsd =
+    resolvedChain === BASE_CHAIN_ID
+      ? await fetchAssetUsdPrice(loanAddress, resolvedChain)
+      : null;
   const collaterals = await mapCollaterals(
     config?.collaterals ?? book?.collaterals,
-    resolvedChain
+    resolvedChain,
+    loanMeta.decimals,
+    loanSpotUsd
   );
   const asks = mapBookLevels(book?.asks, tenorSeconds);
   const bids = mapBookLevels(book?.bids, tenorSeconds);

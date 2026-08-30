@@ -60,7 +60,11 @@ npm run build   # next build
   Multisig Safe. Overview Protocol KPIs open drill-downs (Users: holdings +
   combined txs). Bots (`/curator/bots`) watches allocator/sentinel/rebater activity
   (Allocator + Sentinel Safes on by default; other role holders off until toggled). Telegram:
-  @MuscadineVaultBot.
+  @MuscadineVaultBot. Bot repos: `Muscadine-Labs/muscadine-bots` is the
+  **downstream** fork (`main`), its `upstream` branch vendors the upstream code,
+  and `morpho-org/morpho-bots` is the **upstream** implementation
+  (`MUSCADINE_BOTS_GITHUB_URL`, `MUSCADINE_BOTS_UPSTREAM_BRANCH_URL`,
+  `MORPHO_BOTS_GITHUB_URL`).
 - **Tx preview** — Allocation and Sentinel confirm writes through
   `TxPreviewDialog` + `lib/morpho/tx-preview.ts` before the wallet signs.
 - **V2 pending revoke** — per-row `rowId` + `activeRowId`; never key tx state by
@@ -110,14 +114,16 @@ npm run build   # next build
 - **Vault pages** — `app/vault/[address]/{page,allocation,caps,…}` via
   `VaultPageShell` (`'use client'` + React Query); keep **dynamic** (no
   SSG/`generateStaticParams` for vault addresses).
-- **Curator Morpho Markets** — `/markets` (default: listed Blue only, sort market size
-  desc; product toggle All / Blue / Midnight), `/market/blue/[id]` (Blue), and
+- **Curator Morpho Markets** — `/markets` (default: All products, listed only, sort
+  market size desc; product toggle All / Blue — variable rate / Midnight — fixed
+  rate), `/market/blue/[id]` (Blue), and
   `/midnight/[id]` (Midnight order book — not Blue KPIs). Midnight REST
   (`/v0/midnight/markets`, `/state`, `/books`); Morpho app is
   `https://markets.morpho.org/fixed/{chain}/{id}`. Use `sizeUsd` /
   `totalLiquidityUsd` for Blue sort columns; display token primary + USD
-  secondary via `TokenUsdValue` (§4.7). Wallet supply/borrow strip on `/markets`
-  links to `/markets/positions`. `MarketOraclePanel` is Blue-only. Allocation
+  secondary via `TokenUsdValue` (§4.7). Positions live on `/markets/positions`
+  (`curatorMarketPositionsHref` includes `chainId`). `MarketOraclePanel` is used
+  on Blue detail and Midnight collateral detail (Base RPC). Allocation
   tab market names link in-app via `curatorBlueMarketHref`. Vault Risk
   Analytics tab uses the same helper. Midnight rows use `curatorMidnightMarketHref`.
   Sidebar Curator area: Curator tools + Bots + Multisig Safe. Markets area: Browse /

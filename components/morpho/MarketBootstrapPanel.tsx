@@ -38,6 +38,7 @@ import {
   readOraclePrice,
 } from '@/lib/morpho/market-bootstrap';
 import { formatAllocationEditInputExact } from '@/lib/format/allocation-display';
+import { curatorMarketPositionsHref } from '@/lib/morpho/morpho-app-links';
 
 type MarketBootstrapPanelProps = {
   chainId: number;
@@ -420,7 +421,7 @@ export function MarketBootstrapPanel({
         <CardContent>
           <Button asChild variant="outline" size="sm">
             <Link
-              href={`/markets/positions?market=${marketId}`}
+              href={curatorMarketPositionsHref(marketId, chainId) ?? '/markets/positions'}
               className="inline-flex items-center gap-2"
             >
               Open position manager

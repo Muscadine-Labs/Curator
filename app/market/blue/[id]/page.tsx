@@ -10,6 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { MarketRiskDetailCard } from '@/components/morpho/MarketRiskDetailCard';
 import { MarketOraclePanel } from '@/components/morpho/MarketOraclePanel';
+import { MarketInteractButton } from '@/components/morpho/MarketInteractButton';
 import { useCuratorMarketDetail } from '@/lib/hooks/useCuratorMarkets';
 import { morphoMarketHref } from '@/lib/morpho/morpho-app-links';
 import { asBlueMarketData } from '@/lib/morpho/blue-market-data';
@@ -145,7 +146,19 @@ export default function CuratorBlueMarketPage() {
       backHref="/markets"
       backLabel="Morpho Markets"
       actions={
-        morphoHref ? (
+        market ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <MarketInteractButton product="blue" marketId={marketId} chainId={chainId} />
+            {morphoHref ? (
+              <Button variant="outline" size="sm" asChild>
+                <a href={morphoHref} target="_blank" rel="noopener noreferrer">
+                  Morpho app
+                  <ExternalLink className="ml-1 h-4 w-4" />
+                </a>
+              </Button>
+            ) : null}
+          </div>
+        ) : morphoHref ? (
           <Button variant="outline" size="sm" asChild>
             <a href={morphoHref} target="_blank" rel="noopener noreferrer">
               Morpho app

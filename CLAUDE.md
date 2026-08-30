@@ -675,7 +675,12 @@ the treasury dashboard without restoring the tx-classification pipeline in
 **Routes** — `/markets` (list), `/markets/create`, `/markets/positions`,
 `/market/blue/[id]?chainId=` (Blue detail), and `/midnight/[id]?chainId=`
 (Midnight detail). Markets sidebar: Browse · Create · Positions.
-**Product toggle** on Browse: **All / Blue / Midnight** (default Blue, listed-only).
+**Product toggle** on Browse: **All / Blue — variable rate / Midnight — fixed rate**
+(default All, listed-only). Blue is variable rate
+([app.morpho.org/variable](https://app.morpho.org/variable),
+`MORPHO_VARIABLE_RATE_MARKETS_URL`); Midnight is fixed rate
+([markets.morpho.org/fixed](https://markets.morpho.org/fixed),
+`MORPHO_FIXED_RATE_MARKETS_URL`).
 Midnight is Morpho’s fixed-term (tenor) **order book** — not Blue (no IRM,
 utilization, or variable APY). GraphQL does **not** expose it.
 `GET /api/markets/midnight` lists books; `GET /api/markets/midnight/[id]`
@@ -684,14 +689,18 @@ External app: [Morpho Markets](https://markets.morpho.org/fixed/base/0x549cd072d
 `https://markets.morpho.org/fixed/{chain}/{marketId}`
 (`morphoMidnightMarketHref`). In-app: `curatorMidnightMarketHref`.
 Tenor = remaining time to `maturity`. List columns: network, loan, collateral(s),
-LLTV, oracle, maturity/tenor, lend depth, borrow depth, best lend APR from top ask.
+LLTV, maturity/tenor, lend depth, borrow depth, best lend APR from top ask.
 Detail KPIs: outstanding units, book depths, best lend/borrow rates, per-collateral
-LLTV / liquidation cursor / oracle, asks & bids.
+LLTV / liquidation cursor / oracle panel (price, freshness, Chainlink feeds on Base),
+asks & bids.
 Curator top-nav area holds Curator tools (`/curator`) + Bots + Multisig Safe. Business area:
 `/monthly-statement`, `/muscadine-ledger`, `/muscadine-frontends`.
 
-**Wallet positions** — `/markets` shows connected-wallet Blue supply/borrow/collateral
-with Manage → `/markets/positions?market=` (same pattern as `projects/app` holdings).
+**Wallet positions** — `/markets/positions` shows connected-wallet Blue
+supply/borrow/collateral. Deep link with network:
+`/markets/positions?market=<id>&chainId=<id>` via `curatorMarketPositionsHref`
+(same pattern as `projects/app` holdings). Blue market detail **Interact** uses
+this helper; Midnight uses external **Trade on Morpho**.
 
 **BFF** — `GET /api/markets` and `GET /api/markets/[marketId]`
 (`lib/morpho/curator-markets.ts`). Midnight: `GET /api/markets/midnight` and
@@ -1142,7 +1151,7 @@ npm run build
 | Morpho GraphQL client + warnings | `lib/morpho/graphql-client.ts` |
 | Curator markets BFF + scoring    | `lib/morpho/curator-markets.ts`, `app/api/markets/` |
 | Markets browser UI               | `components/morpho/CuratorMarketsBrowser.tsx`, `app/markets/page.tsx` |
-| Market detail + oracle panel     | `app/market/blue/[id]/page.tsx`, `components/morpho/MarketOraclePanel.tsx`, `lib/morpho/oracle-price.ts` |
+| Market detail + oracle panel     | Blue: `app/market/blue/[id]/page.tsx`; Midnight: `MidnightMarketView` + `MarketOraclePanel`; `lib/morpho/oracle-price.ts` |
 | Create Blue market               | `app/markets/create/`, `components/morpho/CreateMarketForm.tsx`, `lib/morpho/blue-create-market.ts` |
 | Vault / market transact          | `app/vaults/transact/`, `app/markets/positions/` |
 | Nav areas                        | `lib/nav/areas.ts`, `components/layout/Topbar.tsx`, `Sidebar.tsx` |
@@ -1424,7 +1433,8 @@ network** (Base, Ethereum, HyperEVM, Robinhood, Polygon).
 7. **Dead deposit** — approve loan token + `supply(…, shares=1e9, onBehalf=dEaD)`.
 8. **Seed rate (optional)** — supply loan assets, `supplyCollateral`, borrow ~90% of
    seed supply (AdaptiveCurve target) using oracle price for collateral sizing.
-9. **Exit / manage later** — `/markets/positions?market=<id>`: repay by
+9. **Exit / manage later** — `curatorMarketPositionsHref(id, chainId)` →
+   `/markets/positions?market=<id>&chainId=<id>`: repay by
    shares + withdrawCollateral, add/withdraw loan supply, add collateral. Dead
    deposit is never withdrawn from Curator UI. Vault user deposit/withdraw is
    `/vaults/transact`.

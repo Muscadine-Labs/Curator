@@ -92,6 +92,10 @@ export const MORPHO_REST_ORIGIN = 'https://api.morpho.org';
 export const MORPHO_APP_ORIGIN = 'https://app.morpho.org';
 /** Morpho Markets app (Midnight / fixed-term books). */
 export const MORPHO_MARKETS_ORIGIN = 'https://markets.morpho.org';
+/** Fixed rate (Midnight order book) market list. */
+export const MORPHO_FIXED_RATE_MARKETS_URL = `${MORPHO_MARKETS_ORIGIN}/fixed`;
+/** Variable rate (Blue IRM) market list. */
+export const MORPHO_VARIABLE_RATE_MARKETS_URL = `${MORPHO_APP_ORIGIN}/variable`;
 
 /** Base USDC. */
 export const BASE_USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as const;

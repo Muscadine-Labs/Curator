@@ -61,15 +61,16 @@ import {
 } from '@/lib/morpho/market-bootstrap';
 import type { UserMarketPositionSummary } from '@/lib/morpho/fetch-user-market-positions';
 import { formatAllocationEditInputExact } from '@/lib/format/allocation-display';
-import { curatorBlueMarketHref, morphoMarketHref } from '@/lib/morpho/morpho-app-links';
+import { curatorBlueMarketHref, curatorMarketPositionsHref, morphoMarketHref } from '@/lib/morpho/morpho-app-links';
 import { getScanUrlForChain } from '@/lib/constants';
+import { CopyButton } from '@/components/CopyButton';
 
 type MarketPositionBoxProps = {
   initialMarketId?: string;
 };
 
 export function MarketPositionBox({ initialMarketId }: MarketPositionBoxProps) {
-  const { chainId, networkName, isWalletOnSelectedChain } = useCuratorNetwork();
+  const { chainId, networkName, isWalletOnSelectedChain, ready } = useCuratorNetwork();
   const { address: owner, isConnected } = useAccount();
   const publicClient = usePublicClient({ chainId });
   const { write, reset } = useVaultWrite({ chainId });
@@ -338,10 +339,11 @@ export function MarketPositionBox({ initialMarketId }: MarketPositionBoxProps) {
   loadMarketRef.current = loadMarket;
 
   useEffect(() => {
+    if (!ready) return;
     if (!initialMarketId?.trim()) return;
     if (!publicClient || !deployment) return;
     void loadMarketRef.current(initialMarketId.trim());
-  }, [initialMarketId, publicClient, deployment]);
+  }, [ready, initialMarketId, publicClient, deployment]);
 
   useEffect(() => {
     if (!marketId || !owner) return;
@@ -633,6 +635,7 @@ export function MarketPositionBox({ initialMarketId }: MarketPositionBoxProps) {
                       marketId?.toLowerCase() === row.marketId.toLowerCase();
                     const rowMorpho = morphoMarketHref(row.marketId, chainId);
                     const rowCurator = curatorBlueMarketHref(row.marketId, chainId);
+                    const rowPositionsHref = curatorMarketPositionsHref(row.marketId, chainId);
                     const showLive = open && active && position != null;
                     return (
                       <Fragment key={row.marketId}>
@@ -695,6 +698,23 @@ export function MarketPositionBox({ initialMarketId }: MarketPositionBoxProps) {
                                     >
                                       Morpho
                                     </a>
+                                  ) : null}
+                                  {rowPositionsHref ? (
+                                    <span
+                                      className="inline-flex items-center gap-1"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <CopyButton
+                                        text={
+                                          typeof window !== 'undefined'
+                                            ? `${window.location.origin}${rowPositionsHref}`
+                                            : rowPositionsHref
+                                        }
+                                        message="Copied positions link"
+                                        title="Copy positions link"
+                                      />
+                                      <span className="text-muted-foreground">Copy link</span>
+                                    </span>
                                   ) : null}
                                   <span className="font-mono text-muted-foreground">
                                     {row.marketId.slice(0, 10)}…{row.marketId.slice(-6)}

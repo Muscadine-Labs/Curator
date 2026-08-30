@@ -28,7 +28,9 @@ import {
 } from '@/components/ui/table';
 import { useBotActivity, type BotActivityPanel } from '@/lib/hooks/useBotActivity';
 import {
+  MORPHO_BOTS_GITHUB_URL,
   MUSCADINE_BOTS_GITHUB_URL,
+  MUSCADINE_BOTS_UPSTREAM_BRANCH_URL,
   MUSCADINE_VAULT_BOT_TELEGRAM_URL,
 } from '@/lib/constants';
 import {
@@ -837,8 +839,29 @@ export function BotWatchPanel() {
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1 text-muted-foreground hover:underline"
+          title="Muscadine fork — downstream changes"
         >
           muscadine-bots
+          <ExternalLink className="h-3 w-3" />
+        </a>
+        <a
+          href={MUSCADINE_BOTS_UPSTREAM_BRANCH_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-muted-foreground hover:underline"
+          title="Vendored upstream tracking branch"
+        >
+          upstream branch
+          <ExternalLink className="h-3 w-3" />
+        </a>
+        <a
+          href={MORPHO_BOTS_GITHUB_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-muted-foreground hover:underline"
+          title="Upstream implementation"
+        >
+          morpho-bots
           <ExternalLink className="h-3 w-3" />
         </a>
       </div>

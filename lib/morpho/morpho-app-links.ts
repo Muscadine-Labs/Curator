@@ -38,6 +38,19 @@ export function morphoVaultHref(vaultAddress: string, chainId: number): string {
   return `${MORPHO_APP_ORIGIN}/${morphoChainSlug(chainId)}/vault/${vaultAddress.toLowerCase()}`;
 }
 
+/** Curator Morpho Blue market positions (supply, borrow, collateral). */
+export function curatorMarketPositionsHref(
+  marketId: string | null | undefined,
+  chainId: number = BASE_CHAIN_ID
+): string | null {
+  if (!marketId) return null;
+  const params = new URLSearchParams({
+    market: marketId,
+    chainId: String(chainId),
+  });
+  return `/markets/positions?${params.toString()}`;
+}
+
 /** Curator Morpho Blue market detail page. */
 export function curatorBlueMarketHref(
   marketId: string | null | undefined,

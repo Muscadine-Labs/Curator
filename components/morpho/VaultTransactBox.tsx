@@ -9,8 +9,9 @@ import {
   useWalletClient,
 } from 'wagmi';
 import { formatUnits, getAddress, isAddress, type Address } from 'viem';
-import { ArrowDownUp, Check, Copy, Loader2 } from 'lucide-react';
+import { ArrowDownUp, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { CopyButton } from '@/components/CopyButton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -81,32 +82,6 @@ function isNearFullExit(amount: string, maxAssets: bigint, decimals: number): bo
   } catch {
     return false;
   }
-}
-
-function CopyVaultAddressButton({ address }: { address: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="sm"
-      className="h-7 w-7 p-0"
-      title="Copy vault address"
-      onClick={(e) => {
-        e.stopPropagation();
-        void navigator.clipboard.writeText(address).then(() => {
-          setCopied(true);
-          window.setTimeout(() => setCopied(false), 1500);
-        });
-      }}
-    >
-      {copied ? (
-        <Check className="h-3.5 w-3.5 text-emerald-600" />
-      ) : (
-        <Copy className="h-3.5 w-3.5" />
-      )}
-    </Button>
-  );
 }
 
 export function VaultTransactBox({
@@ -410,7 +385,14 @@ export function VaultTransactBox({
                             >
                               {holding.name}
                             </a>
-                            <CopyVaultAddressButton address={holding.address} />
+                            <CopyButton
+                              text={holding.address}
+                              message="Copied vault address"
+                              title="Copy vault address"
+                              className="h-7 w-7"
+                              iconClassName="h-3.5 w-3.5"
+                              onClick={(e) => e.stopPropagation()}
+                            />
                           </div>
                           <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
                             {shortAddr(holding.address)}

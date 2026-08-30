@@ -7,7 +7,7 @@ import {
   getVaultAssetSymbol,
 } from '@/lib/config/vaults';
 import { BASE_CHAIN_ID } from '@/lib/constants';
-import { labelForActor, type BotActorKind } from '@/lib/constants/bots';
+import { labelForActor, type BotActorKind } from '@/lib/format/address-label';
 import {
   decodeVaultV2Calldata,
   type DecodedMarketParams,

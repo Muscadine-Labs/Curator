@@ -23,7 +23,6 @@ import { formatLltvPill } from '@/components/morpho/AllocationListView';
 import { curatorBlueMarketHref, curatorMidnightMarketHref } from '@/lib/morpho/morpho-app-links';
 import { useCuratorNetwork } from '@/lib/network/CuratorNetworkContext';
 import { cn } from '@/lib/utils';
-import { WalletMarketPositionsCard } from '@/components/morpho/WalletMarketPositionsCard';
 import { CuratorTableShell } from '@/components/morpho/CuratorChrome';
 
 type ListedFilter = 'all' | 'listed' | 'unlisted';
@@ -142,7 +141,6 @@ function MidnightMarketsTable({
               <TableHead>Loan</TableHead>
               <TableHead>Collateral</TableHead>
               <TableHead>LLTV</TableHead>
-              <TableHead>Oracle</TableHead>
               <TableHead>Maturity / tenor</TableHead>
               <TableHead className="text-right">Lend depth</TableHead>
               <TableHead className="text-right">Borrow depth</TableHead>
@@ -153,14 +151,14 @@ function MidnightMarketsTable({
             {loading &&
               [...Array(6)].map((_, i) => (
                 <TableRow key={i}>
-                  <TableCell colSpan={9}>
+                  <TableCell colSpan={8}>
                     <Skeleton className="h-8 w-full" />
                   </TableCell>
                 </TableRow>
               ))}
             {!loading && markets.length === 0 && (
               <TableRow>
-                <TableCell colSpan={9} className="py-8 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={8} className="py-8 text-center text-sm text-muted-foreground">
                   No Midnight markets on {networkName}.
                 </TableCell>
               </TableRow>
@@ -189,11 +187,6 @@ function MidnightMarketsTable({
                     <TableCell className="font-medium">{market.loanSymbol}</TableCell>
                     <TableCell className="text-sm">{market.collateralLabel}</TableCell>
                     <TableCell className="text-xs">{market.lltvLabel}</TableCell>
-                    <TableCell className="font-mono text-[10px] text-muted-foreground">
-                      {market.oracleAddress
-                        ? `${market.oracleAddress.slice(0, 6)}…${market.oracleAddress.slice(-4)}`
-                        : '—'}
-                    </TableCell>
                     <TableCell>
                       <div>
                         <div className="text-sm">{maturity}</div>
@@ -245,7 +238,7 @@ export function CuratorMarketsBrowser() {
   const [collateralFilter, setCollateralFilter] = useState('');
   const [listedFilter, setListedFilter] = useState<ListedFilter>('listed');
   const [muscadineFilter, setMuscadineFilter] = useState<MuscadineFilter>('all');
-  const [productFilter, setProductFilter] = useState<ProductFilter>('blue');
+  const [productFilter, setProductFilter] = useState<ProductFilter>('all');
   const [sortKey, setSortKey] = useState<SortKey>('sizeUsd');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
 
@@ -269,7 +262,7 @@ export function CuratorMarketsBrowser() {
     setCollateralFilter('');
     setListedFilter('listed');
     setMuscadineFilter('all');
-    setProductFilter('blue');
+    setProductFilter('all');
     setSortKey('sizeUsd');
     setSortDir('desc');
     void refetch();
@@ -328,8 +321,6 @@ export function CuratorMarketsBrowser() {
 
   return (
     <div className="space-y-4">
-      <WalletMarketPositionsCard />
-
       <div className="flex flex-wrap items-end gap-3">
         <div className="space-y-1">
           <label className="text-xs font-medium text-muted-foreground">Product</label>
@@ -339,8 +330,8 @@ export function CuratorMarketsBrowser() {
             className="h-9 rounded-md border border-border bg-background px-3 text-sm"
           >
             <option value="all">All</option>
-            <option value="blue">Blue</option>
-            <option value="midnight">Midnight</option>
+            <option value="blue">Blue — variable rate</option>
+            <option value="midnight">Midnight — fixed rate</option>
           </select>
         </div>
         <div className="min-w-[140px] flex-1 space-y-1">

@@ -10,6 +10,7 @@ import { darkTheme, lightTheme, RainbowKitProvider } from '@rainbow-me/rainbowki
 import { base } from 'wagmi/chains';
 import { config } from '@/lib/wallet/config';
 import { useTheme } from '@/lib/theme/ThemeContext';
+import { CopyFeedbackProvider } from '@/components/CopyFeedbackProvider';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { CuratorAuthProvider } from '@/lib/auth/CuratorAuthContext';
 import { AuthGuard } from '@/components/AuthGuard';
@@ -89,7 +90,9 @@ export function Providers({
                 <AuthGuard>
                   <RevenueSourceProvider>
                     <CuratorSafeAppsProvider>
-                      <ErrorBoundary>{children}</ErrorBoundary>
+                      <CopyFeedbackProvider>
+                        <ErrorBoundary>{children}</ErrorBoundary>
+                      </CopyFeedbackProvider>
                     </CuratorSafeAppsProvider>
                   </RevenueSourceProvider>
                 </AuthGuard>

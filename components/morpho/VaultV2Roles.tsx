@@ -18,7 +18,7 @@ interface VaultV2RolesProps {
 
 function AddressOrDash({ address }: { address: string | null }) {
   if (!address) return <span className="font-normal text-muted-foreground">—</span>;
-  return <AddressBadge address={address} truncate />;
+  return <AddressBadge address={address} truncate label="auto" />;
 }
 
 function AddressList({ addresses }: { addresses: string[] }) {
@@ -28,7 +28,7 @@ function AddressList({ addresses }: { addresses: string[] }) {
   return (
     <div className="flex flex-col items-start gap-1.5 sm:items-end">
       {addresses.map((addr) => (
-        <AddressBadge key={addr} address={addr} truncate />
+        <AddressBadge key={addr} address={addr} truncate label="auto" />
       ))}
     </div>
   );

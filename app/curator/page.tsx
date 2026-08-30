@@ -23,8 +23,10 @@ import {
   MORPHO_AUTOMATION_BOTS,
   MORPHO_CURATOR_V2_VAULTS_URL,
   MORPHO_DOCS_GET_STARTED_URL,
+  MORPHO_FIXED_RATE_MARKETS_URL,
   MORPHO_LIQUIDATION_APP_URL,
   MORPHO_ORACLE_PORTAL_URL,
+  MORPHO_VARIABLE_RATE_MARKETS_URL,
 } from '@/lib/constants';
 
 type HubLink = {
@@ -81,6 +83,20 @@ const EXTERNAL_TOOLS: readonly HubLink[] = [
     description: 'Official Morpho curator UI for Vault V2 (caps, roles, emergency).',
     href: MORPHO_CURATOR_V2_VAULTS_URL,
     icon: Shield,
+    external: true,
+  },
+  {
+    title: 'Morpho Markets — Fixed rate',
+    description: 'Midnight fixed-term order books (lend / borrow until maturity).',
+    href: MORPHO_FIXED_RATE_MARKETS_URL,
+    icon: LayoutGrid,
+    external: true,
+  },
+  {
+    title: 'Morpho App — Variable rate',
+    description: 'Morpho Blue variable-rate markets (IRM utilization curve).',
+    href: MORPHO_VARIABLE_RATE_MARKETS_URL,
+    icon: LayoutGrid,
     external: true,
   },
   {
@@ -210,16 +226,40 @@ export default function CuratorToolsPage() {
                       </span>
                     </span>
                   </a>
-                  {bot.telegramHref ? (
-                    <a
-                      href={bot.telegramHref}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-1 shrink-0 text-xs text-blue-600 hover:underline dark:text-blue-400"
-                    >
-                      Telegram
-                    </a>
-                  ) : null}
+                  <div className="mt-1 flex shrink-0 flex-wrap items-center justify-end gap-x-2 gap-y-1 text-xs">
+                    {bot.upstreamBranchHref ? (
+                      <a
+                        href={bot.upstreamBranchHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-muted-foreground hover:underline"
+                        title="Vendored upstream tracking branch"
+                      >
+                        upstream branch
+                      </a>
+                    ) : null}
+                    {bot.upstreamRepoHref ? (
+                      <a
+                        href={bot.upstreamRepoHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-muted-foreground hover:underline"
+                        title="Upstream implementation"
+                      >
+                        morpho-bots
+                      </a>
+                    ) : null}
+                    {bot.telegramHref ? (
+                      <a
+                        href={bot.telegramHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline dark:text-blue-400"
+                      >
+                        Telegram
+                      </a>
+                    ) : null}
+                  </div>
                 </div>
               ))}
             </div>
