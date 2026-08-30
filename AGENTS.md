@@ -22,8 +22,8 @@ npm run build   # next build
   routes require the HttpOnly `curator_session` cookie (`proxy.ts` plus
   a route-level check). `apiFetch` sends `credentials: 'same-origin'`.
   `POST /api/auth/verify` is IP rate-limited (`AUTH_LOGIN_MAX_ATTEMPTS`).
-  Production requires `CURATOR_SESSION_SECRET` (not the admin password).
-  Bump `CURATOR_SESSION_VERSION` to invalidate sessions.
+  Sessions are HMAC-signed with `CURATOR_SESSION_SECRET` when set, otherwise
+  `CURATOR_ADMIN_PASSWORD`. Bump `CURATOR_SESSION_VERSION` to invalidate sessions.
 - **V2-only vault config:** all tracked vaults are Morpho V2 (`lib/config/vaults.ts`).
   No MetaMorpho / V1 vault routes. Blue market risk uses `blue-market-data.ts` +
   `compute-blue-market-risk.ts`. MetaMorpho adapters are ignored in risk, allocation,

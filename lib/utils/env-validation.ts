@@ -45,18 +45,6 @@ function validateEnvVars(): EnvValidationResult {
     warnings.push('NEXT_PUBLIC_ALCHEMY_API_KEY is not set. Client wallet RPC uses public chain endpoints');
   }
 
-  if (!process.env.CURATOR_SESSION_SECRET) {
-    if (process.env.NODE_ENV === 'production') {
-      warnings.push(
-        'CURATOR_SESSION_SECRET is not set. Production login will fail until it is set (do not reuse the admin password).'
-      );
-    } else {
-      warnings.push(
-        'CURATOR_SESSION_SECRET is not set; sessions are signed with the admin password (dev only)'
-      );
-    }
-  }
-
   return {
     isValid: errors.length === 0,
     errors,

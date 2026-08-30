@@ -4,6 +4,11 @@ Append-only session log. Newest first. Keep entries short; link files.
 
 ---
 
+## 2026-08-29 — Vercel install/build log noise
+
+- `package.json` `allowScripts` for `bufferutil`, `keccak`, `unrs-resolver`, `utf-8-validate` (npm 12 install-script policy).
+- Skip `CURATOR_SESSION_SECRET` warn during `next build` (`NEXT_PHASE=phase-production-build`). Session HMAC falls back to `CURATOR_ADMIN_PASSWORD` when the dedicated secret is unset.
+
 ## 2026-08-29 — AI review: bugs, deps, dead code
 
 - Caps relative rings: `vault.analytics.totalAssetsUnderlying` (detail API also returns it at top level). Catalog APY matches detail (`netApy` → `avgNetApy` → `apy`).

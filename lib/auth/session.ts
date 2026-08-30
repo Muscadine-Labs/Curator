@@ -8,10 +8,8 @@ function sessionVersion(): string {
 }
 
 function sessionSecret(): string {
-  const dedicated = process.env.CURATOR_SESSION_SECRET;
-  if (dedicated) return dedicated;
-  if (process.env.NODE_ENV === 'production') return '';
   return (
+    process.env.CURATOR_SESSION_SECRET ||
     process.env.CURATOR_ADMIN_PASSWORD ||
     process.env.CURATOR_OWNER_PASSWORD ||
     ''
