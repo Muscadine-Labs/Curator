@@ -3,6 +3,8 @@
 Running task list for agents and humans. Work **Today** top-to-bottom unless directed otherwise. **Later** is out of scope unless asked. Log finished work under **Done** and in `docs/brain/CHANGELOG.md`.
 
 ## Today
+- fix markets page. When i search a pair to be able to also update midnight to the new parameters.
+- on markets/positions have the ability to have max onto it so i don't have to manually put my max. look at https://github.com/Muscadine-Labs/app for model details and ui/ux. look at morpho docs for intergrading borrow and earn features. 
 
 ## Later
 
