@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import { CapUtilizationRing } from '@/components/morpho/CapUtilizationRing';
 import { CuratorTableShell } from '@/components/morpho/CuratorChrome';
 import {
@@ -13,7 +14,12 @@ import {
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { formatLtv } from '@/lib/format/number';
-import type { AllocationFilterState } from '@/lib/allocation/allocation-filters';
+import {
+  allocationHeaderSortDir,
+  type AllocationFilterState,
+  type AllocationHeaderSortColumn,
+  type AllocationSortKey,
+} from '@/lib/allocation/allocation-filters';
 
 export function formatLltvPill(lltv: string | number | null | undefined): string | null {
   const formatted = formatLtv(lltv);
@@ -52,14 +58,15 @@ function AllocationListShell({ children, className }: AllocationListShellProps) 
 const CURATOR_OPTIONAL_COLUMNS: {
   filterKey: keyof AllocationFilterState['columns'];
   label: string;
+  sortColumn: AllocationHeaderSortColumn;
 }[] = [
-  { filterKey: 'utilization', label: 'Util.' },
-  { filterKey: 'liquidity', label: 'Liquidity' },
-  { filterKey: 'effectiveCap', label: 'Eff. Abs. Cap' },
-  { filterKey: 'supplyApy', label: 'Rate' },
-  { filterKey: 'borrowApy', label: 'Borrow' },
-  { filterKey: 'allocated', label: 'Allocated' },
-  { filterKey: 'percentCap', label: '% Cap' },
+  { filterKey: 'utilization', label: 'Util.', sortColumn: 'utilization' },
+  { filterKey: 'liquidity', label: 'Liquidity', sortColumn: 'liquidity' },
+  { filterKey: 'effectiveCap', label: 'Eff. Abs. Cap', sortColumn: 'effectiveCap' },
+  { filterKey: 'supplyApy', label: 'Rate', sortColumn: 'supplyApy' },
+  { filterKey: 'borrowApy', label: 'Borrow', sortColumn: 'borrowApy' },
+  { filterKey: 'allocated', label: 'Allocated', sortColumn: 'allocated' },
+  { filterKey: 'percentCap', label: '% Cap', sortColumn: 'percentCap' },
 ];
 
 export function getCuratorVisibleColumns(columns: AllocationFilterState['columns']) {
@@ -76,25 +83,119 @@ const DEFAULT_CURATOR_COLUMNS: AllocationFilterState['columns'] = {
   percentCap: false,
 };
 
+function SortableAllocationHead({
+  label,
+  column,
+  sort,
+  align = 'right',
+  onSortColumn,
+}: {
+  label: string;
+  column: AllocationHeaderSortColumn;
+  sort: AllocationSortKey;
+  align?: 'left' | 'right';
+  onSortColumn: (column: AllocationHeaderSortColumn) => void;
+}) {
+  const dir = allocationHeaderSortDir(sort, column);
+  const Icon = dir == null ? ArrowUpDown : dir === 'asc' ? ArrowUp : ArrowDown;
+  const nextHint =
+    column === 'name'
+      ? dir == null
+        ? 'Z to A'
+        : dir === 'desc'
+          ? 'A to Z'
+          : 'default order'
+      : dir == null
+        ? 'high to low'
+        : dir === 'desc'
+          ? 'low to high'
+          : 'default order';
+
+  return (
+    <TableHead
+      className={align === 'right' ? 'text-right' : undefined}
+      aria-sort={dir == null ? 'none' : dir === 'asc' ? 'ascending' : 'descending'}
+    >
+      <button
+        type="button"
+        onClick={() => onSortColumn(column)}
+        title={`Sort by ${label}: ${nextHint}`}
+        className={cn(
+          'inline-flex items-center gap-1 whitespace-nowrap font-medium transition-colors hover:text-foreground',
+          align === 'right' && 'ml-auto',
+          dir != null && 'text-foreground'
+        )}
+      >
+        {label}
+        <Icon className={cn('h-3.5 w-3.5 shrink-0', dir != null ? 'opacity-100' : 'opacity-40')} />
+      </button>
+    </TableHead>
+  );
+}
+
 export function CuratorAllocationListHeader({
   editing = false,
   columns = DEFAULT_CURATOR_COLUMNS,
+  sort = 'default',
+  onSortColumn,
 }: {
   editing?: boolean;
   columns?: AllocationFilterState['columns'];
+  sort?: AllocationSortKey;
+  onSortColumn?: (column: AllocationHeaderSortColumn) => void;
 }) {
   const visible = getCuratorVisibleColumns(columns);
+  const sortable = typeof onSortColumn === 'function';
+
   return (
     <TableHeader>
       <TableRow className="hover:bg-transparent">
-        <TableHead>Name</TableHead>
-        {visible.map((col) => (
-          <TableHead key={col.filterKey} className="text-right">
-            {col.label}
-          </TableHead>
-        ))}
-        <TableHead className="text-right">Allocation</TableHead>
-        <TableHead className="text-right">% Alloc.</TableHead>
+        {sortable ? (
+          <SortableAllocationHead
+            label="Name"
+            column="name"
+            sort={sort}
+            align="left"
+            onSortColumn={onSortColumn}
+          />
+        ) : (
+          <TableHead>Name</TableHead>
+        )}
+        {visible.map((col) =>
+          sortable ? (
+            <SortableAllocationHead
+              key={col.filterKey}
+              label={col.label}
+              column={col.sortColumn}
+              sort={sort}
+              onSortColumn={onSortColumn}
+            />
+          ) : (
+            <TableHead key={col.filterKey} className="text-right">
+              {col.label}
+            </TableHead>
+          )
+        )}
+        {sortable ? (
+          <SortableAllocationHead
+            label="Allocation"
+            column="allocated"
+            sort={sort}
+            onSortColumn={onSortColumn}
+          />
+        ) : (
+          <TableHead className="text-right">Allocation</TableHead>
+        )}
+        {sortable ? (
+          <SortableAllocationHead
+            label="% Alloc."
+            column="percentAlloc"
+            sort={sort}
+            onSortColumn={onSortColumn}
+          />
+        ) : (
+          <TableHead className="text-right">% Alloc.</TableHead>
+        )}
         {editing ? <TableHead className="text-right">Target</TableHead> : null}
       </TableRow>
     </TableHeader>

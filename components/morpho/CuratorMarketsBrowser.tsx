@@ -21,6 +21,7 @@ import { formatCompactUSD, formatPercentage } from '@/lib/format/number';
 import { formatMarketTokenAmount } from '@/components/morpho/TokenUsdValue';
 import { formatLltvPill } from '@/components/morpho/AllocationListView';
 import { curatorBlueMarketHref, curatorMidnightMarketHref } from '@/lib/morpho/morpho-app-links';
+import { marketMatchesPairFilters } from '@/lib/morpho/market-pair-filter';
 import { useCuratorNetwork } from '@/lib/network/CuratorNetworkContext';
 import { cn } from '@/lib/utils';
 import { CuratorTableShell } from '@/components/morpho/CuratorChrome';
@@ -119,11 +120,13 @@ function MidnightMarketsTable({
   markets,
   loading,
   networkName,
+  filtered,
   onOpen,
 }: {
   markets: MidnightMarketListItem[];
   loading: boolean;
   networkName: string;
+  filtered: boolean;
   onOpen: (market: MidnightMarketListItem) => void;
 }) {
   return (
@@ -159,7 +162,9 @@ function MidnightMarketsTable({
             {!loading && markets.length === 0 && (
               <TableRow>
                 <TableCell colSpan={8} className="py-8 text-center text-sm text-muted-foreground">
-                  No Midnight markets on {networkName}.
+                  {filtered
+                    ? 'No Midnight markets match your filters.'
+                    : `No Midnight markets on ${networkName}.`}
                 </TableCell>
               </TableRow>
             )}
@@ -269,24 +274,46 @@ export function CuratorMarketsBrowser() {
     void refetchMidnight();
   };
 
+  const pairFilters = useMemo(
+    () => ({ search, loanFilter, collateralFilter }),
+    [search, loanFilter, collateralFilter]
+  );
+  const pairFiltersActive =
+    search.trim().length > 0 ||
+    loanFilter.trim().length > 0 ||
+    collateralFilter.trim().length > 0;
+
   const filtered = useMemo(() => {
     const markets = data?.markets ?? [];
-    const q = search.trim().toLowerCase();
-    const loanQ = loanFilter.trim().toLowerCase();
-    const colQ = collateralFilter.trim().toLowerCase();
 
     return markets.filter((m) => {
-      if (loanQ && !m.loanSymbol.toLowerCase().includes(loanQ)) return false;
-      if (colQ && !m.collateralSymbol.toLowerCase().includes(colQ)) return false;
       if (listedFilter === 'listed' && !m.listed) return false;
       if (listedFilter === 'unlisted' && m.listed) return false;
       if (muscadineFilter === 'muscadine' && m.muscadineVaults.length === 0) return false;
-      if (!q) return true;
-      const haystack =
-        `${m.collateralSymbol} ${m.loanSymbol} ${m.marketId}`.toLowerCase();
-      return haystack.includes(q);
+      return marketMatchesPairFilters(
+        {
+          loanSymbol: m.loanSymbol,
+          collateralSymbols: [m.collateralSymbol],
+          marketId: m.marketId,
+        },
+        pairFilters
+      );
     });
-  }, [data?.markets, search, loanFilter, collateralFilter, listedFilter, muscadineFilter]);
+  }, [data?.markets, pairFilters, listedFilter, muscadineFilter]);
+
+  const filteredMidnight = useMemo(() => {
+    const markets = midnightData?.markets ?? [];
+    return markets.filter((m) =>
+      marketMatchesPairFilters(
+        {
+          loanSymbol: m.loanSymbol,
+          collateralSymbols: m.collaterals.map((c) => c.symbol),
+          marketId: m.marketId,
+        },
+        pairFilters
+      )
+    );
+  }, [midnightData?.markets, pairFilters]);
 
   const sorted = useMemo(() => {
     const list = [...filtered];
@@ -383,7 +410,7 @@ export function CuratorMarketsBrowser() {
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               className="pl-9"
-              placeholder="Pair or market id"
+              placeholder="cbBTC/USDC, loan, or market id"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -554,11 +581,19 @@ export function CuratorMarketsBrowser() {
             </p>
           ) : null}
           <MidnightMarketsTable
-            markets={midnightData?.markets ?? []}
+            markets={filteredMidnight}
             loading={midnightBusy}
             networkName={networkName}
+            filtered={pairFiltersActive}
             onOpen={openMidnight}
           />
+          {!midnightBusy && (
+            <p className="text-xs text-muted-foreground">
+              Showing {filteredMidnight.length} of {midnightData?.markets.length ?? 0}{' '}
+              Midnight markets on {networkName}
+              {pairFiltersActive ? ' (same Loan / Collateral / Search as Blue)' : ''}.
+            </p>
+          )}
         </div>
       )}
     </div>

@@ -51,7 +51,7 @@ export default function MarketsPositionsPage() {
   return (
     <AppShell
       title="Market Positions"
-      description="Your Blue positions, then borrow / repay / supply / collateral for a market."
+      description="Your Blue positions. MAX fills wallet or position size; full repay and full supply exit use shares."
       backHref="/markets"
       backLabel="Markets"
     >

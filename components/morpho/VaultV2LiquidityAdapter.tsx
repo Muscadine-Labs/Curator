@@ -425,7 +425,7 @@ export function VaultV2LiquidityAdapter({
             eligibleSafeRoles: eligibleAllocatorSafes,
           }),
         }}
-        onConfirm={() => void handlePreviewConfirm()}
+        onConfirm={() => handlePreviewConfirm()}
         isLoading={writeDestination.kind === 'safe' ? queueingSafe : write.isLoading}
         error={
           submitError

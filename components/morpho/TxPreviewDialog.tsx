@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowRight, X } from 'lucide-react';
+import { ArrowRight, CheckCircle2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { TxPreview, TxPreviewChange } from '@/lib/morpho/tx-preview';
@@ -33,6 +33,11 @@ interface TxPreviewDialogProps {
   isLoading?: boolean;
   error?: unknown;
   destinationOptions?: VaultWriteDestinationOptions | null;
+  stepLabel?: string | null;
+  isSuccess?: boolean;
+  txHash?: string | null;
+  txExplorerHref?: string | null;
+  onDone?: () => void;
 }
 
 function actionBadgeClass(action: TxPreviewChange['action']): string {
@@ -46,7 +51,18 @@ function actionBadgeClass(action: TxPreviewChange['action']): string {
       return 'bg-orange-100 text-orange-900 dark:bg-orange-950/50 dark:text-orange-200';
     case 'increase_absolute_cap':
     case 'increase_relative_cap':
+    case 'borrow':
       return 'bg-sky-100 text-sky-900 dark:bg-sky-950/50 dark:text-sky-200';
+    case 'deposit':
+    case 'supply':
+    case 'add_collateral':
+    case 'repay':
+      return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300';
+    case 'withdraw':
+    case 'withdraw_collateral':
+      return 'bg-amber-100 text-amber-900 dark:bg-amber-950/50 dark:text-amber-200';
+    case 'exit':
+      return 'bg-orange-100 text-orange-900 dark:bg-orange-950/50 dark:text-orange-200';
   }
 }
 
@@ -101,22 +117,41 @@ export function TxPreviewDialog({
   isLoading = false,
   error = null,
   destinationOptions = null,
+  stepLabel = null,
+  isSuccess = false,
+  txHash = null,
+  txExplorerHref = null,
+  onDone,
 }: TxPreviewDialogProps) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const lockedRef = useRef(false);
+  const isLoadingRef = useRef(isLoading);
+  const isSuccessRef = useRef(isSuccess);
   const [mounted, setMounted] = useState(false);
+  const [locked, setLocked] = useState(false);
+  isLoadingRef.current = isLoading;
+  isSuccessRef.current = isSuccess;
+  const blocked = (isLoading || locked) && !isSuccess;
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
   useEffect(() => {
+    if (!open) {
+      lockedRef.current = false;
+      setLocked(false);
+    }
+  }, [open]);
+
+  useEffect(() => {
     if (!open) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !isLoading) onOpenChange(false);
+      if (e.key === 'Escape' && !blocked) onOpenChange(false);
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [open, isLoading, onOpenChange]);
+  }, [open, blocked, onOpenChange]);
 
   useEffect(() => {
     if (!open) return;
@@ -150,7 +185,24 @@ export function TxPreviewDialog({
     ? loadingLabelForDestination(destinationOptions.destination)
     : 'Confirming…';
   const confirmDisabled =
-    isLoading || (destinationOptions?.confirmEnabled === false);
+    blocked || (destinationOptions?.confirmEnabled === false);
+
+  const handleConfirmClick = async () => {
+    if (lockedRef.current || isLoading || isSuccess) return;
+    lockedRef.current = true;
+    setLocked(true);
+    try {
+      await onConfirm();
+    } catch {
+      lockedRef.current = false;
+      setLocked(false);
+      return;
+    }
+    if (!isLoadingRef.current && !isSuccessRef.current) {
+      lockedRef.current = false;
+      setLocked(false);
+    }
+  };
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center">
@@ -158,8 +210,8 @@ export function TxPreviewDialog({
         type="button"
         aria-label="Close preview"
         className="absolute inset-0 bg-black/50"
-        disabled={isLoading}
-        onClick={() => !isLoading && onOpenChange(false)}
+        disabled={blocked}
+        onClick={() => !blocked && onOpenChange(false)}
       />
       <div
         ref={panelRef}
@@ -172,7 +224,7 @@ export function TxPreviewDialog({
         <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
           <div className="min-w-0">
             <h2 id="tx-preview-title" className="text-base font-semibold text-foreground">
-              {preview.title}
+              {isSuccess ? 'Transaction confirmed' : preview.title}
             </h2>
             {preview.description && (
               <p className="mt-1 text-xs text-muted-foreground">{preview.description}</p>
@@ -182,7 +234,7 @@ export function TxPreviewDialog({
             type="button"
             variant="ghost"
             size="icon-sm"
-            disabled={isLoading}
+            disabled={blocked}
             onClick={() => onOpenChange(false)}
             aria-label="Close"
           >
@@ -194,6 +246,27 @@ export function TxPreviewDialog({
           {preview.changes.map((change, i) => (
             <PreviewChangeRow key={`${change.action}-${change.label}-${i}`} change={change} />
           ))}
+          {isSuccess && (
+            <div className="flex items-start gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-800 dark:text-emerald-300">
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+              <div className="min-w-0">
+                <p>Transaction confirmed.</p>
+                {txHash && txExplorerHref ? (
+                  <a
+                    href={txExplorerHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="break-all text-xs underline underline-offset-2"
+                  >
+                    View transaction
+                  </a>
+                ) : null}
+              </div>
+            </div>
+          )}
+          {isLoading && stepLabel ? (
+            <p className="text-xs text-muted-foreground">{stepLabel}</p>
+          ) : null}
         </div>
 
         {preview.footnote && (
@@ -219,17 +292,31 @@ export function TxPreviewDialog({
         )}
 
         <div className="flex flex-col-reverse gap-2 border-t border-border px-4 py-3 sm:flex-row sm:justify-end">
-          <Button
-            type="button"
-            variant="outline"
-            disabled={isLoading}
-            onClick={() => onOpenChange(false)}
-          >
-            Cancel
-          </Button>
-          <Button type="button" disabled={confirmDisabled} onClick={onConfirm}>
-            {isLoading ? loadingLabel : confirmLabel}
-          </Button>
+          {!isSuccess ? (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={blocked}
+              onClick={() => onOpenChange(false)}
+            >
+              Cancel
+            </Button>
+          ) : null}
+          {isSuccess ? (
+            <Button
+              type="button"
+              onClick={() => {
+                onDone?.();
+                onOpenChange(false);
+              }}
+            >
+              Done
+            </Button>
+          ) : (
+            <Button type="button" disabled={confirmDisabled} onClick={() => void handleConfirmClick()}>
+              {isLoading || locked ? loadingLabel : confirmLabel}
+            </Button>
+          )}
         </div>
       </div>
     </div>,

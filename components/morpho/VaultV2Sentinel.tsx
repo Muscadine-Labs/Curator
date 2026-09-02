@@ -901,7 +901,7 @@ function DecreaseCapsPanel({
             eligibleSafeRoles: eligibleSentinelSafes,
           }),
         }}
-        onConfirm={() => void handlePreviewConfirm()}
+        onConfirm={() => handlePreviewConfirm()}
         isLoading={writeDestination.kind === 'safe' ? queueingSafe : writeInFlight}
         error={
           writeDestination.kind === 'safe'
@@ -1362,7 +1362,7 @@ function DeallocatePanel({
             eligibleSafeRoles: eligibleSentinelSafes,
           }),
         }}
-        onConfirm={() => void handlePreviewConfirm()}
+        onConfirm={() => handlePreviewConfirm()}
         isLoading={writeDestination.kind === 'safe' ? queueingSafe : writeInFlight}
         error={
           writeDestination.kind === 'safe'

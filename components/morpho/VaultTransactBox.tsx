@@ -8,7 +8,7 @@ import {
   useSwitchChain,
   useWalletClient,
 } from 'wagmi';
-import { formatUnits, getAddress, isAddress, type Address } from 'viem';
+import { getAddress, isAddress, type Address } from 'viem';
 import { ArrowDownUp, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CopyButton } from '@/components/CopyButton';
@@ -24,6 +24,8 @@ import {
 } from '@/lib/constants';
 import { getAllVaultAddresses, getConfiguredVaultDisplayName, getVaultByAddress } from '@/lib/config/vaults';
 import { TxErrorBanner } from '@/components/TxErrorBanner';
+import { TxPreviewDialog } from '@/components/morpho/TxPreviewDialog';
+import { buildUserTxPreview, type TxPreview } from '@/lib/morpho/tx-preview';
 import {
   convertSharesToAssets,
   depositToVaultV2,
@@ -39,6 +41,7 @@ import type { UserVaultPositionSummary } from '@/lib/morpho/fetch-user-vault-pos
 import { useQueryClient } from '@tanstack/react-query';
 import { formatAllocationEditInputExact } from '@/lib/format/allocation-display';
 import { formatPercentage } from '@/lib/format/number';
+import { parseExactAmount, isNearFullAmount } from '@/components/morpho/AmountMaxInput';
 import { cn } from '@/lib/utils';
 import {
   CuratorEmptyText,
@@ -75,10 +78,7 @@ function shortAddr(addr: string): string {
 
 function isNearFullExit(amount: string, maxAssets: bigint, decimals: number): boolean {
   try {
-    const entered = Number(amount);
-    const max = Number(formatUnits(maxAssets, decimals));
-    if (!Number.isFinite(entered) || !Number.isFinite(max) || max <= 0) return false;
-    return Math.abs(entered - max) / max < 0.0001 || entered >= max * 0.9999;
+    return isNearFullAmount(parseExactAmount(amount, decimals), maxAssets);
   } catch {
     return false;
   }
@@ -123,6 +123,8 @@ export function VaultTransactBox({
   const [stepLabel, setStepLabel] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewPreview, setReviewPreview] = useState<TxPreview | null>(null);
 
   const activeAddress = useMemo(() => {
     const raw = pastedAddress.trim() || selectedPreset;
@@ -208,6 +210,7 @@ export function VaultTransactBox({
     setError(null);
     setTxHash(null);
     setStepLabel(null);
+    setReviewOpen(false);
   };
 
   const selectHolding = (holding: UserVaultPositionSummary) => {
@@ -267,6 +270,7 @@ export function VaultTransactBox({
   }, []);
 
   const handleSubmit = async () => {
+    if (status === 'signing') return;
     if (!publicClient || !walletClient || !vault || !walletAddress || !amount.trim()) return;
     setStatus('signing');
     setError(null);
@@ -330,6 +334,56 @@ export function VaultTransactBox({
       setStepLabel(null);
       setError(err);
     }
+  };
+
+  const vaultLabel = vault
+    ? (() => {
+        const cfg = getVaultByAddress(vault.address);
+        return cfg ? getConfiguredVaultDisplayName(cfg) : vault.name;
+      })()
+    : '';
+
+  const openReview = () => {
+    if (!vault || !walletAddress || !amount.trim()) return;
+    const assetSymbol =
+      vault.isWethVault && preferredAsset === 'ETH'
+        ? 'ETH'
+        : vault.isWethVault && preferredAsset === 'ALL' && tab === 'deposit'
+          ? 'ETH + WETH'
+          : vault.assetSymbol;
+    const walletLabel = `Wallet ${shortAddr(walletAddress)}`;
+    const fullRedeem =
+      tab === 'withdraw' &&
+      isNearFullExit(amount.trim(), shareAssets, vault.assetDecimals);
+    const notes: string[] = [];
+    if (fullRedeem) notes.push('Full balance uses redeem (all shares).');
+    if (vault.isWethVault) {
+      if (tab === 'deposit' && preferredAsset === 'ETH') {
+        notes.push('Wraps ETH via Bundler3, then deposits WETH.');
+      } else if (tab === 'deposit' && preferredAsset === 'ALL') {
+        notes.push(
+          `Uses ETH then WETH as needed (Bundler3). Keeps ~${ETH_GAS_RESERVE} ETH reserved for gas.`
+        );
+      } else if (tab === 'withdraw' && preferredAsset === 'ETH') {
+        notes.push('Withdraws WETH and unwraps to ETH via Bundler3.');
+      }
+    }
+    setReviewPreview(
+      buildUserTxPreview({
+        kind: tab === 'deposit' ? 'deposit' : 'withdraw',
+        amount: `${amount.trim()} ${assetSymbol}`,
+        targetLabel: vaultLabel,
+        fromLabel: tab === 'deposit' ? walletLabel : vaultLabel,
+        toLabel: tab === 'deposit' ? vaultLabel : walletLabel,
+        description: 'Base',
+        footnote: notes.length ? notes.join(' ') : null,
+      })
+    );
+    setStatus('idle');
+    setError(null);
+    setTxHash(null);
+    setStepLabel(null);
+    setReviewOpen(true);
   };
 
   return (
@@ -600,7 +654,7 @@ export function VaultTransactBox({
               placeholder="0.0"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              disabled={status === 'signing'}
+              disabled={status === 'signing' || reviewOpen}
             />
             {tab === 'withdraw' && vault && (
               <p className="text-[11px] text-muted-foreground">
@@ -620,25 +674,35 @@ export function VaultTransactBox({
                 !vault ||
                 !amount.trim() ||
                 status === 'signing' ||
+                reviewOpen ||
                 resolving ||
                 !!resolveError
               }
-              onClick={() => void handleSubmit()}
+              onClick={openReview}
             >
-              {status === 'signing' ? (
-                <span className="inline-flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  {stepLabel ?? 'Confirm in wallet…'}
-                </span>
-              ) : tab === 'deposit' ? (
-                'Approve & Deposit'
-              ) : (
-                'Withdraw'
-              )}
+              {tab === 'deposit' ? 'Approve & Deposit' : 'Withdraw'}
             </Button>
           )}
 
-          {status === 'success' && txHash && (
+          <TxPreviewDialog
+            open={reviewOpen}
+            preview={reviewPreview}
+            onOpenChange={(open) => {
+              if (!open && status === 'signing') return;
+              setReviewOpen(open);
+            }}
+            onConfirm={() => handleSubmit()}
+            isLoading={status === 'signing'}
+            stepLabel={stepLabel}
+            error={status === 'error' ? error : null}
+            isSuccess={status === 'success'}
+            txHash={txHash}
+            txExplorerHref={
+              txHash ? `${getScanUrlForChain(BASE_CHAIN_ID)}/tx/${txHash}` : null
+            }
+          />
+
+          {!reviewOpen && status === 'success' && txHash && (
             <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-800 dark:text-emerald-300">
               Transaction confirmed.{' '}
               <a
@@ -661,7 +725,7 @@ export function VaultTransactBox({
             </div>
           )}
 
-          {status === 'error' && error != null && (
+          {!reviewOpen && status === 'error' && error != null && (
             <TxErrorBanner error={error} onDismiss={resetStatus} />
           )}
         </CardContent>

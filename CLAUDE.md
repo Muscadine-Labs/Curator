@@ -690,6 +690,11 @@ External app: [Morpho Markets](https://markets.morpho.org/fixed/base/0x549cd072d
 (`morphoMidnightMarketHref`). In-app: `curatorMidnightMarketHref`.
 Tenor = remaining time to `maturity`. List columns: network, loan, collateral(s),
 LLTV, maturity/tenor, lend depth, borrow depth, best lend APR from top ask.
+**Browse filters** — Loan, Collateral, and Search apply to **both** Blue and
+Midnight (`lib/morpho/market-pair-filter.ts`). Pair queries (`cbBTC/USDC`,
+`WETH USDC`) match if every token is a symbol word or prefix (order-independent;
+`ETH` does not match `WETH`). A Blue collateral/loan search still hits Midnight
+books whose loan + collaterals contain those symbols. Listed / Muscadine stay Blue-only.
 Detail KPIs: outstanding units, book depths, best lend/borrow rates, per-collateral
 LLTV / liquidation cursor / oracle panel (price, freshness, Chainlink feeds on Base),
 asks & bids.
@@ -701,6 +706,21 @@ supply/borrow/collateral. Deep link with network:
 `/markets/positions?market=<id>&chainId=<id>` via `curatorMarketPositionsHref`
 (same pattern as `projects/app` holdings). Blue market detail **Interact** uses
 this helper; Midnight uses external **Trade on Morpho**.
+**Amount MAX** — each manage input matches Muscadine app (`VaultTransactPanel`):
+available amount + **MAX** fills exact `formatUnits` (not `maxDeposit`/`maxWithdraw`,
+which Vault V2 always returns 0). Sources: wallet ERC-20 for supply / add
+collateral; LLTV-buffered remaining borrow; `min(wallet, debt)` for repay (full
+debt → repay **shares**); max-safe collateral withdraw; supplied assets (full
+exit → withdraw **shares**). Do not prefill amounts; warn when typed > available.
+**Review before sign** — Deposit/Withdraw and every positions action (borrow, repay,
+add/withdraw collateral, supply/withdraw supply, exit all) open `TxPreviewDialog`
+(`buildUserTxPreview`) instead of sending to the wallet immediately. The dialog stays
+open through signing and shows a confirmed tx link until **Done**. Same chrome as
+Allocation / Sentinel (no Safe destination on these user flows).
+Morpho: [borrow assets-flow](https://docs.morpho.org/developers/borrow/tutorials/assets-flow/)
+(full repay by shares), [earn assets-flow](https://docs.morpho.org/developers/earn/tutorials/assets-flow/).
+Midnight lend stays on Morpho’s quote/router
+([lend-at-a-fixed-rate](https://docs.morpho.org/developers/midnight/tutorials/lend-at-a-fixed-rate/)).
 
 **BFF** — `GET /api/markets` and `GET /api/markets/[marketId]`
 (`lib/morpho/curator-markets.ts`). Midnight: `GET /api/markets/midnight` and
@@ -771,6 +791,10 @@ These rules are baked into `VaultV2Allocations.tsx`, `VaultV2Sentinel.tsx`,
 - **No token icons.** LLTV on Blue rows is a gray pill (`86%`) via
   `formatLltvPill`, not “LLTV 86%”.
 - Optional metric columns render as compact extra cells when enabled in filters.
+- Column headers are clickable: **high → low**, again **low → high**, again **default**
+  (allocated high → low, no header highlight). Same cycle for Name (Z→A / A→Z / default),
+  Rate (supply APY), Util., Liquidity, caps, Allocation, and % Alloc. Persists with
+  `filters.sort`.
 - Edit mode adds a **New** column for target inputs.
 
 ### 5.2 Filters (`AllocationFilters.tsx`)
@@ -784,7 +808,9 @@ These rules are baked into `VaultV2Allocations.tsx`, `VaultV2Sentinel.tsx`,
 - Column keys: `effectiveCap` (absolute token cap) and `percentCap` (relative
   WAD on V2).
 - Filter preferences persist per vault via `usePersistedAllocationFilters` and
-  `lib/allocation/allocation-filters-storage.ts`.
+  `lib/allocation/allocation-filters-storage.ts`. Default sort is `default`
+  (allocated high → low). Header clicks cycle a column’s desc → asc → `default`
+  (`cycleAllocationHeaderSort` in `lib/allocation/allocation-filters.ts`).
 
 ### 5.3 Planning & submit
 
@@ -803,7 +829,9 @@ These rules are baked into `VaultV2Allocations.tsx`, `VaultV2Sentinel.tsx`,
    implicit Idle. Never **auto**-inflate a strategy target to absorb
    under-allocation — only an explicit curator choice may do so, and it still
    passes cap validation. **`TxPreviewDialog`** shows human-readable deltas
-   (`lib/morpho/tx-preview.ts`) before the wallet signs.
+   (`lib/morpho/tx-preview.ts`) before the wallet signs. The same dialog is used
+   on `/vaults/transact` and `/markets/positions` (`buildUserTxPreview`) — review
+   → confirm in wallet → confirmed, without Safe destination options.
 5. **V2 idle row** — editable for planning; never in `allocate`/`deallocate`
    calldata.
 6. Use `formatRawTokenAmount` for all raw bigint display (avoid `1.23e-6`).
@@ -1104,7 +1132,7 @@ npm run build
 | Concern                          | File                                                     |
 | -------------------------------- | -------------------------------------------------------- |
 | V2 allocation UI + allocate/etc. | `components/morpho/VaultV2Allocations.tsx`              |
-| Tx preview dialog + builders     | `components/morpho/TxPreviewDialog.tsx`, `lib/morpho/tx-preview.ts` |
+| Tx preview dialog + builders     | `components/morpho/TxPreviewDialog.tsx`, `lib/morpho/tx-preview.ts` (`buildUserTxPreview` for transact/positions) |
 | Allocation list shell + sections | `components/morpho/AllocationListView.tsx`               |
 | Allocation filter persistence  | `lib/allocation/allocation-filters-storage.ts`, `usePersistedAllocationFilters.ts` |
 | V2 adapters UI (incl. idle)      | `components/morpho/VaultV2Adapters.tsx`                 |
@@ -1150,10 +1178,10 @@ npm run build
 | Oracle address from GraphQL      | `lib/morpho/market-oracle-address.ts` (`resolveMarketOracleAddress`) |
 | Morpho GraphQL client + warnings | `lib/morpho/graphql-client.ts` |
 | Curator markets BFF + scoring    | `lib/morpho/curator-markets.ts`, `app/api/markets/` |
-| Markets browser UI               | `components/morpho/CuratorMarketsBrowser.tsx`, `app/markets/page.tsx` |
+| Markets browser UI               | `components/morpho/CuratorMarketsBrowser.tsx`, `lib/morpho/market-pair-filter.ts`, `app/markets/page.tsx` |
 | Market detail + oracle panel     | Blue: `app/market/blue/[id]/page.tsx`; Midnight: `MidnightMarketView` + `MarketOraclePanel`; `lib/morpho/oracle-price.ts` |
 | Create Blue market               | `app/markets/create/`, `components/morpho/CreateMarketForm.tsx`, `lib/morpho/blue-create-market.ts` |
-| Vault / market transact          | `app/vaults/transact/`, `app/markets/positions/` |
+| Vault / market transact          | `app/vaults/transact/` (`VaultTransactBox`), `app/markets/positions/` (`MarketPositionBox`), `AmountMaxInput.tsx`; review via `TxPreviewDialog` |
 | Nav areas                        | `lib/nav/areas.ts`, `components/layout/Topbar.tsx`, `Sidebar.tsx` |
 | Oracle Portal link               | `MORPHO_ORACLE_PORTAL_URL` in `lib/constants/links.ts` → https://oracles.morpho.dev/ |
 | Brain / session loop             | `docs/brain/`, `.cursor/rules/muscadine-brain.mdc`, `.cursor/mcp.json` |
@@ -1453,14 +1481,15 @@ Deployments (Morpho / AdaptiveCurveIRM / chainlinkOracleFactory) live in
 - `lib/nav/areas.ts` — top-nav area resolution
 - `components/morpho/CreateMarketForm.tsx` — form + validation + tx
 - `components/morpho/MarketBootstrapPanel.tsx` — post-create dead deposit / seed UI
-- `components/morpho/MarketPositionBox.tsx` — `/markets/positions`
+- `components/morpho/MarketPositionBox.tsx` — `/markets/positions` (MAX amounts + review dialog)
+- `components/morpho/AmountMaxInput.tsx` — wallet/position MAX amount field
 - `components/NetworkSwitcher.tsx` — top-bar select
 - `app/markets/create/page.tsx` — route
 - Hub entry: `app/curator/page.tsx` (Curator top-nav area)
 
 ---
 
-_Last updated: 2026-07-27. When you change reallocation logic, allocation
+_Last updated: 2026-09-02. When you change reallocation logic, allocation
 list/filters (§5), caps/adapters display, V2 idData/Sentinel (§3.2, §4.2), tx
 preview, client fetch/cache (§4.3), app/API route paths (§2, §4.7, `next.config.ts`
 redirects), Morpho GraphQL field names (§4.4.1), Curator markets browser (§4.7),

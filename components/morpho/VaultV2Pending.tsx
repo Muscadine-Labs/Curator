@@ -609,7 +609,7 @@ export function VaultV2Pending({
           safeRoles: VAULT_WRITE_QUEUE_SAFE_ROLES,
           confirmEnabled: canConfirmPendingAcceptDestination(writeDestination, isConnected),
         }}
-        onConfirm={() => void handleAcceptConfirm()}
+        onConfirm={() => handleAcceptConfirm()}
         isLoading={writeDestination.kind === 'safe' ? queueingSafe : acceptWrite.isLoading}
         error={
           acceptError
@@ -648,7 +648,7 @@ export function VaultV2Pending({
             isConnected,
           }),
         }}
-        onConfirm={() => void handleRevokeConfirm()}
+        onConfirm={() => handleRevokeConfirm()}
         isLoading={revokeDestination.kind === 'safe' ? queueingRevokeSafe : revokeWrite.isLoading}
         error={
           revokeError

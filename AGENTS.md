@@ -52,7 +52,11 @@ npm run build   # next build
   is never treated as deployable cash. Min/Max write display-space values.
 - **User deposit/withdraw** — `/vaults/transact` (approve, deposit, withdraw,
   Bundler3 WETH/ETH). **Blue market positions** — `/markets/positions` (borrow,
-  repay, withdraw collateral, supply; expandable wallet market list). Create +
+  repay, withdraw collateral, supply; expandable wallet market list). Each amount
+  field has **MAX** (wallet ERC-20, LLTV-buffered borrow, min(wallet, debt) repay
+  by shares when full, max-safe collateral, supply shares on full exit). Browse
+  Loan / Collateral / Search filter Blue **and** Midnight (`market-pair-filter.ts`).
+  Create +
   dead deposit/seed — `/markets/create` (Morpho app link after create).
   Vault transact holdings — any Morpho vault via indexed positions API.
   Top nav: Overview · Vaults · Markets · Curator · Business; sidebar is
@@ -65,8 +69,10 @@ npm run build   # next build
   and `morpho-org/morpho-bots` is the **upstream** implementation
   (`MUSCADINE_BOTS_GITHUB_URL`, `MUSCADINE_BOTS_UPSTREAM_BRANCH_URL`,
   `MORPHO_BOTS_GITHUB_URL`).
-- **Tx preview** — Allocation and Sentinel confirm writes through
-  `TxPreviewDialog` + `lib/morpho/tx-preview.ts` before the wallet signs.
+- **Tx preview** — Allocation, Sentinel, `/vaults/transact`, and `/markets/positions`
+  confirm writes through `TxPreviewDialog` + `lib/morpho/tx-preview.ts` before the
+  wallet signs. Transact/positions stay in the dialog through confirm and show a
+  tx link until **Done**.
 - **V2 pending revoke** — per-row `rowId` + `activeRowId`; never key tx state by
   `item.data` alone (batched pending actions can share calldata).
 - **V2 cap labels / idData** — governance `marketParams` + `fetch-markets-by-id.ts`
@@ -117,7 +123,8 @@ npm run build   # next build
 - **Curator Morpho Markets** — `/markets` (default: All products, listed only, sort
   market size desc; product toggle All / Blue — variable rate / Midnight — fixed
   rate), `/market/blue/[id]` (Blue), and
-  `/midnight/[id]` (Midnight order book — not Blue KPIs). Midnight REST
+  `/midnight/[id]` (Midnight order book — not Blue KPIs). Loan / Collateral /
+  Search apply to both tables (`market-pair-filter.ts`). Midnight REST
   (`/v0/midnight/markets`, `/state`, `/books`); Morpho app is
   `https://markets.morpho.org/fixed/{chain}/{id}`. Use `sizeUsd` /
   `totalLiquidityUsd` for Blue sort columns; display token primary + USD

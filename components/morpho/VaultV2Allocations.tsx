@@ -60,6 +60,7 @@ import {
 } from '@/lib/format/allocation-display';
 import { formatLiquidityCell } from '@/components/morpho/FormatLiquidityCell';
 import { usePersistedAllocationFilters } from '@/lib/hooks/usePersistedAllocationFilters';
+import { cycleAllocationHeaderSort, type AllocationHeaderSortColumn } from '@/lib/allocation/allocation-filters';
 import { clearAllocationFilters } from '@/lib/allocation/allocation-filters-storage';
 import type { V2VaultRiskResponse } from '@/app/api/vaults/[id]/risk/route';
 import type { VaultV2GovernanceResponse, CapInfo } from '@/app/api/vaults/[id]/governance/route';
@@ -173,6 +174,24 @@ function compareBigIntDesc(a: bigint, b: bigint): number {
 function compareBigIntAsc(a: bigint, b: bigint): number {
   if (a === b) return 0;
   return a < b ? -1 : 1;
+}
+
+function compareNullableNumber(
+  a: number | null | undefined,
+  b: number | null | undefined,
+  desc: boolean
+): number {
+  const av = a != null && Number.isFinite(a) ? a : desc ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY;
+  const bv = b != null && Number.isFinite(b) ? b : desc ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY;
+  if (av === bv) return 0;
+  return desc ? bv - av : av - bv;
+}
+
+function compareNullableBigInt(a: bigint | null, b: bigint | null, desc: boolean): number {
+  if (a == null && b == null) return 0;
+  if (a == null) return 1;
+  if (b == null) return -1;
+  return desc ? compareBigIntDesc(a, b) : compareBigIntAsc(a, b);
 }
 
 /** Headroom under absolute and relative caps (if known). */
@@ -691,6 +710,15 @@ export function VaultV2Allocations({
   const [inputValues, setInputValues] = useState<string[]>([]);
   const [submitError, setSubmitError] = useState<unknown>(null);
   const [filters, setFilters] = usePersistedAllocationFilters(vaultAddress);
+  const onSortColumn = useCallback(
+    (column: AllocationHeaderSortColumn) => {
+      setFilters((f) => ({
+        ...f,
+        sort: cycleAllocationHeaderSort(f.sort, column),
+      }));
+    },
+    [setFilters]
+  );
   /** Where unallocated remainder goes: 'auto' = implicit Idle, or a target index. */
   const [dustRecipientKey, setDustRecipientKey] = useState<DustRecipientChoice>('auto');
   const [rebalancePreviewOpen, setRebalancePreviewOpen] = useState(false);
@@ -1696,39 +1724,63 @@ export function VaultV2Allocations({
     .filter((r) => showTarget.get(r.targetIdx))
     .map((r) => r.targetIdx);
 
+  const rowByIdx = new Map(rows.map((r) => [r.targetIdx, r]));
   const sortedTargetIndices = [...targetIndices].sort((a, b) => {
     const ta = targetsWithCaps[a];
     const tb = targetsWithCaps[b];
-    const ra = rows.find((r) => r.targetIdx === a);
-    const rb = rows.find((r) => r.targetIdx === b);
+    const ra = rowByIdx.get(a);
+    const rb = rowByIdx.get(b);
     if (!ta || !tb || !ra || !rb) return 0;
 
     switch (filters.sort) {
       case 'allocated-asc':
+      case 'percentAlloc-asc':
         return compareBigIntAsc(ta.displayAssets, tb.displayAssets);
+      case 'percentAlloc-desc':
+        return compareBigIntDesc(ta.displayAssets, tb.displayAssets);
       case 'supplyApy-desc':
-        return (rb.supplyApy ?? -Infinity) - (ra.supplyApy ?? -Infinity);
+        return compareNullableNumber(ra.supplyApy, rb.supplyApy, true);
+      case 'supplyApy-asc':
+        return compareNullableNumber(ra.supplyApy, rb.supplyApy, false);
       case 'utilization-desc':
-        return (rb.utilization ?? -Infinity) - (ra.utilization ?? -Infinity);
+        return compareNullableNumber(ra.utilization, rb.utilization, true);
+      case 'utilization-asc':
+        return compareNullableNumber(ra.utilization, rb.utilization, false);
       case 'borrowApy-desc':
-        return (rb.borrowApy ?? -Infinity) - (ra.borrowApy ?? -Infinity);
+        return compareNullableNumber(ra.borrowApy, rb.borrowApy, true);
+      case 'borrowApy-asc':
+        return compareNullableNumber(ra.borrowApy, rb.borrowApy, false);
       case 'liquidity-desc':
-        return (rb.liquidity ?? -Infinity) - (ra.liquidity ?? -Infinity);
+        return compareNullableNumber(ra.liquidity, rb.liquidity, true);
       case 'liquidity-asc':
-        return (ra.liquidity ?? Infinity) - (rb.liquidity ?? Infinity);
-      case 'capacity-desc': {
-        const headroom = (t: AllocTarget): bigint => {
-          if (t.absoluteCapRaw == null) return BigInt(0);
+        return compareNullableNumber(ra.liquidity, rb.liquidity, false);
+      case 'effectiveCap-desc':
+        return compareNullableBigInt(ta.absoluteCapRaw, tb.absoluteCapRaw, true);
+      case 'effectiveCap-asc':
+        return compareNullableBigInt(ta.absoluteCapRaw, tb.absoluteCapRaw, false);
+      case 'percentCap-desc':
+        return compareNullableBigInt(ta.relativeCapWad, tb.relativeCapWad, true);
+      case 'percentCap-asc':
+        return compareNullableBigInt(ta.relativeCapWad, tb.relativeCapWad, false);
+      case 'capacity-desc':
+      case 'capacity-asc': {
+        const headroom = (t: AllocTarget): bigint | null => {
+          if (t.absoluteCapRaw == null) return null;
           const h = t.absoluteCapRaw - t.displayAssets;
           return h > 0n ? h : 0n;
         };
-        return compareBigIntDesc(headroom(tb), headroom(ta));
+        return compareNullableBigInt(
+          headroom(ta),
+          headroom(tb),
+          filters.sort === 'capacity-desc'
+        );
       }
       case 'name-asc':
         return ra.market.localeCompare(rb.market);
       case 'name-desc':
         return rb.market.localeCompare(ra.market);
       case 'allocated-desc':
+      case 'default':
       default:
         return compareBigIntDesc(ta.displayAssets, tb.displayAssets);
     }
@@ -1736,7 +1788,7 @@ export function VaultV2Allocations({
 
   const rowsToRender: RowType[] = [];
   for (const idx of sortedTargetIndices) {
-    const tr = rows.find((r) => r.targetIdx === idx);
+    const tr = rowByIdx.get(idx);
     if (tr) rowsToRender.push(tr);
   }
 
@@ -2032,7 +2084,12 @@ export function VaultV2Allocations({
                 <CuratorSectionHeader title={section.title} count={section.rows.length} />
                 <AllocationTable
                   header={
-                    <CuratorAllocationListHeader editing={editing} columns={filters.columns} />
+                    <CuratorAllocationListHeader
+                      editing={editing}
+                      columns={filters.columns}
+                      sort={filters.sort}
+                      onSortColumn={onSortColumn}
+                    />
                   }
                 >
                   {section.rows.map((r) => renderAllocationRow(r))}
@@ -2120,7 +2177,7 @@ export function VaultV2Allocations({
                   eligibleSafeRoles: eligibleAllocatorSafes,
                 }),
               }}
-              onConfirm={() => void handlePreviewConfirm()}
+              onConfirm={() => handlePreviewConfirm()}
               isLoading={
                 writeDestination.kind === 'safe' ? queueingSafe : multicallWrite.isLoading
               }

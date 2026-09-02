@@ -556,13 +556,13 @@ export async function executeExitBorrowPosition(params: {
   }
 
   if (position.borrowShares > 0n) {
-    // Accrue can increase debt between read and inclusion — approve max; require ~1% buffer.
+    // Fresh borrowAssetsUp (round up). Approve max so 1-wei accrual at inclusion
+    // can still succeed; do not require a % extra or MAX(wallet=debt) fails.
     const need = position.borrowAssetsUp;
-    const needBuffered = need + need / 100n + 1n;
     const bal = await readErc20Balance(client, marketParams.loanToken, owner);
-    if (bal < needBuffered) {
+    if (bal < need) {
       throw new Error(
-        `Insufficient loan token to repay (need ~${needBuffered.toString()} raw incl. buffer, have ${bal.toString()}).`
+        `Insufficient loan token to repay (need ${need.toString()} raw, have ${bal.toString()}).`
       );
     }
     onStep?.('Approving loan token for repay…');
@@ -770,11 +770,10 @@ export async function executeRepayDebt(params: {
 
   if (assets == null) {
     const need = position.borrowAssetsUp;
-    const needBuffered = need + need / 100n + 1n;
     const bal = await readErc20Balance(client, marketParams.loanToken, owner);
-    if (bal < needBuffered) {
+    if (bal < need) {
       throw new Error(
-        `Insufficient loan token to repay (need ~${needBuffered.toString()} raw incl. buffer, have ${bal.toString()}).`
+        `Insufficient loan token to repay (need ${need.toString()} raw, have ${bal.toString()}).`
       );
     }
     onStep?.('Approving loan token for repay…');

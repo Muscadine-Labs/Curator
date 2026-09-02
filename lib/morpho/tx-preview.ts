@@ -17,7 +17,25 @@ export type TxPreviewAction =
   | 'decrease_absolute_cap'
   | 'decrease_relative_cap'
   | 'increase_absolute_cap'
-  | 'increase_relative_cap';
+  | 'increase_relative_cap'
+  | 'deposit'
+  | 'withdraw'
+  | 'supply'
+  | 'borrow'
+  | 'repay'
+  | 'add_collateral'
+  | 'withdraw_collateral'
+  | 'exit';
+
+export type UserTxKind =
+  | 'deposit'
+  | 'withdraw'
+  | 'supply'
+  | 'borrow'
+  | 'repay'
+  | 'add_collateral'
+  | 'withdraw_collateral'
+  | 'exit';
 
 export type TxPreviewChange = {
   action: TxPreviewAction;
@@ -290,5 +308,56 @@ export function txPreviewActionLabel(action: TxPreviewAction): string {
       return 'Increase absolute cap';
     case 'increase_relative_cap':
       return 'Increase relative cap';
+    case 'deposit':
+      return 'Deposit';
+    case 'withdraw':
+      return 'Withdraw';
+    case 'supply':
+      return 'Supply';
+    case 'borrow':
+      return 'Borrow';
+    case 'repay':
+      return 'Repay';
+    case 'add_collateral':
+      return 'Add collateral';
+    case 'withdraw_collateral':
+      return 'Withdraw collateral';
+    case 'exit':
+      return 'Exit';
   }
+}
+
+const USER_TX_TITLE: Record<UserTxKind, string> = {
+  deposit: 'Review deposit',
+  withdraw: 'Review withdraw',
+  supply: 'Review supply',
+  borrow: 'Review borrow',
+  repay: 'Review repay',
+  add_collateral: 'Review add collateral',
+  withdraw_collateral: 'Review withdraw collateral',
+  exit: 'Review exit',
+};
+
+export function buildUserTxPreview(input: {
+  kind: UserTxKind;
+  amount: string;
+  targetLabel: string;
+  fromLabel: string;
+  toLabel: string;
+  description?: string | null;
+  footnote?: string | null;
+}): TxPreview {
+  return {
+    title: USER_TX_TITLE[input.kind],
+    description: input.description ?? null,
+    changes: [
+      {
+        action: input.kind,
+        label: input.targetLabel,
+        subtitle: `${input.fromLabel} → ${input.toLabel}`,
+        delta: input.amount,
+      },
+    ],
+    footnote: input.footnote ?? null,
+  };
 }

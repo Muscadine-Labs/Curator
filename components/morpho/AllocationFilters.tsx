@@ -29,14 +29,25 @@ interface AllocationFiltersProps {
 }
 
 const SORT_OPTIONS: { key: AllocationSortKey; label: string }[] = [
+  { key: 'default', label: 'Default (allocated high → low)' },
   { key: 'allocated-desc', label: 'Allocated (high → low)' },
   { key: 'allocated-asc', label: 'Allocated (low → high)' },
   { key: 'supplyApy-desc', label: 'Supply APY (high → low)' },
+  { key: 'supplyApy-asc', label: 'Supply APY (low → high)' },
   { key: 'borrowApy-desc', label: 'Borrow APY (high → low)' },
+  { key: 'borrowApy-asc', label: 'Borrow APY (low → high)' },
   { key: 'utilization-desc', label: 'Utilization (high → low)' },
+  { key: 'utilization-asc', label: 'Utilization (low → high)' },
   { key: 'liquidity-desc', label: 'Liquidity USD (high → low)' },
   { key: 'liquidity-asc', label: 'Liquidity USD (low → high)' },
+  { key: 'effectiveCap-desc', label: 'Absolute cap (high → low)' },
+  { key: 'effectiveCap-asc', label: 'Absolute cap (low → high)' },
+  { key: 'percentCap-desc', label: 'Relative cap (high → low)' },
+  { key: 'percentCap-asc', label: 'Relative cap (low → high)' },
+  { key: 'percentAlloc-desc', label: '% Allocated (high → low)' },
+  { key: 'percentAlloc-asc', label: '% Allocated (low → high)' },
   { key: 'capacity-desc', label: 'Remaining capacity (high → low)' },
+  { key: 'capacity-asc', label: 'Remaining capacity (low → high)' },
   { key: 'name-asc', label: 'Market (A → Z)' },
   { key: 'name-desc', label: 'Market (Z → A)' },
 ];

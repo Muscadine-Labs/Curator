@@ -4,6 +4,37 @@ Append-only session log. Newest first. Keep entries short; link files.
 
 ---
 
+## 2026-09-02 — Review fixes: load race, preview lock, full-repay
+
+- Positions `loadMarket` catch/finally ignore stale requests; token-meta failure clears balances; Load/expand disabled while signing.
+- `TxPreviewDialog` locks Confirm/Escape/overlay on click (before React `isLoading`) so a double click cannot send two txs.
+- Full repay uses shares only when wallet covers debt. Vault full-exit uses bigint `isNearFullAmount` (not `Number`).
+- Allocation sort uses a row map; header sort uses a hoisted `onSortColumn` + functional `setFilters`. Positions amount fields parse once per render (`evaluateAmountInput`).
+
+## 2026-09-02 — Allocation column header sort cycle
+
+- Vault `/allocation` headers (Rate / APY, Util., Liquidity, caps, Allocation, % Alloc., Name) cycle **high→low → low→high → default**.
+- Default sort is `default` (allocated high→low, no header highlight). `cycleAllocationHeaderSort` in `lib/allocation/allocation-filters.ts`.
+- Files: `AllocationListView.tsx`, `VaultV2Allocations.tsx`, `AllocationFilters.tsx`.
+
+## 2026-09-02 — Transact + positions review modal
+
+- `/vaults/transact` and `/markets/positions` open `TxPreviewDialog` before the wallet signs (same chrome as Allocation / Sentinel).
+- User actions use `buildUserTxPreview` in `lib/morpho/tx-preview.ts`. Dialog stays open through signing and shows a confirmed tx link until Done.
+- Files: `TxPreviewDialog.tsx`, `VaultTransactBox.tsx`, `MarketPositionBox.tsx`.
+
+## 2026-09-02 — Review: pair search, MAX repay, deps
+
+- Pair search matches symbol words/prefixes (`ETH` no longer hits `WETH`); market ids still substring-match.
+- Full repay preflight no longer requires a 1% extra wallet balance (broke MAX when wallet = debt). Shares repay still used for close.
+- Positions load: one RPC pass, ignore stale responses, skip the duplicate refresh after load.
+- MAX parse/fill uses the same `formatUnits`/`parseUnits` decimals. Deps: Next 16.3.4, lucide-react 1.39, viem 2.56.3 (still ESLint 9 / wagmi 2 / TypeScript 6).
+
+## 2026-09-02 — Markets pair search + positions MAX
+
+- Browse Loan / Collateral / Search now filter Midnight as well as Blue (`lib/morpho/market-pair-filter.ts`, `CuratorMarketsBrowser.tsx`). Pair queries match tokens in any order (`cbBTC/USDC` hits a USDC loan + cbBTC collateral Midnight book).
+- `/markets/positions`: Muscadine-app MAX on every amount (`AmountMaxInput.tsx`). Wallet ERC-20 for supply/add collateral; LLTV-buffered borrow; repay `min(wallet, debt)` and shares on full close; max-safe collateral withdraw; full supply withdraw by shares. Docs: Morpho borrow/earn assets-flow (not Vault V2 `maxDeposit`/`maxWithdraw`, which return 0).
+
 ## 2026-08-29 — Vercel install/build log noise
 
 - `package.json` `allowScripts` for `bufferutil`, `keccak`, `unrs-resolver`, `utf-8-validate` (npm 12 install-script policy).
