@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import {
   getActiveVaultAddressesForStats,
-  getVaultAddressesForBusinessViews,
+  getVaultAddressesForProtocolStats,
 } from '@/lib/config/vaults';
 import {
   BASE_CHAIN_ID,
@@ -174,7 +174,7 @@ export async function GET(request: Request) {
 
   try {
     const stats = await withServerResponseCache('protocol-stats-v2', API_CACHE_MAX_AGE_MS, async () => {
-    const businessVaults = getVaultAddressesForBusinessViews();
+    const businessVaults = getVaultAddressesForProtocolStats();
     const activeVaultsForStats = getActiveVaultAddressesForStats();
     const addresses = businessVaults.map((v) => getAddress(v.address));
     const activeAddresses = activeVaultsForStats.map((v) => getAddress(v.address));

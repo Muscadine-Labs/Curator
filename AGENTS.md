@@ -27,7 +27,12 @@ npm run build   # next build
 - **V2-only vault config:** all tracked vaults are Morpho V2 (`lib/config/vaults.ts`).
   No MetaMorpho / V1 vault routes. Blue market risk uses `blue-market-data.ts` +
   `compute-blue-market-risk.ts`. MetaMorpho adapters are ignored in risk, allocation,
-  and sentinel UIs.
+  and sentinel UIs. **Fee wrappers** (`kind: 'feeWrapper'`) use GraphQL
+  `MorphoVaultV2Adapter.innerVault` and empty allocate `data` (`EMPTY_ADAPTER_DATA`);
+  they are listed on `/vaults` but excluded from protocol TVL (deposits sit in
+  the inner vault). Unique-user counts include wrappers. Transact lists
+  wrappers and test vaults using Morpho/on-chain names. `innerVaultAddress`
+  is the GraphQL fallback for the child vault.
 - **React Query polling** — dashboard hooks poll every 30s; indexed vault data
   (history, reallocations, holders) does not background-poll. On-chain vault
   hooks (`risk`, `governance`) use `staleTime: 0` + `refetchOnMount: 'always'`.
@@ -59,6 +64,8 @@ npm run build   # next build
   Create +
   dead deposit/seed — `/markets/create` (Morpho app link after create).
   Vault transact holdings — any Morpho vault via indexed positions API.
+  Configured dropdown includes wrappers and test vaults; labels are Morpho
+  names (GraphQL / on-chain), not a synthetic “Wrapper” suffix.
   Top nav: Overview · Vaults · Markets · Curator · Business; sidebar is
   area-scoped (`lib/nav/areas.ts`). Curator area: Curator tools · Bots ·
   Multisig Safe. Overview Protocol KPIs open drill-downs (Users: holdings +

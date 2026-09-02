@@ -39,7 +39,13 @@ type VaultListGql = {
   idleAssets?: string | number | null;
   liquidity?: string | number | null;
   liquidityUsd?: number | null;
-  liquidityAdapter?: { address?: string | null; type?: string | null; __typename?: string | null } | null;
+  liquidityAdapter?: {
+    __typename?: string | null;
+    address?: string | null;
+    type?: string | null;
+    innerVault?: { name?: string | null; symbol?: string | null } | null;
+    metaMorpho?: { name?: string | null; symbol?: string | null } | null;
+  } | null;
   liquidityData?: {
     __typename?: string | null;
     market?: {
@@ -72,6 +78,10 @@ const VAULT_LIST_SELECTION = `
     address
     ... on MetaMorphoAdapter { type }
     ... on MorphoMarketV1Adapter { type }
+    ... on MorphoVaultV2Adapter {
+      type
+      innerVault { name symbol }
+    }
   }
   liquidityData {
     __typename
@@ -114,6 +124,12 @@ function listLiquidityAdapter(v: VaultListGql): {
   if (data?.__typename === 'MetaMorphoLiquidityData') {
     const name = data.metaMorpho?.name || data.metaMorpho?.symbol;
     if (name) return { label: name, utilizationPercent: null };
+  }
+  if (v.liquidityAdapter?.__typename === 'MorphoVaultV2Adapter') {
+    const name =
+      v.liquidityAdapter.innerVault?.name || v.liquidityAdapter.innerVault?.symbol;
+    if (name) return { label: name, utilizationPercent: null };
+    return { label: 'Inner Vault V2', utilizationPercent: null };
   }
   if (!v.liquidityAdapter?.address) {
     return { label: 'Idle liquidity', utilizationPercent: null };
@@ -221,11 +237,14 @@ export async function GET(request: Request) {
           id: row.address,
           version: cfg?.morphoVersion ?? ('v2' as const),
           listCategory: cfg?.listCategory ?? null,
+          kind: cfg?.kind ?? 'strategy',
+          innerVaultAddress: cfg?.innerVaultAddress ?? null,
         };
       };
 
       const allVaults = v2Vaults.map((v) => {
         const chainId = getChainId(v.address!);
+        const cfg = getVaultByAddress(v.address!);
         return enrichFromConfig({
           address: v.address!,
           name: v.name ?? 'Unknown Vault',
@@ -236,7 +255,8 @@ export async function GET(request: Request) {
           scanUrl: `${getScanUrlForChain(chainId)}/address/${v.address}`,
           performanceFeeBps:
             v.performanceFee != null ? Math.round(v.performanceFee * BPS_PER_ONE) : null,
-          status: v.listed ? ('active' as const) : ('paused' as const),
+          status:
+            cfg?.kind === 'feeWrapper' || v.listed ? ('active' as const) : ('paused' as const),
           riskTier: 'medium' as const,
           createdAt: null as string | null,
           tvl: v.totalAssetsUsd ?? null,

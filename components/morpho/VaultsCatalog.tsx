@@ -112,7 +112,10 @@ export function VaultsCatalog() {
   );
 
   const depositsUsd = useMemo(
-    () => filtered.reduce((sum, v) => sum + (v.tvl ?? 0), 0),
+    () =>
+      filtered
+        .filter((v) => v.kind !== 'feeWrapper')
+        .reduce((sum, v) => sum + (v.tvl ?? 0), 0),
     [filtered]
   );
 
@@ -124,7 +127,7 @@ export function VaultsCatalog() {
           value={depositsUsd}
           format="usd"
           isLoading={isLoading}
-          subtitle="Visible vaults in this list"
+          subtitle="Strategy vaults; wrappers already counted in inner-vault deposits"
         />
         <KpiCard
           title="Interest generated"
@@ -277,8 +280,15 @@ function VaultRow({ vault }: { vault: VaultWithData }) {
       </TableCell>
       <TableCell>
         <Link href={href} className="min-w-0" onClick={(e) => e.stopPropagation()}>
-          <span className="block truncate text-sm font-medium text-foreground">
-            {vault.name ?? 'Unknown Vault'}
+          <span className="flex items-center gap-1.5">
+            <span className="block truncate text-sm font-medium text-foreground">
+              {vault.name ?? 'Unknown Vault'}
+            </span>
+            {vault.kind === 'feeWrapper' ? (
+              <Badge variant="outline" className="shrink-0 text-[10px] font-normal">
+                Wrapper
+              </Badge>
+            ) : null}
           </span>
           <span className="block font-mono text-[11px] text-muted-foreground">
             {vault.address.slice(0, 6)}…{vault.address.slice(-4)}

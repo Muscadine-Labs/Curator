@@ -37,6 +37,7 @@ import {
 } from '@/lib/morpho/vault-user-transactions';
 import type { TransactionProgressStep } from '@/lib/morpho/types/transactions';
 import { useUserVaultPositions } from '@/lib/hooks/useUserVaultPositions';
+import { useVaultList } from '@/lib/hooks/useProtocolStats';
 import type { UserVaultPositionSummary } from '@/lib/morpho/fetch-user-vault-positions';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatAllocationEditInputExact } from '@/lib/format/allocation-display';
@@ -100,8 +101,16 @@ export function VaultTransactBox({
     isLoading: holdingsLoading,
     refetch: refetchHoldings,
   } = useUserVaultPositions(walletAddress, BASE_CHAIN_ID);
+  const { data: listedVaults = [] } = useVaultList({ includeAll: true });
 
   const configuredVaults = useMemo(() => getAllVaultAddresses(), []);
+  const listedNameByAddress = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const v of listedVaults) {
+      if (v.name) map.set(v.address.toLowerCase(), v.name);
+    }
+    return map;
+  }, [listedVaults]);
 
   const [selectedPreset, setSelectedPreset] = useState(
     initialVaultAddress?.toLowerCase() ?? configuredVaults[0]?.address.toLowerCase() ?? ''
@@ -336,12 +345,7 @@ export function VaultTransactBox({
     }
   };
 
-  const vaultLabel = vault
-    ? (() => {
-        const cfg = getVaultByAddress(vault.address);
-        return cfg ? getConfiguredVaultDisplayName(cfg) : vault.name;
-      })()
-    : '';
+  const vaultLabel = vault?.name ?? '';
 
   const openReview = () => {
     if (!vault || !walletAddress || !amount.trim()) return;
@@ -513,7 +517,8 @@ export function VaultTransactBox({
             >
               {configuredVaults.map((v) => (
                 <option key={v.address} value={v.address.toLowerCase()}>
-                  {getConfiguredVaultDisplayName(v)}
+                  {listedNameByAddress.get(v.address.toLowerCase()) ??
+                    getConfiguredVaultDisplayName(v)}
                 </option>
               ))}
             </select>
@@ -555,10 +560,7 @@ export function VaultTransactBox({
           {vault && (
             <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border px-3 py-2">
               <span className="text-sm font-medium tracking-tight">
-                {(() => {
-                  const cfg = getVaultByAddress(vault.address);
-                  return cfg ? getConfiguredVaultDisplayName(cfg) : vault.name;
-                })()}
+                {vault.name}
               </span>
               <Badge variant="outline" className="text-xs">
                 {vault.symbol}

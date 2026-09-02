@@ -46,6 +46,7 @@ import {
   groupCaps,
 } from '@/lib/morpho/v2-cap-format';
 import {
+  EMPTY_ADAPTER_DATA,
   encodeMarketParamsData,
   resolveCapIdData,
 } from '@/lib/morpho/v2-id-data';
@@ -60,7 +61,9 @@ import {
   getTokenDisplayDecimals,
   resolveAssetDecimals,
 } from '@/lib/format/asset-decimals';
-import { marketKeyFromGraphQL, morphoMarketHref } from '@/lib/morpho/morpho-app-links';
+import { marketKeyFromGraphQL, morphoMarketHref, curatorVaultHref } from '@/lib/morpho/morpho-app-links';
+import { resolveInnerVaultAddress } from '@/lib/config/vaults';
+import { isMorphoVaultV2Adapter } from '@/lib/morpho/vault-v2-adapter';
 import type { CapInfo, VaultV2GovernanceResponse } from '@/app/api/vaults/[id]/governance/route';
 import type { V2VaultRiskResponse } from '@/app/api/vaults/[id]/risk/route';
 import type { VaultV2PendingResponse } from '@/app/api/vaults/[id]/pending/route';
@@ -188,8 +191,8 @@ export function VaultV2Sentinel({
     if (!risk) {
       return { totalRaw: 0n, overviewSegments: [] as OverviewSegment[], deallocateRows: [] as DeallocateRow[] };
     }
-    return buildOverviewAndDeallocate(risk, governance);
-  }, [risk, governance]);
+    return buildOverviewAndDeallocate(risk, governance, vaultAddress);
+  }, [risk, governance, vaultAddress]);
 
   if ((!preloadedGovernance && govLoading) || (!preloadedRisk && riskLoading)) {
     return (
@@ -1394,7 +1397,8 @@ function findCapByRowKey(
 
 function buildOverviewAndDeallocate(
   risk: V2VaultRiskResponse,
-  governance: VaultV2GovernanceResponse | null | undefined
+  governance: VaultV2GovernanceResponse | null | undefined,
+  wrapperVaultAddress: string
 ): {
   totalRaw: bigint;
   overviewSegments: OverviewSegment[];
@@ -1443,6 +1447,50 @@ function buildOverviewAndDeallocate(
   });
 
   for (const adapter of risk.adapters ?? []) {
+    if (isMorphoVaultV2Adapter(adapter)) {
+      const raw = parseBig(adapter.bookedAllocationAssets ?? adapter.allocationAssets);
+      totalRaw += raw;
+      const inner = adapter.innerVault;
+      const label = adapter.adapterLabel || inner?.name || inner?.symbol || 'Inner Vault V2';
+      const innerHref = curatorVaultHref(
+        resolveInnerVaultAddress(wrapperVaultAddress, inner?.address)
+      );
+      const adapterCap = capByAdapter.get(adapter.adapterAddress.toLowerCase());
+      overviewSegments.push({
+        key: `inner-${adapter.adapterAddress}`,
+        label,
+        morphoHref: innerHref,
+        pct: 0,
+        raw,
+        color: BAR_COLORS[1] ?? BAR_COLORS[2],
+      });
+      deallocateRows.push({
+        key: `inner-${adapter.adapterAddress}`,
+        label,
+        morphoHref: innerHref,
+        lltv: null,
+        adapterAddress: adapter.adapterAddress,
+        idData: EMPTY_ADAPTER_DATA,
+        currentRaw: raw,
+        liquidityAssets: (() => {
+          const liq = inner?.liquidity;
+          if (liq == null) return null;
+          try {
+            return BigInt(String(liq));
+          } catch {
+            return null;
+          }
+        })(),
+        allocationPct: 0,
+        supplyApy: inner?.avgNetApy ?? null,
+        liquidityUsd: inner?.liquidityUsd ?? null,
+        absoluteCap: adapterCap?.absoluteCap ?? null,
+        relativeCap: adapterCap?.relativeCap ?? null,
+        canDeallocate: raw > 0n,
+      });
+      continue;
+    }
+
     for (const m of adapter.markets ?? []) {
       const raw = parseBig(m.bookedAllocationAssets ?? m.allocationAssets);
       totalRaw += raw;

@@ -5,6 +5,12 @@ import { BASE_CHAIN_ID } from '@/lib/constants';
 
 export type VaultCategory = 'prime' | 'vineyard' | 'frontier' | 'test';
 
+/**
+ * `strategy` — allocates to Morpho Blue markets (MorphoMarketV1Adapter).
+ * `feeWrapper` — single MorphoVaultV2Adapter into another Vault V2 (empty allocate data).
+ */
+export type VaultKind = 'strategy' | 'feeWrapper';
+
 /** Underlying vault asset — used for calldata decode/formatting before GraphQL loads. */
 export type VaultAssetSymbol = 'USDC' | 'WETH' | 'cbBTC';
 
@@ -16,7 +22,19 @@ export interface VaultAddressConfig {
   assetSymbol: VaultAssetSymbol;
   /** Overrides name-based UI routing when the Morpho vault name lacks category keywords */
   listCategory?: VaultCategory;
-  /** When true, hidden from overview, protocol stats, monthly statements, and GET /api/vaults */
+  /** Default `strategy`. Fee wrappers only allocate to one inner Vault V2. */
+  kind?: VaultKind;
+  /**
+   * Child Vault V2 when `kind` is `feeWrapper`. Same env default as the
+   * strategy vault (e.g. `NEXT_PUBLIC_VAULT_USDC_V2`). GraphQL fallback when
+   * `MorphoVaultV2Adapter.innerVault` is omitted.
+   */
+  innerVaultAddress?: string;
+  /**
+   * Test vaults: omitted from overview, catalog, monthly statements, and
+   * default GET /api/vaults. Not the TVL double-count flag — use
+   * `kind: 'feeWrapper'` so wrappers stay in business views.
+   */
   excludeFromBusinessViews?: boolean;
   /** When true, excluded from dashboard active-vault and user counts */
   inactive?: boolean;
@@ -24,32 +42,40 @@ export interface VaultAddressConfig {
   excludeFromSidebar?: boolean;
 }
 
+const VAULT_USDC_PRIME =
+  process.env.NEXT_PUBLIC_VAULT_USDC_V2 || '0x89712980Cb434eF5aE4AB29349419eb976B0b496';
+const VAULT_WETH_PRIME =
+  process.env.NEXT_PUBLIC_VAULT_WETH_V2 || '0xd6dcad2f7da91fbb27bda471540d9770c97a5a43';
+const VAULT_CBBTC_PRIME =
+  process.env.NEXT_PUBLIC_VAULT_CBBTC_V2 || '0x99dcd0d75822ba398f13b2a8852b07c7e137ec70';
+const VAULT_USDC_FRONTIER =
+  process.env.NEXT_PUBLIC_VAULT_USDC_V2_FRONTIER ||
+  '0x314fD07319ef645bA7D548915CCd91F4788A1839';
+
 const vaultAddresses: VaultAddressConfig[] = [
   {
-    address: process.env.NEXT_PUBLIC_VAULT_USDC_V2 || '0x89712980Cb434eF5aE4AB29349419eb976B0b496',
+    address: VAULT_USDC_PRIME,
     chainId: BASE_CHAIN_ID,
     morphoVersion: 'v2',
     assetSymbol: 'USDC',
     listCategory: 'prime',
   },
   {
-    address: process.env.NEXT_PUBLIC_VAULT_WETH_V2 || '0xd6dcad2f7da91fbb27bda471540d9770c97a5a43',
+    address: VAULT_WETH_PRIME,
     chainId: BASE_CHAIN_ID,
     morphoVersion: 'v2',
     assetSymbol: 'WETH',
     listCategory: 'prime',
   },
   {
-    address: process.env.NEXT_PUBLIC_VAULT_CBBTC_V2 || '0x99dcd0d75822ba398f13b2a8852b07c7e137ec70',
+    address: VAULT_CBBTC_PRIME,
     chainId: BASE_CHAIN_ID,
     morphoVersion: 'v2',
     assetSymbol: 'cbBTC',
     listCategory: 'prime',
   },
   {
-    address:
-      process.env.NEXT_PUBLIC_VAULT_USDC_V2_FRONTIER ||
-      '0x314fD07319ef645bA7D548915CCd91F4788A1839',
+    address: VAULT_USDC_FRONTIER,
     chainId: BASE_CHAIN_ID,
     morphoVersion: 'v2',
     assetSymbol: 'USDC',
@@ -75,6 +101,39 @@ const vaultAddresses: VaultAddressConfig[] = [
     listCategory: 'test',
     excludeFromBusinessViews: true,
   },
+  {
+    address:
+      process.env.NEXT_PUBLIC_VAULT_USDC_PRIME_WRAPPER ||
+      '0x036A01eFdDC87F6634FFDE0533EE528b90fc7A45',
+    chainId: BASE_CHAIN_ID,
+    morphoVersion: 'v2',
+    assetSymbol: 'USDC',
+    listCategory: 'prime',
+    kind: 'feeWrapper',
+    innerVaultAddress: VAULT_USDC_PRIME,
+  },
+  {
+    address:
+      process.env.NEXT_PUBLIC_VAULT_USDC_FRONTIER_WRAPPER ||
+      '0x54D8417bD21C86A7806b58f5aa2e2E0bB88B856A',
+    chainId: BASE_CHAIN_ID,
+    morphoVersion: 'v2',
+    assetSymbol: 'USDC',
+    listCategory: 'frontier',
+    kind: 'feeWrapper',
+    innerVaultAddress: VAULT_USDC_FRONTIER,
+  },
+  {
+    address:
+      process.env.NEXT_PUBLIC_VAULT_WETH_PRIME_WRAPPER ||
+      '0x548653b09b03A69f93B3890c382fE9DcD245cbc4',
+    chainId: BASE_CHAIN_ID,
+    morphoVersion: 'v2',
+    assetSymbol: 'WETH',
+    listCategory: 'prime',
+    kind: 'feeWrapper',
+    innerVaultAddress: VAULT_WETH_PRIME,
+  },
 ];
 
 export const getVaultByAddress = (address: string): VaultAddressConfig | undefined => {
@@ -92,20 +151,55 @@ const CATEGORY_LABEL: Record<VaultCategory, string> = {
   test: 'Test',
 };
 
-/** Human label for configured vaults, e.g. "Muscadine USDC Frontier". */
+export function isFeeWrapperVault(
+  vault: { kind?: VaultKind | null } | null | undefined
+): boolean {
+  return vault?.kind === 'feeWrapper';
+}
+
+/**
+ * Fallback label when GraphQL / on-chain name is unavailable.
+ * Fee wrappers match Morpho names (`USDC Prime`); strategy vaults keep the
+ * Muscadine prefix (`Muscadine USDC Prime`).
+ */
 export function getConfiguredVaultDisplayName(
-  vault: Pick<VaultAddressConfig, 'assetSymbol' | 'listCategory'>
+  vault: Pick<VaultAddressConfig, 'assetSymbol' | 'listCategory' | 'kind'>
 ): string {
   const category = vault.listCategory ? CATEGORY_LABEL[vault.listCategory] : 'V2';
+  if (vault.kind === 'feeWrapper') {
+    return `${vault.assetSymbol} ${category}`;
+  }
   return `Muscadine ${vault.assetSymbol} ${category}`;
 }
 
-/** Vaults included in overview, protocol stats, monthly statements, and the public vault list API */
+/** GraphQL `innerVault.address`, else the wrapper's configured child. */
+export function resolveInnerVaultAddress(
+  wrapperAddress: string,
+  graphQlAddress?: string | null
+): string | null {
+  if (graphQlAddress) return graphQlAddress;
+  return getVaultByAddress(wrapperAddress)?.innerVaultAddress ?? null;
+}
+
+/** Vaults included in the catalog, monthly statements, and GET /api/vaults */
 export const getVaultAddressesForBusinessViews = (): VaultAddressConfig[] => {
   return vaultAddresses.filter((v) => !v.excludeFromBusinessViews);
 };
 
-/** Active vaults for dashboard user / active-vault counts (excludes test vaults). */
+/**
+ * Strategy vaults for protocol TVL. Fee wrappers deposit into inner vaults —
+ * summing both would double-count. Unique users use
+ * `getActiveVaultAddressesForStats` (includes wrappers).
+ */
+export const getVaultAddressesForProtocolStats = (): VaultAddressConfig[] => {
+  return getVaultAddressesForBusinessViews().filter((v) => v.kind !== 'feeWrapper');
+};
+
+/**
+ * Active business vaults for dashboard unique-user counts and the active-vault
+ * KPI. Includes fee wrappers so wrapper-only depositors are counted; excludes
+ * test (`excludeFromBusinessViews`) and `inactive` vaults.
+ */
 export const getActiveVaultAddressesForStats = (): VaultAddressConfig[] => {
   return getVaultAddressesForBusinessViews().filter((v) => !v.inactive);
 };

@@ -38,6 +38,12 @@ export function morphoVaultHref(vaultAddress: string, chainId: number): string {
   return `${MORPHO_APP_ORIGIN}/${morphoChainSlug(chainId)}/vault/${vaultAddress.toLowerCase()}`;
 }
 
+/** In-app vault detail (`/vault/{address}`). */
+export function curatorVaultHref(vaultAddress: string | null | undefined): string | null {
+  if (!vaultAddress) return null;
+  return `/vault/${vaultAddress}`;
+}
+
 /** Curator Morpho Blue market positions (supply, borrow, collateral). */
 export function curatorMarketPositionsHref(
   marketId: string | null | undefined,

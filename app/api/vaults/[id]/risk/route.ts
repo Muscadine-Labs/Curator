@@ -20,6 +20,12 @@ import { logger } from '@/lib/utils/logger';
 import { marketKeyFromGraphQL } from '@/lib/morpho/morpho-app-links';
 import type { CapInfo } from '@/app/api/vaults/[id]/governance/route';
 import {
+  innerVaultLabel,
+  isMorphoVaultV2Adapter,
+  mergeInnerVaultInfo,
+  type VaultV2InnerVaultInfo,
+} from '@/lib/morpho/vault-v2-adapter';
+import {
   computeBlueMarketRiskScores,
   isMarketIdle,
   type MarketRiskGrade,
@@ -30,15 +36,23 @@ import { getOracleTimestampData, getOracleFeedHintsFromMarket, type OracleTimest
 import type { Address } from 'viem';
 import { unauthorizedUnlessAdmin } from '@/lib/auth/require-admin';
 
-type AdapterType = 'MorphoMarketV1Adapter' | 'Unknown';
+type AdapterType = 'MorphoMarketV1Adapter' | 'MorphoVaultV2Adapter' | 'Unknown';
 
 type GraphAdapter = {
   __typename?: string | null;
   address: string;
   assetsUsd: number | null;
-  assets: string | null;
+  assets: string | number | null;
   type: AdapterType;
   factory?: { address?: string | null } | null;
+  innerVault?: {
+    address?: string | null;
+    name?: string | null;
+    symbol?: string | null;
+    avgNetApy?: number | null;
+    liquidity?: string | number | null;
+    liquidityUsd?: number | null;
+  } | null;
   positions?: {
     items: Array<{
       state?: {
@@ -97,6 +111,7 @@ export type V2AdapterRiskData = {
   markets: V2MarketRiskData[];
   absoluteCap?: string | null;
   relativeCap?: string | null;
+  innerVault?: VaultV2InnerVaultInfo | null;
 };
 
 export type V2VaultRiskResponse = {
@@ -170,6 +185,19 @@ const VAULT_V2_RISK_QUERY = gql`
                   }
                 }
               }
+            }
+          }
+          ... on MorphoVaultV2Adapter {
+            assets
+            assetsUsd
+            type
+            innerVault {
+              address
+              name
+              symbol
+              avgNetApy
+              liquidity
+              liquidityUsd
             }
           }
         }
@@ -404,10 +432,34 @@ async function buildBlueAdapterMarketRisks(
 async function computeAdapterRisk(
   adapter: GraphAdapter,
   chainId: number,
-  caps: CapInfo[]
+  caps: CapInfo[],
+  wrapperVaultAddress: string
 ): Promise<V2AdapterRiskData | null> {
   if (adapter.__typename === 'MetaMorphoAdapter') {
     return null;
+  }
+
+  if (isMorphoVaultV2Adapter(adapter)) {
+    const inner = mergeInnerVaultInfo(wrapperVaultAddress, adapter.innerVault);
+    const adapterCap = caps.find(
+      (c) =>
+        c.adapterAddress?.toLowerCase() === adapter.address.toLowerCase() &&
+        !c.marketKey &&
+        !c.collateralAddress
+    );
+    return {
+      adapterAddress: adapter.address,
+      adapterType: 'MorphoVaultV2Adapter',
+      adapterLabel: innerVaultLabel(inner, 'Inner Vault V2'),
+      allocationUsd: adapter.assetsUsd ?? 0,
+      allocationAssets: adapter.assets != null ? String(adapter.assets) : null,
+      markets: [],
+      riskScore: 0,
+      riskGrade: 'F',
+      innerVault: inner,
+      absoluteCap: adapterCap?.absoluteCap ?? null,
+      relativeCap: adapterCap?.relativeCap ?? null,
+    };
   }
 
   const posItems = adapter.positions?.items ?? null;
@@ -426,7 +478,7 @@ async function computeAdapterRisk(
       adapterType: 'MorphoMarketV1Adapter',
       adapterLabel: 'Morpho Market Adapter',
       allocationUsd,
-      allocationAssets: adapter.assets ?? null,
+      allocationAssets: adapter.assets != null ? String(adapter.assets) : null,
       riskScore: marketRisks.length > 0 ? weightedScore : 0,
       riskGrade: marketRisks.length > 0 ? grade : 'F',
       markets: marketRisks,
@@ -532,16 +584,23 @@ export async function GET(
     const adapters = data.vault.adapters?.items?.filter((a): a is GraphAdapter => Boolean(a)) ?? [];
 
     const adapterRisks = (
-      await Promise.all(adapters.map((adapter) => computeAdapterRisk(adapter, cfg.chainId, caps)))
+      await Promise.all(
+        adapters.map((adapter) => computeAdapterRisk(adapter, cfg.chainId, caps, address))
+      )
     ).filter((a): a is V2AdapterRiskData => a !== null);
 
+    const strategyForScore = adapterRisks.filter((a) => a.adapterType === 'MorphoMarketV1Adapter');
     const totalAdapterAssetsUsd = adapterRisks.reduce(
+      (sum, a) => sum + (a.allocationUsd ?? 0),
+      0
+    );
+    const scoreWeightUsd = strategyForScore.reduce(
       (sum, a) => sum + (a.allocationUsd ?? 0),
       0
     );
 
     // Calculate weighted risk score in a single reduce pass
-    const vaultWeightedSum = adapterRisks.reduce((sum, adapter) => {
+    const vaultWeightedSum = strategyForScore.reduce((sum, adapter) => {
       if (adapter.allocationUsd > 0) {
         return sum + adapter.riskScore * adapter.allocationUsd;
       }
@@ -549,7 +608,7 @@ export async function GET(
     }, 0);
 
     const vaultRiskScore =
-      totalAdapterAssetsUsd > 0 ? vaultWeightedSum / totalAdapterAssetsUsd : 0;
+      scoreWeightUsd > 0 ? vaultWeightedSum / scoreWeightUsd : 0;
 
     const vaultAsset = data.vault?.asset
       ? { symbol: data.vault.asset.symbol ?? 'UNKNOWN', decimals: data.vault.asset.decimals ?? 18 }

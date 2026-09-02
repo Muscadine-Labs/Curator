@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import Link from 'next/link';
 import { useVaultV2Risk } from '@/lib/hooks/useVaultV2Risk';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -17,6 +18,9 @@ import {
   CuratorSectionHeader,
 } from '@/components/morpho/CuratorChrome';
 import { BASE_CHAIN_ID } from '@/lib/constants';
+import { curatorVaultHref } from '@/lib/morpho/morpho-app-links';
+import { resolveInnerVaultAddress } from '@/lib/config/vaults';
+import { isMorphoVaultV2Adapter } from '@/lib/morpho/vault-v2-adapter';
 import { shouldShowAdapterEntry, shouldShowMarketEntry } from '@/lib/morpho/format-risk';
 import { getGradeColor, getScoreColor } from '@/lib/morpho/market-risk-display';
 
@@ -132,8 +136,13 @@ export function VaultRiskV2({ vaultAddress, chainId, preloadedData }: VaultRiskV
     <div className="space-y-6">
       <CuratorPageHeader
         title="Risk"
-        description="Weighted average across strategy adapters. Markets with a non-zero cap or allocation are shown."
+        description={
+          data.adapters.some((a) => isMorphoVaultV2Adapter(a))
+            ? 'Fee wrappers allocate to a single inner Vault V2. Market risk is scored on the inner vault.'
+            : "Weighted average across strategy adapters. Markets with a non-zero cap or allocation are shown."
+        }
         actions={
+          data.adapters.some((a) => a.adapterType === 'MorphoMarketV1Adapter') ? (
           <div className="flex items-center gap-2">
             <p className={cn('text-lg font-semibold tabular-nums', getScoreColor(data.vaultRiskScore))}>
               {data.vaultRiskScore.toFixed(2)}
@@ -145,6 +154,7 @@ export function VaultRiskV2({ vaultAddress, chainId, preloadedData }: VaultRiskV
               {data.vaultRiskGrade}
             </Badge>
           </div>
+          ) : undefined
         }
       />
 
@@ -187,15 +197,20 @@ export function VaultRiskV2({ vaultAddress, chainId, preloadedData }: VaultRiskV
                 )
               )
               .sort((a, b) => (b.allocationUsd ?? 0) - (a.allocationUsd ?? 0));
+            const innerHref = curatorVaultHref(
+              resolveInnerVaultAddress(vaultAddress, adapter.innerVault?.address)
+            );
+            const isInner = isMorphoVaultV2Adapter(adapter);
 
             return (
               <div key={adapter.adapterAddress} className="space-y-3">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <CuratorSectionHeader
                     title={adapter.adapterLabel}
-                    count={markets.length}
+                    count={isInner ? undefined : markets.length}
                     description={`${formatCompactUSD(adapter.allocationUsd)} · ${formatPercentage(adapterWeightPct, 2)} of vault`}
                   />
+                  {!isInner ? (
                   <div className="flex items-center gap-2">
                     <p className={cn('text-sm font-semibold tabular-nums', getScoreColor(adapter.riskScore))}>
                       {adapter.riskScore.toFixed(2)}
@@ -207,7 +222,23 @@ export function VaultRiskV2({ vaultAddress, chainId, preloadedData }: VaultRiskV
                       {adapter.riskGrade}
                     </Badge>
                   </div>
+                  ) : null}
                 </div>
+                {isInner ? (
+                  <CuratorPanel>
+                    <p className="px-4 py-3 text-sm text-muted-foreground">
+                      Allocates only to{' '}
+                      {innerHref ? (
+                        <Link href={`${innerHref}/risk`} className="font-medium text-foreground underline-offset-2 hover:underline">
+                          {adapter.innerVault?.name || adapter.adapterLabel}
+                        </Link>
+                      ) : (
+                        adapter.innerVault?.name || adapter.adapterLabel
+                      )}
+                      . Market risk grades live on that vault.
+                    </p>
+                  </CuratorPanel>
+                ) : (
                 <div className="space-y-3">
                   {markets.map((m) => (
                       <MarketRiskDetailCard
@@ -223,6 +254,7 @@ export function VaultRiskV2({ vaultAddress, chainId, preloadedData }: VaultRiskV
                       />
                     ))}
                 </div>
+                )}
               </div>
             );
           })}

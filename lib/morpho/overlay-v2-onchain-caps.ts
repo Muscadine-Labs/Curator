@@ -7,9 +7,10 @@ import type {
 } from '@/app/api/vaults/[id]/risk/route';
 import { publicClient } from '@/lib/onchain/client';
 import { vaultV2Abi } from '@/lib/onchain/abis';
-import { resolveCapIdData, encodeMarketCapIdData } from '@/lib/morpho/v2-id-data';
+import { resolveCapIdData, encodeMarketCapIdData, encodeAdapterCapIdData } from '@/lib/morpho/v2-id-data';
 import type { MarketRiskGrade } from '@/lib/morpho/compute-blue-market-risk';
 import { logger } from '@/lib/utils/logger';
+import { isMorphoVaultV2Adapter } from '@/lib/morpho/vault-v2-adapter';
 
 type CapReadContract = {
   address: Address;
@@ -196,6 +197,9 @@ function collectStrategyAllocationIds(risk: V2VaultRiskResponse): Hex[] {
   };
 
   for (const adapter of risk.adapters ?? []) {
+    if (isMorphoVaultV2Adapter(adapter)) {
+      pushId(adapterAllocationId(adapter.adapterAddress));
+    }
     for (const m of adapter.markets ?? []) {
       if (!m.market) continue;
       pushId(marketAllocationId(adapter.adapterAddress, m.market));
@@ -219,20 +223,26 @@ function getGradeFromScore(score: number): MarketRiskGrade {
   return 'F';
 }
 
+function adapterAllocationId(adapterAddress: string): string {
+  return keccak256(encodeAdapterCapIdData(adapterAddress)).toLowerCase();
+}
+
 function recomputeVaultRiskScore(adapters: V2AdapterRiskData[]): {
   vaultRiskScore: number;
   vaultRiskGrade: MarketRiskGrade;
   totalAdapterAssetsUsd: number;
 } {
   const totalAdapterAssetsUsd = adapters.reduce((sum, a) => sum + (a.allocationUsd ?? 0), 0);
-  const vaultWeightedSum = adapters.reduce((sum, adapter) => {
+  const scored = adapters.filter((a) => a.adapterType === 'MorphoMarketV1Adapter');
+  const scoreWeightUsd = scored.reduce((sum, a) => sum + (a.allocationUsd ?? 0), 0);
+  const vaultWeightedSum = scored.reduce((sum, adapter) => {
     if (adapter.allocationUsd > 0) {
       return sum + adapter.riskScore * adapter.allocationUsd;
     }
     return sum;
   }, 0);
   const vaultRiskScore =
-    totalAdapterAssetsUsd > 0 ? vaultWeightedSum / totalAdapterAssetsUsd : 0;
+    scoreWeightUsd > 0 ? vaultWeightedSum / scoreWeightUsd : 0;
   return {
     totalAdapterAssetsUsd,
     vaultRiskScore,
@@ -264,6 +274,25 @@ export async function overlayV2OnChainAllocations(
   let strategySum = 0n;
 
   const adapters = (risk.adapters ?? []).map((adapter): V2AdapterRiskData => {
+    if (isMorphoVaultV2Adapter(adapter) && (adapter.markets ?? []).length === 0) {
+      const idKey = adapterAllocationId(adapter.adapterAddress);
+      const { display, booked } = resolveAllocationRaw(
+        vaultAddress,
+        idKey,
+        allocationById,
+        adapter.allocationAssets,
+        `adapter ${adapter.adapterAddress}`
+      );
+      strategySum += display;
+      return {
+        ...adapter,
+        allocationAssets: display > 0n ? display.toString() : null,
+        bookedAllocationAssets: booked.toString(),
+        allocationUsd: allocationUsdFromRaw(display, totalAssetsRaw, totalAssetsUsd),
+        markets: [],
+      };
+    }
+
     let adapterSum = 0n;
     const markets = (adapter.markets ?? []).map((m): V2MarketRiskData => {
       const idKey = m.market

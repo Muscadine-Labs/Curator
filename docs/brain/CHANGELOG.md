@@ -4,6 +4,19 @@ Append-only session log. Newest first. Keep entries short; link files.
 
 ---
 
+## 2026-09-02 — Fee wrapper review: names, users, inner fallback
+
+- Transact + configured labels use Morpho/on-chain names (`USDC Prime`); keep **Open on Morpho**. Wrappers and test vaults stay in transact.
+- Unique-user / active-vault KPIs include wrappers; protocol TVL still excludes them. Catalog deposits subtitle notes the exclusion.
+- `innerVaultAddress` shares the child vault env default and fills GraphQL `innerVault` misses (`mergeInnerVaultInfo`).
+
+## 2026-09-02 — Fee wrapper Vault V2 GraphQL on /vaults
+
+- Tracked three Morpho fee wrappers (Prime USDC `wmpUSDC`, Frontier USDC `wmfUSDC`, Prime WETH `wmpWETH`) as `kind: 'feeWrapper'` in `lib/config/vaults.ts`.
+- GraphQL: `... on MorphoVaultV2Adapter { innerVault { … } }` on list, governance, and risk. Allocate/deallocate `data` is empty (`EMPTY_ADAPTER_DATA`).
+- Catalog/sidebar show wrappers; protocol TVL and muscadine market index skip them (deposits live in the inner vault). Treasury still includes wrapper fees.
+- Allocation section **Morpho Vault V2**; Risk links to the inner vault. Docs: Morpho [Fee Wrapper](https://docs.morpho.org/developers/earn/concepts/fee-wrapper/).
+
 ## 2026-09-02 — Review fixes: load race, preview lock, full-repay
 
 - Positions `loadMarket` catch/finally ignore stale requests; token-meta failure clears balances; Load/expand disabled while signing.

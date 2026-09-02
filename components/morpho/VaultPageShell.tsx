@@ -13,7 +13,7 @@ import { Shield } from 'lucide-react';
 import { getScanUrlForChain, getScanNameForChain } from '@/lib/constants';
 import { useVaultV2Complete } from '@/lib/hooks/useVaultV2Complete';
 import { vaultV2GovernanceQueryKey } from '@/lib/hooks/useVaultV2Governance';
-import { getVaultCategory } from '@/lib/config/vaults';
+import { getVaultCategory, isFeeWrapperVault } from '@/lib/config/vaults';
 import { morphoVaultHref } from '@/lib/morpho/morpho-app-links';
 import { AppShell } from '@/components/layout/AppShell';
 import { Button } from '@/components/ui/button';
@@ -137,7 +137,9 @@ export function VaultPageShell({ children }: { children: ReactNode }) {
   }
 
   const category = getVaultCategory(vault.name, vault.address);
-  const vaultBadge = CATEGORY_BADGE[category] ?? 'V2';
+  const vaultBadge = isFeeWrapperVault(vault)
+    ? `${CATEGORY_BADGE[category] ?? 'V2'} Wrapper`
+    : (CATEGORY_BADGE[category] ?? 'V2');
   const hasPending = (pending?.pending?.length ?? 0) > 0;
   const morphoUiUrl = vault.address
     ? morphoVaultHref(vault.address, vault.chainId)

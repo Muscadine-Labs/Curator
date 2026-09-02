@@ -204,6 +204,7 @@ Getting those semantics wrong is the #1 source of reverts.
   | Collateral cap id | `encodeCollateralCapIdData` | `abi.encode("collateralToken", collateralAddress)` |
   | Market cap id | `encodeMarketCapIdData` | `abi.encode("this/marketParams", adapterAddress, marketParams)` |
   | Blue market allocate/deallocate `data` | `encodeMarketParamsData` | `abi.encode(marketParams)` — five-tuple, no prefix |
+  | MorphoVaultV2Adapter allocate/deallocate `data` | `EMPTY_ADAPTER_DATA` | empty bytes (`0x`) |
 
   Use `resolveCapIdData(cap, risk)` for `decreaseAbsoluteCap` /
   `decreaseRelativeCap`. Market caps need `cap.adapterAddress` from governance
@@ -229,7 +230,8 @@ Getting those semantics wrong is the #1 source of reverts.
   `TransferReverted` on allocate. Planning totals use Σ row currents + GraphQL
   idle; relative cap checks use on-chain `totalAssets` (`chainTotalRaw`). This is
   **not** a strategy adapter contract, but the UI treats idle as a first-class
-  rebalance target alongside **Morpho Blue market** (`MorphoMarketV1Adapter`) rows:
+  rebalance target alongside **Morpho Blue market** (`MorphoMarketV1Adapter`) rows
+  and, on fee wrappers, a single **Morpho Vault V2** (`MorphoVaultV2Adapter`) row:
   - **Adapters tab** (`VaultV2Adapters.tsx`): always show an **Idle Adapter**
     row (even at $0).
   - **Allocations tab** (`VaultV2Allocations.tsx`): idle is an editable target
@@ -254,6 +256,38 @@ Getting those semantics wrong is the #1 source of reverts.
     unknown, kept; `parseSupplyCap` preserves explicit `0`).
   - **Risk tab** (`VaultRiskV2.tsx`): idle counts toward **Adapters Count**
     (`strategy adapters + 1`) and appears as its own row (“No strategy risk”).
+
+#### 3.2.1 Fee wrappers (Vault V2 → inner Vault V2)
+
+A **fee wrapper** is a Vault V2 that allocates only to one child Vault V2 via
+`MorphoVaultV2Adapter` (GraphQL `__typename`; `type` is `MorphoVaultV2`).
+`innerVault { address name symbol avgNetApy liquidity }` is the child.
+Allocate/deallocate `data` is **empty** (`0x` / `EMPTY_ADAPTER_DATA`) — not
+market params. Cap `idData` is still `abi.encode("this", adapterAddress)`.
+`addAdapter` / `removeAdapter` and critical gates are typically abdicated.
+Wrappers are **not listed** on app.morpho.org (`listed: false`). Keep the
+**Open on Morpho** overview link anyway. Morpho docs:
+[Fee Wrapper](https://docs.morpho.org/developers/earn/concepts/fee-wrapper/).
+
+Config: `kind: 'feeWrapper'` + `innerVaultAddress` in `lib/config/vaults.ts`.
+`innerVaultAddress` uses the **same env default** as the child strategy vault
+(`NEXT_PUBLIC_VAULT_USDC_V2`, etc.) and is the GraphQL fallback when
+`innerVault` is omitted. Display names are Morpho/on-chain names (`USDC Prime`),
+not a synthetic “Wrapper” suffix — the catalog/sidebar **Wrapper** badge
+disambiguates. GraphQL fragments must include `... on MorphoVaultV2Adapter` on
+list, governance, and risk queries — omitting them makes the adapter invisible
+(same failure mode as skipping `marketId`). Do **not** treat wrappers as
+Blue-market strategy vaults. Do **not** sum wrapper TVL into protocol stats —
+deposits sit inside the inner vault. Unique-user / active-vault KPIs **do**
+include wrappers. Treasury statements **do** include wrappers (their
+performance/management fees). Transact lists wrappers and test vaults with
+their real names.
+
+Allocation sections on wrappers: **Idle → Morpho Vault V2**. Writes use empty
+adapter data. Risk grades live on the inner vault page, not the wrapper.
+
+Keep **skipping** `MetaMorphoAdapter` (V1 MetaMorpho child). That is not a fee
+wrapper.
 
 ### 3.3 Summary of V1 vs V2
 
@@ -313,12 +347,14 @@ grades; Sentinel holds emergency actions at the bottom.
 6. **Allocation** — `VaultV2Allocations.tsx` receives `preloadedData`
    (governance) **and** `preloadedRisk`. Caps are resolved via
    `keccak256(idData)` using helpers in `lib/morpho/v2-id-data.ts` (see §3.2).
-   **List layout** — sections **Idle → Morpho Blue Market** (no wrapped-vault
-   section). Row types:
+   **List layout** — sections **Idle → Morpho Vault V2 → Morpho Blue Market**.
+   Row types:
    - **MorphoMarketV1Adapter** — one row per Morpho Blue market position. LLTV pill
      next to name. Utilization, borrow/supply APY, liquidity from `market.state`.
      APY/utilization GraphQL values are **decimals**; multiply by 100 before
      `formatPercentage`.
+   - **MorphoVaultV2Adapter** — fee wrapper inner vault (empty allocate `data`).
+     Name links to `/vault/{innerVault}`. Rate column is inner `avgNetApy`.
    - **Idle** — vault cash row; no on-chain cap; no direct writes.
 7. **Risk** — `VaultAnalyticsPanel` on the **Risk** tab (`/vault/[address]/risk`;
    `/analytics` redirects here): market risk grades (`VaultRiskV2`) only.
@@ -404,10 +440,18 @@ from `lib/config/vaults.ts` with:
 
 - `id` — same as vault `address` (for legacy UI keys)
 - `version` — `v1` | `v2` from config `morphoVersion`
-- `listCategory` — optional `prime` | `vineyard` | `v1` | `test`
+- `listCategory` — optional `prime` | `vineyard` | `frontier` | `test`
+- `kind` — optional `strategy` (default) | `feeWrapper`
+- `innerVaultAddress` — child Vault V2 when `kind` is `feeWrapper` (same env
+  default as the strategy vault; GraphQL fallback)
 
 `?includeAll=true` includes test vaults (`excludeFromBusinessViews`); default list
-is business vaults only.
+is business vaults only (including fee wrappers). `/vaults/transact` uses
+`getAllVaultAddresses()` (wrappers + test) and shows Morpho/on-chain names.
+
+Protocol TVL (`getVaultAddressesForProtocolStats`) excludes fee wrappers so
+deposits are not double-counted. Unique users and the active-vault KPI
+(`getActiveVaultAddressesForStats`) include wrappers.
 
 **Top nav + Sidebar** — Topbar areas: Overview · Vaults · Markets · Curator ·
 Business (`lib/nav/areas.ts`). Sidebar is **area-scoped**. Under **Vaults**: All
@@ -786,7 +830,7 @@ These rules are baked into `VaultV2Allocations.tsx`, `VaultV2Sentinel.tsx`,
 ### 5.1 List layout (`AllocationListView.tsx`)
 
 - Morpho-style card: header **Allocation | Allocation** (name left, amount right).
-- **Sections** (fixed order on V2): Idle → Morpho Blue Market.
+- **Sections** (fixed order on V2): Idle → Morpho Vault V2 → Morpho Blue Market.
   Section headers replace per-row type labels.
 - **No token icons.** LLTV on Blue rows is a gray pill (`86%`) via
   `formatLltvPill`, not “LLTV 86%”.
@@ -1035,8 +1079,14 @@ components.
 
 - Curator **skips** `MetaMorphoAdapter` in risk, allocation, sentinel, and adapters
   tabs. If a vault still holds MetaMorpho allocation on-chain, it will not appear in
-  rebalance UI and is omitted from `vaultRiskScore` / idle overlay. Muscadine vaults
-  use Morpho Blue market adapters only.
+  rebalance UI and is omitted from `vaultRiskScore` / idle overlay. Strategy vaults
+  use Morpho Blue market adapters; fee wrappers use `MorphoVaultV2Adapter` (not MetaMorpho).
+
+### Fee wrapper GraphQL missing inner vault
+
+- Query `... on MorphoVaultV2Adapter { innerVault { address name } }` on adapters and
+  `liquidityAdapter`. Allocate/deallocate `data` must be `0x`. Do not sum wrapper TVL
+  into protocol stats. `avgNetApy` is often null until history accumulates — use `netApy`.
 
 ### V2 adapter count wrong in Risk
 
@@ -1493,7 +1543,7 @@ _Last updated: 2026-09-02. When you change reallocation logic, allocation
 list/filters (§5), caps/adapters display, V2 idData/Sentinel (§3.2, §4.2), tx
 preview, client fetch/cache (§4.3), app/API route paths (§2, §4.7, `next.config.ts`
 redirects), Morpho GraphQL field names (§4.4.1), Curator markets browser (§4.7),
-create-market (§18), vault list/sidebar (§4.3.1), vault overview/history (share price in §4.4), risk scoring (§4.5), V2 idle/Blue display, pending/emergency
+create-market (§18), vault list/sidebar (§4.3.1), vault overview/history (share price in §4.4), risk scoring (§4.5), V2 idle/Blue/fee-wrapper display (§3.2.1), pending/emergency
 tabs, wallet stack, Multisig Safe (§13), formatting, CCTP status (§14 removed), global
 density (§16), brain/MCP (`docs/brain/`), or add a new vault interaction, update Sections 3–6, 4.2–4.7, 9–10,
 13–14, 16–18 accordingly, and append `docs/brain/CHANGELOG.md`._

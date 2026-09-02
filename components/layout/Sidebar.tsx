@@ -275,7 +275,9 @@ function AreaSidebar({
                               )}
                             >
                               <span className="truncate min-w-0">
-                                {vault.name ?? 'Unknown Vault'}
+                                {vault.kind === 'feeWrapper'
+                                  ? `${vault.name ?? 'Unknown Vault'} (wrapper)`
+                                  : (vault.name ?? 'Unknown Vault')}
                               </span>
                             </Link>
                           );

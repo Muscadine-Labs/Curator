@@ -5,6 +5,7 @@ import {
   resolveAssetDecimals,
 } from '@/lib/format/asset-decimals';
 import { isAdapterCap, isCollateralCap, isMarketCap } from '@/lib/morpho/cap-utils';
+import { innerVaultLabel, isMorphoVaultV2Adapter } from '@/lib/morpho/vault-v2-adapter';
 import type { CapInfo } from '@/app/api/vaults/[id]/governance/route';
 import type { V2VaultRiskResponse } from '@/app/api/vaults/[id]/risk/route';
 import { formatLltvPill, formatMarketPairLabel } from '@/components/morpho/AllocationListView';
@@ -239,16 +240,24 @@ export function groupCaps(caps: CapInfo[]): {
 }
 
 export function buildAdapterLabelMap(
-  adapters: { address: string; type: string; metaMorpho?: { name?: string | null; symbol?: string | null } | null }[]
+  adapters: {
+    address: string;
+    type: string;
+    metaMorpho?: { name?: string | null; symbol?: string | null } | null;
+    innerVault?: { name?: string | null; symbol?: string | null } | null;
+  }[]
 ): Map<string, string> {
   const map = new Map<string, string>();
   for (const a of adapters) {
     const label =
-      a.metaMorpho?.name ??
-      a.metaMorpho?.symbol ??
+      innerVaultLabel(a.innerVault, '') ||
+      a.metaMorpho?.name ||
+      a.metaMorpho?.symbol ||
       (a.type === 'MetaMorpho' || a.type === 'MetaMorphoAdapter'
         ? 'MetaMorpho Adapter'
-        : 'Variable Rate Market Adapter');
+        : isMorphoVaultV2Adapter(a)
+          ? 'Inner Vault V2'
+          : 'Variable Rate Market Adapter');
     map.set(a.address.toLowerCase(), label);
   }
   return map;

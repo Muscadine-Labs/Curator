@@ -44,6 +44,12 @@ export function resolveMarketParamsTuple(
   return [loan, col, oracle, irm, lltv];
 }
 
+/**
+ * MorphoVaultV2Adapter / MorphoVaultV1Adapter allocate/deallocate `data`.
+ * Must be empty (`0x`) — non-empty bytes revert with InvalidData.
+ */
+export const EMPTY_ADAPTER_DATA = '0x' as Hex;
+
 /** MorphoMarketV1Adapter allocate/deallocate `data` = abi.encode(marketParams). */
 export function encodeMarketParamsData(market: MarketParamsInput): Hex {
   const [loan, col, oracle, irm, lltv] = resolveMarketParamsTuple(market);

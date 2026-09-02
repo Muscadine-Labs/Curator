@@ -20,6 +20,12 @@ import {
   resolveAssetDecimals,
 } from '@/lib/format/asset-decimals';
 import { formatForceDeallocatePenaltyWad } from '@/lib/morpho/vault-v2-api';
+import { innerVaultLabel, isMorphoVaultV2Adapter } from '@/lib/morpho/vault-v2-adapter';
+import {
+  getConfiguredVaultDisplayName,
+  getVaultByAddress,
+  resolveInnerVaultAddress,
+} from '@/lib/config/vaults';
 import type { AdapterInfo, VaultV2GovernanceResponse } from '@/app/api/vaults/[id]/governance/route';
 import type { V2VaultRiskResponse } from '@/app/api/vaults/[id]/risk/route';
 
@@ -113,7 +119,7 @@ export function VaultV2Adapters({
 
         {adapters.map((adapter) => {
           const isLiquidity = adapter.address.toLowerCase() === liquidityAdapterAddress;
-          const label = adapterLabel(adapter);
+          const label = adapterLabel(adapter, vaultAddress);
           const marketsCount =
             risk?.adapters?.find(
               (a) => a.adapterAddress.toLowerCase() === adapter.address.toLowerCase()
@@ -169,7 +175,16 @@ export function VaultV2Adapters({
   );
 }
 
-function adapterLabel(adapter: AdapterInfo): string {
+function adapterLabel(adapter: AdapterInfo, wrapperAddress: string): string {
+  if (adapter.innerVault?.name || adapter.innerVault?.symbol) {
+    return innerVaultLabel(adapter.innerVault);
+  }
+  if (isMorphoVaultV2Adapter(adapter)) {
+    const innerAddr = resolveInnerVaultAddress(wrapperAddress, adapter.innerVault?.address);
+    const cfg = innerAddr ? getVaultByAddress(innerAddr) : undefined;
+    if (cfg) return getConfiguredVaultDisplayName(cfg);
+    return 'Inner Vault V2';
+  }
   return (
     adapter.metaMorpho?.name ??
     adapter.metaMorpho?.symbol ??

@@ -17,9 +17,10 @@ import {
 import { mergeApiOnChainVaultHeaders } from '@/lib/api/response-cache';
 import { logger } from '@/lib/utils/logger';
 import { unauthorizedUnlessAdmin } from '@/lib/auth/require-admin';
+import { isMorphoVaultV2Adapter, mergeInnerVaultInfo } from '@/lib/morpho/vault-v2-adapter';
 
 type GraphAdapter = {
-  __typename?: 'MetaMorphoAdapter' | 'MorphoMarketV1Adapter' | string | null;
+  __typename?: 'MetaMorphoAdapter' | 'MorphoMarketV1Adapter' | 'MorphoVaultV2Adapter' | string | null;
   address?: string | null;
   type?: string | null;
   assets?: number | string | null;
@@ -27,6 +28,11 @@ type GraphAdapter = {
   forceDeallocatePenalty?: string | number | null;
   factory?: { address?: string | null } | null;
   metaMorpho?: { address?: string | null; name?: string | null; symbol?: string | null } | null;
+  innerVault?: {
+    address?: string | null;
+    name?: string | null;
+    symbol?: string | null;
+  } | null;
 };
 
 type GraphLiquidityData =
@@ -108,6 +114,7 @@ export type AdapterInfo = {
   factoryAddress: string | null;
   forceDeallocatePenalty: string | null;
   metaMorpho?: { address: string | null; name: string | null; symbol: string | null } | null;
+  innerVault?: { address: string | null; name: string | null; symbol: string | null } | null;
 };
 
 export type CapInfo = {
@@ -179,6 +186,14 @@ const VAULT_V2_GOVERNANCE_QUERY = gql`
           assetsUsd
           forceDeallocatePenalty
         }
+        ... on MorphoVaultV2Adapter {
+          type
+          assets
+          assetsUsd
+          forceDeallocatePenalty
+          factory { address }
+          innerVault { address name symbol }
+        }
       }
       liquidityData {
         __typename
@@ -213,6 +228,14 @@ const VAULT_V2_GOVERNANCE_QUERY = gql`
             assets
             assetsUsd
             forceDeallocatePenalty
+          }
+          ... on MorphoVaultV2Adapter {
+            type
+            assets
+            assetsUsd
+            forceDeallocatePenalty
+            factory { address }
+            innerVault { address name symbol }
           }
         }
       }
@@ -261,8 +284,15 @@ const VAULT_V2_GOVERNANCE_QUERY = gql`
   }
 `;
 
-function mapAdapter(graph: GraphAdapter | null | undefined): AdapterInfo | null {
+function mapAdapter(
+  graph: GraphAdapter | null | undefined,
+  wrapperVaultAddress: string
+): AdapterInfo | null {
   if (!graph?.address) return null;
+
+  const innerMerged = isMorphoVaultV2Adapter(graph)
+    ? mergeInnerVaultInfo(wrapperVaultAddress, graph.innerVault)
+    : null;
 
   return {
     address: graph.address,
@@ -286,6 +316,19 @@ function mapAdapter(graph: GraphAdapter | null | undefined): AdapterInfo | null 
           symbol: graph.metaMorpho?.symbol ?? null,
         }
       : null,
+    innerVault: innerMerged
+      ? {
+          address: innerMerged.address,
+          name: innerMerged.name,
+          symbol: innerMerged.symbol,
+        }
+      : graph.__typename === 'MorphoVaultV2Adapter'
+        ? {
+            address: graph.innerVault?.address ?? null,
+            name: graph.innerVault?.name ?? null,
+            symbol: graph.innerVault?.symbol ?? null,
+          }
+        : null,
   };
 }
 
@@ -409,10 +452,10 @@ export async function GET(
 
     const adapters =
       data.vault.adapters?.items
-        ?.map(mapAdapter)
+        ?.map((item) => mapAdapter(item, address))
         .filter((a): a is AdapterInfo => a !== null) ?? [];
 
-    const liquidityAdapter = mapAdapter(data.vault.liquidityAdapter);
+    const liquidityAdapter = mapAdapter(data.vault.liquidityAdapter, address);
 
     const capsRaw =
       data.vault.caps?.items

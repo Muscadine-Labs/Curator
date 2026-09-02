@@ -66,7 +66,9 @@ import type { V2VaultRiskResponse } from '@/app/api/vaults/[id]/risk/route';
 import type { VaultV2GovernanceResponse, CapInfo } from '@/app/api/vaults/[id]/governance/route';
 import { isAdapterCap, isMarketCap } from '@/lib/morpho/cap-utils';
 import { collectMorphoBlueMarketEntries } from '@/lib/morpho/v2-allocation-targets';
+import { isMorphoVaultV2Adapter } from '@/lib/morpho/vault-v2-adapter';
 import {
+  EMPTY_ADAPTER_DATA,
   encodeAdapterCapIdData,
   encodeMarketCapIdData,
   encodeMarketParamsData,
@@ -100,8 +102,10 @@ import { useAccount, usePublicClient } from 'wagmi';
 import { DustRecipientSelect } from '@/components/morpho/DustRecipientSelect';
 import {
   curatorBlueMarketHref,
+  curatorVaultHref,
   marketKeyFromGraphQL,
 } from '@/lib/morpho/morpho-app-links';
+import { resolveInnerVaultAddress } from '@/lib/config/vaults';
 import {
   AllocationPctIndicator,
   AllocationPill,
@@ -334,6 +338,8 @@ interface AllocTarget {
   symbol: string;
   /** Vault cash not deployed to a strategy adapter — rebalanced via adapter dealloc/alloc. */
   isVaultIdle?: boolean;
+  /** Single MorphoVaultV2Adapter target (fee wrapper inner vault). */
+  isInnerVault?: boolean;
   /** Absolute cap in raw token units (null when unknown). */
   absoluteCapRaw: bigint | null;
   /** Relative cap as WAD (1e18 = 100%). Null when unknown. */
@@ -403,15 +409,17 @@ type TargetRow = {
 
 type RowType = TargetRow;
 
-type AllocationSection = 'idle' | 'blue';
+type AllocationSection = 'idle' | 'vault' | 'blue';
 
 const ALLOCATION_SECTIONS: { key: AllocationSection; title: string }[] = [
   { key: 'idle', title: 'Idle' },
+  { key: 'vault', title: 'Morpho Vault V2' },
   { key: 'blue', title: 'Morpho Blue Market' },
 ];
 
 function rowSection(_r: TargetRow, t: AllocTarget): AllocationSection {
   if (t.isVaultIdle) return 'idle';
+  if (t.isInnerVault || isMorphoVaultV2Adapter(t)) return 'vault';
   return 'blue';
 }
 
@@ -509,6 +517,68 @@ export function VaultV2Allocations({
     let totalRaw = BigInt(0);
 
     for (const adapter of adapterList) {
+      if (isMorphoVaultV2Adapter(adapter)) {
+        const inner = adapter.innerVault;
+        const innerAddress = resolveInnerVaultAddress(vaultAddress, inner?.address);
+        const label = adapter.adapterLabel || inner?.name || inner?.symbol || 'Inner Vault V2';
+        let displayAssets = BigInt(0);
+        if (adapter.allocationAssets) {
+          try { displayAssets = BigInt(adapter.allocationAssets); } catch { /* */ }
+        }
+        let bookedAssets = displayAssets;
+        if (adapter.bookedAllocationAssets != null) {
+          try { bookedAssets = BigInt(adapter.bookedAllocationAssets); } catch { /* keep display */ }
+        }
+        totalRaw += displayAssets;
+        vaultRefRaw += displayAssets;
+        const capIdData = encodeAdapterCapIdData(adapter.adapterAddress);
+        const idHash = keccak256(capIdData);
+        const innerLiq = inner?.liquidityUsd ?? null;
+        const innerLiqAssets = inner?.liquidity ?? null;
+        const tIdx = targets.length;
+        targets.push({
+          label,
+          adapterAddress: adapter.adapterAddress,
+          adapterType: adapter.adapterType,
+          data: EMPTY_ADAPTER_DATA,
+          capIdHash: idHash,
+          currentAssets: bookedAssets,
+          displayAssets,
+          currentUsd: adapter.allocationUsd,
+          decimals: dec,
+          symbol: sym,
+          isInnerVault: true,
+          absoluteCapRaw: null,
+          relativeCapWad: null,
+        });
+        const mktPct = totalUsd > 0 ? (adapter.allocationUsd / totalUsd) * 100 : 0;
+        rows.push({
+          kind: 'target',
+          targetIdx: tIdx,
+          market: label,
+          morphoHref: curatorVaultHref(innerAddress),
+          isIdle: false,
+          isMorphoBlue: false,
+          supplyApy: inner?.avgNetApy ?? null,
+          borrowApy: null,
+          utilization: null,
+          liquidity: innerLiq,
+          liquidityAssets: innerLiqAssets,
+          tvlUsd: null,
+          tvlAssets: null,
+          allocated: adapter.allocationUsd,
+          pct: mktPct,
+          allocAssets: adapter.allocationAssets,
+          allocDecimals: dec,
+          allocSymbol: sym,
+          lltv: null,
+          collateralSymbol: null,
+          loanSymbol: null,
+          searchHaystack: `${label} inner vault wrapper`.toLowerCase(),
+        });
+        continue;
+      }
+
       const marketEntries = collectMorphoBlueMarketEntries(adapter, governance);
       for (const entry of marketEntries) {
         const m = entry.market;
@@ -658,7 +728,7 @@ export function VaultV2Allocations({
       vaultDisplayDecimals: displayDec,
       vaultSymbol: sym,
     };
-  }, [risk, governance, chainId]);
+  }, [risk, governance, chainId, vaultAddress]);
 
   // Attach caps to each target now that `targets` and `capByIdHash` are known.
   const targetsWithCaps: AllocTarget[] = useMemo(() => {

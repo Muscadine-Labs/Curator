@@ -1,6 +1,6 @@
 import { gql } from 'graphql-request';
 import { morphoGraphQLClient } from '@/lib/morpho/graphql-client';
-import { getVaultAddressesForBusinessViews } from '@/lib/config/vaults';
+import { getVaultAddressesForProtocolStats } from '@/lib/config/vaults';
 import { isAllocatableMarketCap } from '@/lib/morpho/v2-allocation-targets';
 import { isMarketCap } from '@/lib/morpho/cap-utils';
 import { mapCap, type GraphCap } from '@/lib/morpho/vault-v2-governance-map';
@@ -308,7 +308,7 @@ async function fetchMuscadineMarketIndex(chainId: number): Promise<MuscadineInde
     return muscadineIndexCache.index;
   }
 
-  const vaults = getVaultAddressesForBusinessViews().filter((v) => v.chainId === chainId);
+  const vaults = getVaultAddressesForProtocolStats().filter((v) => v.chainId === chainId);
   const index: MuscadineIndex = new Map();
 
   await Promise.all(
