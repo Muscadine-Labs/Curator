@@ -20,10 +20,11 @@ import { logger } from '@/lib/utils/logger';
 import { marketKeyFromGraphQL } from '@/lib/morpho/morpho-app-links';
 import type { CapInfo } from '@/app/api/vaults/[id]/governance/route';
 import {
-  innerVaultLabel,
   isMorphoVaultV2Adapter,
-  mergeInnerVaultInfo,
-  type VaultV2InnerVaultInfo,
+  mergeUnderlyingVaultInfo,
+  underlyingVaultLabel,
+  UNDERLYING_VAULT_FALLBACK,
+  type VaultV2UnderlyingInfo,
 } from '@/lib/morpho/vault-v2-adapter';
 import {
   computeBlueMarketRiskScores,
@@ -111,7 +112,7 @@ export type V2AdapterRiskData = {
   markets: V2MarketRiskData[];
   absoluteCap?: string | null;
   relativeCap?: string | null;
-  innerVault?: VaultV2InnerVaultInfo | null;
+  underlying?: VaultV2UnderlyingInfo | null;
 };
 
 export type V2VaultRiskResponse = {
@@ -440,7 +441,7 @@ async function computeAdapterRisk(
   }
 
   if (isMorphoVaultV2Adapter(adapter)) {
-    const inner = mergeInnerVaultInfo(wrapperVaultAddress, adapter.innerVault);
+    const underlying = mergeUnderlyingVaultInfo(wrapperVaultAddress, adapter.innerVault);
     const adapterCap = caps.find(
       (c) =>
         c.adapterAddress?.toLowerCase() === adapter.address.toLowerCase() &&
@@ -450,13 +451,13 @@ async function computeAdapterRisk(
     return {
       adapterAddress: adapter.address,
       adapterType: 'MorphoVaultV2Adapter',
-      adapterLabel: innerVaultLabel(inner, 'Inner Vault V2'),
+      adapterLabel: underlyingVaultLabel(underlying, UNDERLYING_VAULT_FALLBACK),
       allocationUsd: adapter.assetsUsd ?? 0,
       allocationAssets: adapter.assets != null ? String(adapter.assets) : null,
       markets: [],
       riskScore: 0,
       riskGrade: 'F',
-      innerVault: inner,
+      underlying,
       absoluteCap: adapterCap?.absoluteCap ?? null,
       relativeCap: adapterCap?.relativeCap ?? null,
     };

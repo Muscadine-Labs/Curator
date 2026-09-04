@@ -17,7 +17,7 @@ import {
 import { mergeApiOnChainVaultHeaders } from '@/lib/api/response-cache';
 import { logger } from '@/lib/utils/logger';
 import { unauthorizedUnlessAdmin } from '@/lib/auth/require-admin';
-import { isMorphoVaultV2Adapter, mergeInnerVaultInfo } from '@/lib/morpho/vault-v2-adapter';
+import { isMorphoVaultV2Adapter, mergeUnderlyingVaultInfo } from '@/lib/morpho/vault-v2-adapter';
 
 type GraphAdapter = {
   __typename?: 'MetaMorphoAdapter' | 'MorphoMarketV1Adapter' | 'MorphoVaultV2Adapter' | string | null;
@@ -114,7 +114,7 @@ export type AdapterInfo = {
   factoryAddress: string | null;
   forceDeallocatePenalty: string | null;
   metaMorpho?: { address: string | null; name: string | null; symbol: string | null } | null;
-  innerVault?: { address: string | null; name: string | null; symbol: string | null } | null;
+  underlying?: { address: string | null; name: string | null; symbol: string | null } | null;
 };
 
 export type CapInfo = {
@@ -290,8 +290,8 @@ function mapAdapter(
 ): AdapterInfo | null {
   if (!graph?.address) return null;
 
-  const innerMerged = isMorphoVaultV2Adapter(graph)
-    ? mergeInnerVaultInfo(wrapperVaultAddress, graph.innerVault)
+  const underlyingMerged = isMorphoVaultV2Adapter(graph)
+    ? mergeUnderlyingVaultInfo(wrapperVaultAddress, graph.innerVault)
     : null;
 
   return {
@@ -316,11 +316,11 @@ function mapAdapter(
           symbol: graph.metaMorpho?.symbol ?? null,
         }
       : null,
-    innerVault: innerMerged
+    underlying: underlyingMerged
       ? {
-          address: innerMerged.address,
-          name: innerMerged.name,
-          symbol: innerMerged.symbol,
+          address: underlyingMerged.address,
+          name: underlyingMerged.name,
+          symbol: underlyingMerged.symbol,
         }
       : graph.__typename === 'MorphoVaultV2Adapter'
         ? {

@@ -105,7 +105,7 @@ import {
   curatorVaultHref,
   marketKeyFromGraphQL,
 } from '@/lib/morpho/morpho-app-links';
-import { resolveInnerVaultAddress } from '@/lib/config/vaults';
+import { resolveUnderlyingVaultAddress } from '@/lib/config/vaults';
 import {
   AllocationPctIndicator,
   AllocationPill,
@@ -338,8 +338,8 @@ interface AllocTarget {
   symbol: string;
   /** Vault cash not deployed to a strategy adapter — rebalanced via adapter dealloc/alloc. */
   isVaultIdle?: boolean;
-  /** Single MorphoVaultV2Adapter target (fee wrapper inner vault). */
-  isInnerVault?: boolean;
+  /** Single MorphoVaultV2Adapter target (fee wrapper underlying vault). */
+  isUnderlyingVault?: boolean;
   /** Absolute cap in raw token units (null when unknown). */
   absoluteCapRaw: bigint | null;
   /** Relative cap as WAD (1e18 = 100%). Null when unknown. */
@@ -419,7 +419,7 @@ const ALLOCATION_SECTIONS: { key: AllocationSection; title: string }[] = [
 
 function rowSection(_r: TargetRow, t: AllocTarget): AllocationSection {
   if (t.isVaultIdle) return 'idle';
-  if (t.isInnerVault || isMorphoVaultV2Adapter(t)) return 'vault';
+  if (t.isUnderlyingVault || isMorphoVaultV2Adapter(t)) return 'vault';
   return 'blue';
 }
 
@@ -518,9 +518,16 @@ export function VaultV2Allocations({
 
     for (const adapter of adapterList) {
       if (isMorphoVaultV2Adapter(adapter)) {
-        const inner = adapter.innerVault;
-        const innerAddress = resolveInnerVaultAddress(vaultAddress, inner?.address);
-        const label = adapter.adapterLabel || inner?.name || inner?.symbol || 'Inner Vault V2';
+        const underlying = adapter.underlying;
+        const underlyingAddress = resolveUnderlyingVaultAddress(
+          vaultAddress,
+          underlying?.address
+        );
+        const label =
+          adapter.adapterLabel ||
+          underlying?.name ||
+          underlying?.symbol ||
+          'Underlying vault';
         let displayAssets = BigInt(0);
         if (adapter.allocationAssets) {
           try { displayAssets = BigInt(adapter.allocationAssets); } catch { /* */ }
@@ -533,8 +540,8 @@ export function VaultV2Allocations({
         vaultRefRaw += displayAssets;
         const capIdData = encodeAdapterCapIdData(adapter.adapterAddress);
         const idHash = keccak256(capIdData);
-        const innerLiq = inner?.liquidityUsd ?? null;
-        const innerLiqAssets = inner?.liquidity ?? null;
+        const underlyingLiq = underlying?.liquidityUsd ?? null;
+        const underlyingLiqAssets = underlying?.liquidity ?? null;
         const tIdx = targets.length;
         targets.push({
           label,
@@ -547,7 +554,7 @@ export function VaultV2Allocations({
           currentUsd: adapter.allocationUsd,
           decimals: dec,
           symbol: sym,
-          isInnerVault: true,
+          isUnderlyingVault: true,
           absoluteCapRaw: null,
           relativeCapWad: null,
         });
@@ -556,14 +563,14 @@ export function VaultV2Allocations({
           kind: 'target',
           targetIdx: tIdx,
           market: label,
-          morphoHref: curatorVaultHref(innerAddress),
+          morphoHref: curatorVaultHref(underlyingAddress),
           isIdle: false,
           isMorphoBlue: false,
-          supplyApy: inner?.avgNetApy ?? null,
+          supplyApy: underlying?.avgNetApy ?? null,
           borrowApy: null,
           utilization: null,
-          liquidity: innerLiq,
-          liquidityAssets: innerLiqAssets,
+          liquidity: underlyingLiq,
+          liquidityAssets: underlyingLiqAssets,
           tvlUsd: null,
           tvlAssets: null,
           allocated: adapter.allocationUsd,
@@ -574,7 +581,7 @@ export function VaultV2Allocations({
           lltv: null,
           collateralSymbol: null,
           loanSymbol: null,
-          searchHaystack: `${label} inner vault wrapper`.toLowerCase(),
+          searchHaystack: `${label} underlying vault wrapper`.toLowerCase(),
         });
         continue;
       }

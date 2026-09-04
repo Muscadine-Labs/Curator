@@ -20,11 +20,15 @@ import {
   resolveAssetDecimals,
 } from '@/lib/format/asset-decimals';
 import { formatForceDeallocatePenaltyWad } from '@/lib/morpho/vault-v2-api';
-import { innerVaultLabel, isMorphoVaultV2Adapter } from '@/lib/morpho/vault-v2-adapter';
+import {
+  underlyingVaultLabel,
+  isMorphoVaultV2Adapter,
+  UNDERLYING_VAULT_FALLBACK,
+} from '@/lib/morpho/vault-v2-adapter';
 import {
   getConfiguredVaultDisplayName,
   getVaultByAddress,
-  resolveInnerVaultAddress,
+  resolveUnderlyingVaultAddress,
 } from '@/lib/config/vaults';
 import type { AdapterInfo, VaultV2GovernanceResponse } from '@/app/api/vaults/[id]/governance/route';
 import type { V2VaultRiskResponse } from '@/app/api/vaults/[id]/risk/route';
@@ -176,14 +180,17 @@ export function VaultV2Adapters({
 }
 
 function adapterLabel(adapter: AdapterInfo, wrapperAddress: string): string {
-  if (adapter.innerVault?.name || adapter.innerVault?.symbol) {
-    return innerVaultLabel(adapter.innerVault);
+  if (adapter.underlying?.name || adapter.underlying?.symbol) {
+    return underlyingVaultLabel(adapter.underlying);
   }
   if (isMorphoVaultV2Adapter(adapter)) {
-    const innerAddr = resolveInnerVaultAddress(wrapperAddress, adapter.innerVault?.address);
-    const cfg = innerAddr ? getVaultByAddress(innerAddr) : undefined;
+    const underlyingAddr = resolveUnderlyingVaultAddress(
+      wrapperAddress,
+      adapter.underlying?.address
+    );
+    const cfg = underlyingAddr ? getVaultByAddress(underlyingAddr) : undefined;
     if (cfg) return getConfiguredVaultDisplayName(cfg);
-    return 'Inner Vault V2';
+    return UNDERLYING_VAULT_FALLBACK;
   }
   return (
     adapter.metaMorpho?.name ??

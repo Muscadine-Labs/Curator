@@ -127,7 +127,7 @@ export function VaultsCatalog() {
           value={depositsUsd}
           format="usd"
           isLoading={isLoading}
-          subtitle="Strategy vaults; wrappers already counted in inner-vault deposits"
+          subtitle="Strategy vaults; wrappers already counted in underlying vault deposits"
         />
         <KpiCard
           title="Interest generated"

@@ -129,7 +129,7 @@ function listLiquidityAdapter(v: VaultListGql): {
     const name =
       v.liquidityAdapter.innerVault?.name || v.liquidityAdapter.innerVault?.symbol;
     if (name) return { label: name, utilizationPercent: null };
-    return { label: 'Inner Vault V2', utilizationPercent: null };
+    return { label: 'Underlying vault', utilizationPercent: null };
   }
   if (!v.liquidityAdapter?.address) {
     return { label: 'Idle liquidity', utilizationPercent: null };
@@ -238,7 +238,7 @@ export async function GET(request: Request) {
           version: cfg?.morphoVersion ?? ('v2' as const),
           listCategory: cfg?.listCategory ?? null,
           kind: cfg?.kind ?? 'strategy',
-          innerVaultAddress: cfg?.innerVaultAddress ?? null,
+          underlyingAddress: cfg?.underlyingAddress ?? null,
         };
       };
 

@@ -42,7 +42,7 @@ export interface VaultWithData {
   version?: 'v2';
   listCategory?: 'prime' | 'vineyard' | 'frontier' | 'test' | null;
   kind?: 'strategy' | 'feeWrapper' | null;
-  innerVaultAddress?: string | null;
+  underlyingAddress?: string | null;
   tvl: number | null;
   /** Raw total assets in vault asset units (Morpho `totalAssets`). */
   totalAssetsUnderlying?: string | null;

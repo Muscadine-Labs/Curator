@@ -28,11 +28,11 @@ npm run build   # next build
   No MetaMorpho / V1 vault routes. Blue market risk uses `blue-market-data.ts` +
   `compute-blue-market-risk.ts`. MetaMorpho adapters are ignored in risk, allocation,
   and sentinel UIs. **Fee wrappers** (`kind: 'feeWrapper'`) use GraphQL
-  `MorphoVaultV2Adapter.innerVault` and empty allocate `data` (`EMPTY_ADAPTER_DATA`);
-  they are listed on `/vaults` but excluded from protocol TVL (deposits sit in
-  the inner vault). Unique-user counts include wrappers. Transact lists
-  wrappers and test vaults using Morpho/on-chain names. `innerVaultAddress`
-  is the GraphQL fallback for the child vault.
+  `MorphoVaultV2Adapter.innerVault` (Morpho GraphQL) and empty allocate `data`
+  (`EMPTY_ADAPTER_DATA`); they are listed on `/vaults` but excluded from
+  protocol TVL (deposits sit in the underlying vault). Unique-user counts
+  include wrappers. Transact lists wrappers and test vaults using Morpho/on-chain
+  names. `underlyingAddress` is the GraphQL fallback for the child vault.
 - **React Query polling** — dashboard hooks poll every 30s; indexed vault data
   (history, reallocations, holders) does not background-poll. On-chain vault
   hooks (`risk`, `governance`) use `staleTime: 0` + `refetchOnMount: 'always'`.

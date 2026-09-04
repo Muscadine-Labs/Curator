@@ -4,6 +4,15 @@ Append-only session log. Newest first. Keep entries short; link files.
 
 ---
 
+## 2026-09-04 — Dependabot #114 / #115
+
+- Overrides: `browserslist>=4.28.7` (CVE-2026-73088, babel via eslint-config-next) and `decode-uri-component>=0.5.0` (CVE-2026-45822, WalletConnect `query-string`).
+
+## 2026-09-04 — Review: AppKit cleanup + underlying vault naming
+
+- Wallet: RPC helpers live in `lib/wallet/rpc.ts` so Basename lookup does not load WagmiAdapter. Custom AppKit networks avoid the `viem/chains` barrel. AppKit overlay timeout is cleared on unmount.
+- History APY hiding is derived (no setState-in-effect). User-facing fee-wrapper copy is **underlying vault** (`underlyingAddress` / `underlying`); Morpho GraphQL still uses `innerVault`.
+
 ## 2026-09-04 — Reown AppKit + two more fee wrappers
 
 - Replaced RainbowKit with Reown AppKit (`@reown/appkit` + wagmi adapter), same pattern as the muscadine app: no SIWE, featured Rabby/MetaMask/Base/Phantom, theme sync, cookie wagmi storage.

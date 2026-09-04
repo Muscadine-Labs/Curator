@@ -155,7 +155,7 @@ export function VaultOverviewHistoryChart({
       }));
     }
 
-    if (metric === 'sharePrice') {
+    if (chartMetric === 'sharePrice') {
       const shareSeries =
         amountUnit === 'usd' ? series.sharePriceUsd ?? [] : series.sharePrice ?? [];
       return filterDataByRange(shareSeries, range).map((p) => ({

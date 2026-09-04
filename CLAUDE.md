@@ -257,11 +257,12 @@ Getting those semantics wrong is the #1 source of reverts.
   - **Risk tab** (`VaultRiskV2.tsx`): idle counts toward **Adapters Count**
     (`strategy adapters + 1`) and appears as its own row (“No strategy risk”).
 
-#### 3.2.1 Fee wrappers (Vault V2 → inner Vault V2)
+#### 3.2.1 Fee wrappers (Vault V2 → underlying Vault V2)
 
-A **fee wrapper** is a Vault V2 that allocates only to one child Vault V2 via
+A **fee wrapper** is a Vault V2 that allocates only to one underlying Vault V2 via
 `MorphoVaultV2Adapter` (GraphQL `__typename`; `type` is `MorphoVaultV2`).
-`innerVault { address name symbol avgNetApy liquidity }` is the child.
+Morpho GraphQL names the child `innerVault { address name symbol avgNetApy liquidity }`;
+curator maps that to **underlying vault** (`underlying` / `underlyingAddress`).
 Allocate/deallocate `data` is **empty** (`0x` / `EMPTY_ADAPTER_DATA`) — not
 market params. Cap `idData` is still `abi.encode("this", adapterAddress)`.
 `addAdapter` / `removeAdapter` and critical gates are typically abdicated.
@@ -269,8 +270,8 @@ Wrappers are **not listed** on app.morpho.org (`listed: false`). Keep the
 **Open on Morpho** overview link anyway. Morpho docs:
 [Fee Wrapper](https://docs.morpho.org/developers/earn/concepts/fee-wrapper/).
 
-Config: `kind: 'feeWrapper'` + `innerVaultAddress` in `lib/config/vaults.ts`.
-`innerVaultAddress` uses the **same env default** as the child strategy vault
+Config: `kind: 'feeWrapper'` + `underlyingAddress` in `lib/config/vaults.ts`.
+`underlyingAddress` uses the **same env default** as the child strategy vault
 (`NEXT_PUBLIC_VAULT_USDC_V2`, etc.) and is the GraphQL fallback when
 `innerVault` is omitted. Display names are Morpho/on-chain names (`USDC Prime`),
 not a synthetic “Wrapper” suffix — the catalog/sidebar **Wrapper** badge
@@ -278,13 +279,13 @@ disambiguates. GraphQL fragments must include `... on MorphoVaultV2Adapter` on
 list, governance, and risk queries — omitting them makes the adapter invisible
 (same failure mode as skipping `marketId`). Do **not** treat wrappers as
 Blue-market strategy vaults. Do **not** sum wrapper TVL into protocol stats —
-deposits sit inside the inner vault. Unique-user / active-vault KPIs **do**
+deposits sit inside the underlying vault. Unique-user / active-vault KPIs **do**
 include wrappers. Treasury statements **do** include wrappers (their
 performance/management fees). Transact lists wrappers and test vaults with
 their real names.
 
 Allocation sections on wrappers: **Idle → Morpho Vault V2**. Writes use empty
-adapter data. Risk grades live on the inner vault page, not the wrapper.
+adapter data. Risk grades live on the underlying vault page, not the wrapper.
 
 Keep **skipping** `MetaMorphoAdapter` (V1 MetaMorpho child). That is not a fee
 wrapper.
@@ -353,8 +354,8 @@ grades; Sentinel holds emergency actions at the bottom.
      next to name. Utilization, borrow/supply APY, liquidity from `market.state`.
      APY/utilization GraphQL values are **decimals**; multiply by 100 before
      `formatPercentage`.
-   - **MorphoVaultV2Adapter** — fee wrapper inner vault (empty allocate `data`).
-     Name links to `/vault/{innerVault}`. Rate column is inner `avgNetApy`.
+   - **MorphoVaultV2Adapter** — fee wrapper underlying vault (empty allocate `data`).
+     Name links to `/vault/{underlying}`. Rate column is underlying `avgNetApy`.
    - **Idle** — vault cash row; no on-chain cap; no direct writes.
 7. **Risk** — `VaultAnalyticsPanel` on the **Risk** tab (`/vault/[address]/risk`;
    `/analytics` redirects here): market risk grades (`VaultRiskV2`) only.
@@ -442,8 +443,8 @@ from `lib/config/vaults.ts` with:
 - `version` — `v1` | `v2` from config `morphoVersion`
 - `listCategory` — optional `prime` | `vineyard` | `frontier` | `test`
 - `kind` — optional `strategy` (default) | `feeWrapper`
-- `innerVaultAddress` — child Vault V2 when `kind` is `feeWrapper` (same env
-  default as the strategy vault; GraphQL fallback)
+- `underlyingAddress` — child Vault V2 when `kind` is `feeWrapper` (same env
+  default as the strategy vault; GraphQL `innerVault` fallback)
 
 `?includeAll=true` includes test vaults (`excludeFromBusinessViews`); default list
 is business vaults only (including fee wrappers). `/vaults/transact` uses
@@ -1082,10 +1083,10 @@ components.
   rebalance UI and is omitted from `vaultRiskScore` / idle overlay. Strategy vaults
   use Morpho Blue market adapters; fee wrappers use `MorphoVaultV2Adapter` (not MetaMorpho).
 
-### Fee wrapper GraphQL missing inner vault
+### Fee wrapper GraphQL missing underlying vault
 
 - Query `... on MorphoVaultV2Adapter { innerVault { address name } }` on adapters and
-  `liquidityAdapter`. Allocate/deallocate `data` must be `0x`. Do not sum wrapper TVL
+  `liquidityAdapter` (Morpho field name). Allocate/deallocate `data` must be `0x`. Do not sum wrapper TVL
   into protocol stats. `avgNetApy` is often null until history accumulates — use `netApy`.
 
 ### V2 adapter count wrong in Risk
