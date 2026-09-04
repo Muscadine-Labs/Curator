@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import {
   getActiveVaultAddressesForStats,
   getVaultAddressesForProtocolStats,
+  isFeeWrapperAdapterAddress,
   withFeeWrapperLabel,
 } from '@/lib/config/vaults';
 import {
@@ -177,7 +178,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const stats = await withServerResponseCache('protocol-stats-v2', API_CACHE_MAX_AGE_MS, async () => {
+    const stats = await withServerResponseCache('protocol-stats-v3', API_CACHE_MAX_AGE_MS, async () => {
     const businessVaults = getVaultAddressesForProtocolStats();
     const activeVaultsForStats = getActiveVaultAddressesForStats();
     const addresses = businessVaults.map((v) => getAddress(v.address));
@@ -230,7 +231,14 @@ export async function GET(request: Request) {
     for (const items of v2UserResults) {
       for (const pos of items) {
         const userAddress = pos?.user?.address?.toLowerCase();
-        if (userAddress) uniqueUsers.add(userAddress);
+        if (
+          userAddress &&
+          userAddress !== '0x0000000000000000000000000000000000000000' &&
+          userAddress !== '0x000000000000000000000000000000000000dead' &&
+          !isFeeWrapperAdapterAddress(userAddress)
+        ) {
+          uniqueUsers.add(userAddress);
+        }
       }
     }
 

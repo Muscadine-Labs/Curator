@@ -3,8 +3,11 @@
  *
  * Income = positive day-over-day **share** change (fee mints + inbound share
  * transfers), valued at that day's USD per share. Self-deposits (GraphQL Deposit
- * where sender is the treasury) are subtracted. Yield and price moves on a
- * constant share balance are not income. Outflows are not subtracted.
+ * where sender is the treasury) are subtracted only up to income already booked
+ * for that vault on the same UTC day. Opening deposits — including
+ * redeem-underlying → deposit-wrapper migrations — are not income and are not
+ * subtracted. Yield and price moves on a constant share balance are not income.
+ * Outflows are not subtracted.
  */
 import { getVaultByAddress } from '@/lib/config/vaults';
 import { BASE_CHAIN_ID } from '@/lib/constants';
@@ -20,6 +23,10 @@ import {
   type TreasuryAssetBreakdown,
   type TreasuryAssetKey,
 } from '@/lib/morpho/treasury-statement';
+import {
+  creditIncomeBucket,
+  takeMatchedIncome,
+} from '@/lib/morpho/treasury-self-deposit';
 import { fetchTreasuryVaultTransfers } from '@/lib/morpho/treasury-transfers';
 import { resolveAssetDecimals } from '@/lib/format/asset-decimals';
 import { bigintRatio } from '@/lib/format/bigint-ratio';
@@ -371,6 +378,7 @@ async function computeTreasuryStatementUncached(): Promise<TreasuryStatementResu
   const vaultMonthlyMap = new Map<string, VaultMonthlyData>();
   const dailyMap = new Map<string, number>();
   const priceByVaultDay = new Map<string, number>();
+  const remainingIncome = new Map<string, { tokens: number; usd: number }>();
   let positionCount = 0;
   let inflowCount = 0;
 
@@ -403,12 +411,23 @@ async function computeTreasuryStatementUncached(): Promise<TreasuryStatementResu
     inflowCount += inflows.length;
     for (const inflow of inflows) {
       addIncome(monthlyStatements, vaultMonthlyMap, dailyMap, inflow);
+      creditIncomeBucket(
+        remainingIncome,
+        inflow.vaultAddress,
+        utcDayKeyFromTimestamp(inflow.timestamp),
+        { tokens: inflow.tokens, usd: inflow.usd }
+      );
     }
   }
 
   let depositCount = 0;
-  for (const dep of transferFetch.transfers) {
-    if (!dep.isSelfDeposit || !dep.asset) continue;
+  let unmatchedSelfDeposits = 0;
+  const selfDeposits = transferFetch.transfers
+    .filter((dep) => dep.isSelfDeposit && dep.asset && includeVault(dep.vaultAddress))
+    .sort((a, b) => a.timestamp - b.timestamp);
+  for (const dep of selfDeposits) {
+    const asset = dep.asset;
+    if (!asset) continue;
     const vaultAddress = dep.vaultAddress.toLowerCase();
     const decimals = dep.assetDecimals;
     let tokens = 0;
@@ -422,14 +441,22 @@ async function computeTreasuryStatementUncached(): Promise<TreasuryStatementResu
     if (!(tokens > 0)) continue;
     const day = utcDayKeyFromTimestamp(dep.timestamp);
     const price =
-      priceByVaultDay.get(`${vaultAddress}|${day}`) ?? (dep.asset === 'USDC' ? 1 : null);
+      priceByVaultDay.get(`${vaultAddress}|${day}`) ?? (asset === 'USDC' ? 1 : null);
     const usd = price != null ? tokens * price : 0;
-    subtractIncome(monthlyStatements, vaultMonthlyMap, dailyMap, {
-      vaultAddress,
-      asset: dep.asset,
-      timestamp: dep.timestamp,
+    const matched = takeMatchedIncome(remainingIncome, vaultAddress, day, {
       tokens,
       usd,
+    });
+    if (!matched) {
+      unmatchedSelfDeposits += 1;
+      continue;
+    }
+    subtractIncome(monthlyStatements, vaultMonthlyMap, dailyMap, {
+      vaultAddress,
+      asset,
+      timestamp: dep.timestamp,
+      tokens: matched.tokens,
+      usd: matched.usd,
     });
     depositCount += 1;
   }
@@ -475,6 +502,7 @@ async function computeTreasuryStatementUncached(): Promise<TreasuryStatementResu
     positions: positionCount,
     inflowDays: inflowCount,
     selfDepositsExcluded: depositCount,
+    unmatchedSelfDeposits,
     transferError: transferFetch.error,
     monthsWithData: statements.length,
   });
@@ -488,7 +516,7 @@ async function computeTreasuryStatementUncached(): Promise<TreasuryStatementResu
 
 export function computeTreasuryStatement(): Promise<TreasuryStatementResult> {
   return withServerResponseCache(
-    'treasury-statement-daily-shares-v3',
+    'treasury-statement-daily-shares-v4',
     API_CACHE_MAX_AGE_MS,
     computeTreasuryStatementUncached
   );

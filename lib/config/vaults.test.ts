@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   getAllVaultAddresses,
   getConfiguredVaultDisplayName,
+  getVaultByAdapterAddress,
   getVaultListKind,
   groupVaultsByKindAndCategory,
+  isFeeWrapperAdapterAddress,
   withFeeWrapperLabel,
 } from '@/lib/config/vaults';
 
@@ -38,6 +40,20 @@ describe('withFeeWrapperLabel', () => {
   it('uses the fallback when the name is missing', () => {
     expect(withFeeWrapperLabel(null, USDC_PRIME_WRAPPER)).toBe('Unknown Vault (wrapper)');
     expect(withFeeWrapperLabel('  ', USDC_PRIME_WRAPPER, 'Custom')).toBe('Custom (wrapper)');
+  });
+});
+
+describe('getVaultByAdapterAddress', () => {
+  it('resolves the USDC Prime wrapper from its MorphoVaultV2Adapter', () => {
+    const adapter = getVaultByAdapterAddress(
+      '0x8b6e43cce1961d3671a39fe8d9e711e69ddd74ce'
+    );
+    expect(adapter?.kind).toBe('feeWrapper');
+    expect(adapter?.address.toLowerCase()).toBe(USDC_PRIME_WRAPPER.toLowerCase());
+    expect(isFeeWrapperAdapterAddress('0x8B6E43CCE1961D3671a39Fe8D9E711E69ddD74ce')).toBe(
+      true
+    );
+    expect(isFeeWrapperAdapterAddress(USDC_PRIME_WRAPPER)).toBe(false);
   });
 });
 

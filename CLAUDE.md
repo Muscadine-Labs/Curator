@@ -452,7 +452,8 @@ is business vaults only (including fee wrappers). `/vaults/transact` uses
 
 Protocol TVL (`getVaultAddressesForProtocolStats`) excludes fee wrappers so
 deposits are not double-counted. Unique users and the active-vault KPI
-(`getActiveVaultAddressesForStats`) include wrappers.
+(`getActiveVaultAddressesForStats`) include wrappers; wrapper adapter
+contracts are omitted from the user set.
 
 **Top nav + Sidebar** — Topbar areas: Overview · Vaults · Markets · Curator ·
 Business (`lib/nav/areas.ts`). Sidebar is **area-scoped**. Under **Vaults**: All
@@ -674,7 +675,7 @@ daily token-change (`app/page.tsx`). Toggle treasury vs DefiLlama via
 
 | Field | Meaning |
 | ----- | ------- |
-| `assets` / `total` | Positive **daily share-balance change** for `TREASURY_ADDRESS` (fee mints + inbound share transfers), converted to underlying tokens and valued at that day's implied USD. Self-deposits (GraphQL `Deposit` where sender is treasury) are subtracted. Price appreciation of a constant share amount is excluded. Outflows are not subtracted. |
+| `assets` / `total` | Positive **daily share-balance change** for `TREASURY_ADDRESS` (fee mints + inbound share transfers), converted to underlying tokens and valued at that day's implied USD. Self-deposits (GraphQL `Deposit` where sender is treasury) are subtracted only up to same-day booked income. Opening deposits (including redeem-underlying → deposit-wrapper) are not income and are not subtracted. Price appreciation of a constant share amount is excluded. Outflows are not subtracted. |
 
 **How monthly revenue is calculated**
 
@@ -685,18 +686,21 @@ daily token-change (`app/page.tsx`). Toggle treasury vs DefiLlama via
    `max(shares(t) − shares(t−1), 0)` converted via `assets/shares` that day.
 3. USD = share-weight × `assetsUsd(t)`. Do **not** use
    `assetsUsd(t) − assetsUsd(t−1)` (that is mark-to-market).
-4. Subtract treasury self-deposits on the same UTC day. Opening balance on the
-   first history point is not income. Redeems / Rebater outflows are not
-   negative revenue.
+4. Subtract treasury self-deposits on the same UTC day, capped at that day's
+   booked share-increase income. Opening balance on the first history point is
+   not income — a self-deposit that created it (e.g. selling underlying shares
+   and depositing the wrappers) is not subtracted. Redeems / Rebater outflows
+   are not negative revenue.
 5. Response always includes `statements`, `daily`, and `vaults`. Cached 30s via
    `withServerResponseCache` inside `computeTreasuryStatement()`. Months run from
    the first month with income through the current month, including $0.00 gaps.
 
 **Why the graph can go negative without withdrawals**
 
-It should not from mark-to-market. A day can go slightly negative if a self-deposit
-is subtracted from a different GraphQL DAY bucket than the share increase.
-Outflows are tracked on Rebater, not as negative revenue.
+It should not from mark-to-market or from moving treasury capital into fee
+wrappers. A day can go slightly negative if a self-deposit is subtracted from a
+different GraphQL DAY bucket than the share increase. Unmatched opening
+deposits are ignored. Outflows are tracked on Rebater, not as negative revenue.
 
 **Scope — what is / isn’t included**
 

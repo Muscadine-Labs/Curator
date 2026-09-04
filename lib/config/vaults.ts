@@ -31,6 +31,11 @@ export interface VaultAddressConfig {
    */
   underlyingAddress?: string;
   /**
+   * MorphoVaultV2Adapter that deposits into the underlying vault. The adapter
+   * — not the wrapper vault contract — is the ERC-4626 holder of the child.
+   */
+  adapterAddress?: string;
+  /**
    * Test vaults: omitted from overview, catalog, monthly statements, and
    * default GET /api/vaults. Not the TVL double-count flag — use
    * `kind: 'feeWrapper'` so wrappers stay in business views.
@@ -57,6 +62,13 @@ const VAULT_CBBTC_TEST =
 const VAULT_USDC_TEST =
   process.env.NEXT_PUBLIC_VAULT_USDC_V2_TEST ||
   '0x7D09D53637c8A3511de0eF1509b8dC5C2108a0AD';
+
+/** MorphoVaultV2Adapter for each fee wrapper (holder of the underlying vault). */
+const ADAPTER_USDC_PRIME_WRAPPER = '0x8B6E43CCE1961D3671a39Fe8D9E711E69ddD74ce';
+const ADAPTER_USDC_FRONTIER_WRAPPER = '0x5b211DA4Cd92cfb9CCCFbd1De78289955EB236CD';
+const ADAPTER_WETH_PRIME_WRAPPER = '0xf691616Dd2cF85c9cA9fa32bdFf00f5cD92BAd81';
+const ADAPTER_CBBTC_PRIME_WRAPPER = '0xa3b90423FD6f70B9f4A424dEBfB27ac502ac1464';
+const ADAPTER_USDC_TEST_WRAPPER = '0x5167D22911b948AD7011E50D86dE98E14391A0E4';
 
 const vaultAddresses: VaultAddressConfig[] = [
   {
@@ -113,6 +125,7 @@ const vaultAddresses: VaultAddressConfig[] = [
     listCategory: 'prime',
     kind: 'feeWrapper',
     underlyingAddress: VAULT_USDC_PRIME,
+    adapterAddress: ADAPTER_USDC_PRIME_WRAPPER,
   },
   {
     address:
@@ -124,6 +137,7 @@ const vaultAddresses: VaultAddressConfig[] = [
     listCategory: 'frontier',
     kind: 'feeWrapper',
     underlyingAddress: VAULT_USDC_FRONTIER,
+    adapterAddress: ADAPTER_USDC_FRONTIER_WRAPPER,
   },
   {
     address:
@@ -135,6 +149,7 @@ const vaultAddresses: VaultAddressConfig[] = [
     listCategory: 'prime',
     kind: 'feeWrapper',
     underlyingAddress: VAULT_WETH_PRIME,
+    adapterAddress: ADAPTER_WETH_PRIME_WRAPPER,
   },
   {
     address:
@@ -146,6 +161,7 @@ const vaultAddresses: VaultAddressConfig[] = [
     listCategory: 'prime',
     kind: 'feeWrapper',
     underlyingAddress: VAULT_CBBTC_PRIME,
+    adapterAddress: ADAPTER_CBBTC_PRIME_WRAPPER,
   },
   {
     address:
@@ -157,12 +173,36 @@ const vaultAddresses: VaultAddressConfig[] = [
     listCategory: 'test',
     kind: 'feeWrapper',
     underlyingAddress: VAULT_USDC_TEST,
+    adapterAddress: ADAPTER_USDC_TEST_WRAPPER,
     excludeFromBusinessViews: true,
   },
 ];
 
+const vaultByAddress = new Map(
+  vaultAddresses.map((vault) => [vault.address.toLowerCase(), vault])
+);
+
+const vaultByAdapterAddress = new Map<string, VaultAddressConfig>();
+for (const vault of vaultAddresses) {
+  if (vault.adapterAddress) {
+    vaultByAdapterAddress.set(vault.adapterAddress.toLowerCase(), vault);
+  }
+}
+
 export const getVaultByAddress = (address: string): VaultAddressConfig | undefined => {
-  return vaultAddresses.find((vault) => vault.address.toLowerCase() === address.toLowerCase());
+  return vaultByAddress.get(address.toLowerCase());
+};
+
+/** Fee wrapper whose MorphoVaultV2Adapter matches this address. */
+export const getVaultByAdapterAddress = (
+  address: string
+): VaultAddressConfig | undefined => {
+  return vaultByAdapterAddress.get(address.toLowerCase());
+};
+
+/** True for MorphoVaultV2Adapter contracts that hold the underlying vault. */
+export function isFeeWrapperAdapterAddress(address: string): boolean {
+  return vaultByAdapterAddress.has(address.toLowerCase());
 };
 
 export function getVaultAssetSymbol(address: string): VaultAssetSymbol | undefined {
@@ -229,7 +269,8 @@ export const getVaultAddressesForBusinessViews = (): VaultAddressConfig[] => {
 /**
  * Strategy vaults for protocol TVL. Fee wrappers deposit into underlying vaults —
  * summing both would double-count. Unique users use
- * `getActiveVaultAddressesForStats` (includes wrappers).
+ * `getActiveVaultAddressesForStats` (includes wrappers; adapter contracts
+ * that hold the underlying are then skipped).
  */
 export const getVaultAddressesForProtocolStats = (): VaultAddressConfig[] => {
   return getVaultAddressesForBusinessViews().filter((v) => v.kind !== 'feeWrapper');
@@ -238,7 +279,8 @@ export const getVaultAddressesForProtocolStats = (): VaultAddressConfig[] => {
 /**
  * Active business vaults for dashboard unique-user counts and the active-vault
  * KPI. Includes fee wrappers so wrapper-only depositors are counted; excludes
- * test (`excludeFromBusinessViews`) and `inactive` vaults.
+ * test (`excludeFromBusinessViews`) and `inactive` vaults. Wrapper adapters
+ * are stripped from the user set in protocol-stats / protocol-users.
  */
 export const getActiveVaultAddressesForStats = (): VaultAddressConfig[] => {
   return getVaultAddressesForBusinessViews().filter((v) => !v.inactive);

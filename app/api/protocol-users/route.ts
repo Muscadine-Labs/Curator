@@ -3,6 +3,7 @@ import { getAddress } from 'viem';
 import {
   getActiveVaultAddressesForStats,
   getConfiguredVaultDisplayName,
+  isFeeWrapperAdapterAddress,
   withFeeWrapperLabel,
 } from '@/lib/config/vaults';
 import { BASE_CHAIN_ID } from '@/lib/constants';
@@ -58,7 +59,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const payload = await withServerResponseCache(
-      'protocol-users-v2',
+      'protocol-users-v3',
       API_CACHE_MAX_AGE_MS,
       async (): Promise<ProtocolUsersResponse> => {
         const vaults = getActiveVaultAddressesForStats();
@@ -100,10 +101,11 @@ export async function GET(request: NextRequest) {
             const userAddress = item?.user?.address;
             if (!userAddress) continue;
             const key = userAddress.toLowerCase();
-            // Skip null / burn addresses — not real depositors.
+            // Skip null / burn addresses and fee-wrapper adapters — not depositors.
             if (
               key === '0x0000000000000000000000000000000000000000' ||
-              key === '0x000000000000000000000000000000000000dead'
+              key === '0x000000000000000000000000000000000000dead' ||
+              isFeeWrapperAdapterAddress(key)
             ) {
               continue;
             }

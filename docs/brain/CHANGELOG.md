@@ -4,6 +4,12 @@ Append-only session log. Newest first. Keep entries short; link files.
 
 ---
 
+## 2026-09-04 — Wrapper adapters + treasury migration
+
+- Users / holders / txs label **MorphoVaultV2Adapter** addresses as the parent fee wrapper (`adapterAddress` on wrapper config). The adapter — not the wrapper vault — holds the underlying.
+- Unique-user KPI and the Users directory skip wrapper adapters (protocol internals, not depositors). Holders and txs still label them.
+- Treasury income no longer treats redeem-underlying → deposit-wrapper as a loss: unmatched opening self-deposits are not subtracted (`treasury-self-deposit.ts`). Self-deposits match FIFO and only on business vaults.
+
 ## 2026-09-04 — Vault list kind groups + depositor labels
 
 - `/vaults` and the vaults sidebar group **Underlying** then **Wrapper**, then Prime / Frontier / Test (`groupVaultsByKindAndCategory`).

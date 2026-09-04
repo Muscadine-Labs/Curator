@@ -2,6 +2,7 @@ import type { Address } from 'viem';
 import { isVaultV2PublicAllocatorAddress } from '@/lib/constants/bots';
 import {
   getConfiguredVaultDisplayName,
+  getVaultByAdapterAddress,
   getVaultByAddress,
 } from '@/lib/config/vaults';
 import { getSafeByAddress } from '@/lib/safe/config';
@@ -78,8 +79,8 @@ export function getRoleAddressLabel(address: string): string {
 
 /**
  * Label known protocol addresses in depositor / holder / tx-user lists.
- * Vaults (especially fee wrappers that hold the underlying vault) first, then Safes.
- * Returns null for ordinary wallets.
+ * Vaults, then MorphoVaultV2Adapter contracts (the wrapper's deposit into the
+ * underlying vault), then Safes. Returns null for ordinary wallets.
  */
 export function resolveDepositorLabel(address: string): DepositorLabel | null {
   const vault = getVaultByAddress(address);
@@ -88,6 +89,15 @@ export function resolveDepositorLabel(address: string): DepositorLabel | null {
       address: vault.address,
       label: getConfiguredVaultDisplayName(vault),
       kind: vault.kind === 'feeWrapper' ? 'fee_wrapper' : 'vault',
+    };
+  }
+
+  const wrapperByAdapter = getVaultByAdapterAddress(address);
+  if (wrapperByAdapter) {
+    return {
+      address: wrapperByAdapter.adapterAddress as string,
+      label: getConfiguredVaultDisplayName(wrapperByAdapter),
+      kind: 'fee_wrapper',
     };
   }
 
