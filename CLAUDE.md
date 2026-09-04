@@ -55,11 +55,11 @@ Muscadine for managing and reporting on Morpho-style vaults on Base (chainId
 - **Language**: TypeScript (strict)
 - **Styling**: Tailwind CSS + shadcn-style components in `components/ui/*`
 - **Data**: React Query (`@tanstack/react-query`) for client caches
-- **Wallet UI**: `@rainbow-me/rainbowkit` + `wagmi` (`getDefaultConfig` in
-  `lib/wallet/config.ts`, `RainbowKitProvider` in `app/providers.tsx`,
-  `ConnectButton` in topbar). Connect modal wallets (in order): **Rabby,
-  MetaMask, Base, Phantom, WalletConnect** — no server-side private keys for
-  vault writes.
+- **Wallet UI**: `@reown/appkit` + `@reown/appkit-adapter-wagmi` + `wagmi`
+  (`WagmiAdapter` in `lib/wallet/config.ts`, `createAppKit` in
+  `lib/wallet/appkit.ts`, custom connect button in topbar). Featured wallets
+  (in order): **Rabby, MetaMask, Base, Phantom** — plus WalletConnect and
+  injected EIP-6963. No server-side private keys for vault writes.
 - **GraphQL**: Morpho Blue API (`https://api.morpho.org/graphql`) via
   `graphql-request` in `lib/morpho/graphql-client.ts`. **Vault list, detail,
   history, risk, and protocol stats BFF routes use this client directly** — not
@@ -120,7 +120,7 @@ lib/
                        deallocate, caps, multicall, ...)
   theme/               Theme context
   utils/               Logger, rate limit, env validation, error handler
-  wallet/              Wagmi + RainbowKit config (`getDefaultConfig`), indexeddb polyfill
+  wallet/              Wagmi + Reown AppKit (`WagmiAdapter`, `createAppKit`), indexeddb polyfill
 
 .env / .env.local      Public env vars: NEXT_PUBLIC_VAULT_* addresses, RPC URL,
                        Morpho API URL, auth secrets
@@ -978,16 +978,16 @@ components.
 - Write UI (reallocate, caps, etc.) is gated on both wallet connection and
   curator role.
 - **All on-chain writes** (V1/V2 reallocate, caps, etc.) go through
-  **RainbowKit → connected wallet** (`useVaultWrite` / wagmi `writeContract`).
+  **Reown AppKit → connected wallet** (`useVaultWrite` / wagmi `writeContract`).
   Do not add server-side private keys for allocation flows.
 - **Multisig Safe writes** — when a vault's on-chain allocator/sentinel is a
   Muscadine Safe (`lib/safe/config.ts`), queue proposals from Allocation /
   Sentinel preview dialogs; owners sign EIP-712 on `/safe/[role]`.
   Direct wallet confirm remains for EOA role holders only (`lib/safe/vault-role-match.ts`).
-- Wallet connect lives in the **topbar** (`ConnectWalletButton` / RainbowKit
-  `ConnectButton`). Recommended wallets are configured in
-  `lib/wallet/config.ts` (`wallets` array on `getDefaultConfig`). Chain
-  switching is in the RainbowKit account modal.
+- Wallet connect lives in the **topbar** (`ConnectWalletButton` / Reown
+  AppKit). Featured wallets are configured in `lib/wallet/appkit.ts`. Chain
+  switching for the **app network** is the top-bar `NetworkSwitcher`; the
+  AppKit account modal can still switch the wallet chain.
 
 ---
 
@@ -1150,8 +1150,8 @@ npm run build
 - **Pin ESLint 9** — `eslint@^9.39.4` and `@eslint/js@^9.39.4`. Do **not** upgrade to
   ESLint 10 while using `eslint-config-next`; transitive plugins (`eslint-plugin-react`,
   etc.) still break on removed ESLint 10 APIs.
-- **Pin wagmi 2** — `@rainbow-me/rainbowkit` still peers `wagmi@^2.9.0`. Do not
-  upgrade to wagmi 3 until RainbowKit supports it.
+- **Pin wagmi 2** — `@reown/appkit-adapter-wagmi` peers `wagmi@2`. Do not
+  upgrade to wagmi 3 until AppKit supports it.
 - **Pin TypeScript 6** — `typescript-eslint` peers `typescript <6.1.0` for the
   tooling path used by `eslint-config-next`; stay on `typescript@^6.0.x` (not 7).
 - **`sharp` override** — Next still optional-deps `sharp@^0.34.5`; override to
@@ -1202,7 +1202,7 @@ npm run build
 | Client fetch + refetch interval  | `lib/data/api-fetch.ts`, `lib/data/query-config.ts`      |
 | BFF cache headers                | `lib/api/response-cache.ts`, `lib/api/server-response-cache.ts` |
 | Governance query key helper      | `vaultV2GovernanceQueryKey` in `lib/hooks/useVaultV2Governance.ts` |
-| Wallet / RainbowKit config       | `lib/wallet/config.ts`, `app/providers.tsx`, `components/ConnectWalletButton.tsx` |
+| Wallet / Reown AppKit config     | `lib/wallet/config.ts`, `lib/wallet/appkit.ts`, `app/providers.tsx`, `components/ConnectWalletButton.tsx` |
 | Shared filters UI                | `components/morpho/AllocationFilters.tsx`               |
 | Number formatting                | `lib/format/number.ts`                                   |
 | ABIs                             | `lib/onchain/abis.ts` (V2 only)                          |
@@ -1366,8 +1366,9 @@ import `lib/cctp/` until Cross-Chain Transfer is reintroduced under Later.
 `knip` was run on 2026-04-24 to audit imports. Summary:
 
 - **No unused files** — all source files are referenced.
-- **Unused direct deps** — none flagged at last knip run after RainbowKit
-  migration (wallet stack is `@rainbow-me/rainbowkit` + `wagmi`).
+- **Unused direct deps** — none flagged at last knip run after Reown AppKit
+  migration (wallet stack is `@reown/appkit` + `@reown/appkit-adapter-wagmi` +
+  `wagmi`).
 - **Unused test/lint devDeps** — `fake-indexeddb` is required for the SSR
   indexedDB polyfill (`lib/wallet/polyfill-indexeddb.ts`), not for Jest.
   `@eslint/*` and `eslint-config-next` are wired in `eslint.config.mjs` (ESLint 9

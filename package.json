@@ -13,11 +13,13 @@
     "lint": "npx eslint . --max-warnings=0"
   },
   "dependencies": {
-    "@morpho-org/morpho-ts": "^2.11.0",
+    "@base-org/account": "^2.5.10",
+    "@morpho-org/morpho-ts": "^2.11.1",
     "@radix-ui/react-slot": "^1.3.3",
     "@radix-ui/react-tabs": "^1.1.21",
-    "@rainbow-me/rainbowkit": "^2.2.11",
     "@reduxjs/toolkit": "^2.12.0",
+    "@reown/appkit": "^1.8.23",
+    "@reown/appkit-adapter-wagmi": "^1.8.23",
     "@safe-global/api-kit": "^5.0.3",
     "@safe-global/protocol-kit": "^8.0.6",
     "@safe-global/safe-apps-react-sdk": "^4.7.2",
@@ -31,8 +33,9 @@
     "date-fns": "^4.4.0",
     "graphql": "^17.0.2",
     "graphql-request": "^7.4.0",
-    "lucide-react": "^1.39.0",
+    "lucide-react": "^1.41.0",
     "next": "^16.3.4",
+    "ox": "^0.14.44",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-is": "^19.2.8",
@@ -44,14 +47,14 @@
     "wagmi": "^2.19.5"
   },
   "devDependencies": {
-    "@eslint/compat": "^2.1.0",
+    "@eslint/compat": "^2.1.1",
     "@eslint/eslintrc": "^3.3.7",
     "@eslint/js": "^9.39.5",
     "@swc/helpers": "^0.5.23",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^26.4.1",
     "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.5",
+    "@types/react-dom": "^19.2.7",
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.3.4",
     "fake-indexeddb": "^6.2.5",
@@ -67,6 +70,8 @@
   },
   "overrides": {
     "wagmi": "$wagmi",
+    "ox": "$ox",
+    "valtio": "$valtio",
     "sharp": ">=0.35.3",
     "use-sync-external-store": ">=1.4.0",
     "uuid": ">=14.0.0",
@@ -82,6 +87,7 @@
     "js-yaml": ">=4.3.1",
     "nanoid": ">=3.3.18",
     "postcss": ">=8.5.23",
+    "qr": "0.5.5",
     "anymatch": {
       "picomatch": "2.3.2"
     },

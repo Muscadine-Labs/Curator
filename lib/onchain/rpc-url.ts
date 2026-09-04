@@ -1,6 +1,6 @@
 /**
  * Server-side Base RPC URL. Never uses Alchemy `/demo`.
- * Client wallet RPCs stay in `lib/wallet/config.ts` (RainbowKit).
+ * Client wallet RPCs stay in `lib/wallet/config.ts` (Reown AppKit).
  */
 
 const BASE_PUBLIC_RPC = 'https://mainnet.base.org';

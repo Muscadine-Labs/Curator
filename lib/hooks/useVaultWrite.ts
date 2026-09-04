@@ -27,7 +27,8 @@ type UseVaultWriteOptions = {
 };
 
 function resolveChain(chainId: number): Chain | undefined {
-  return chains.find((c) => c.id === chainId);
+  const network = chains.find((c) => Number(c.id) === chainId);
+  return network as Chain | undefined;
 }
 
 export function useVaultWrite(options?: UseVaultWriteOptions) {

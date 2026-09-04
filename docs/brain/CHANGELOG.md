@@ -4,6 +4,12 @@ Append-only session log. Newest first. Keep entries short; link files.
 
 ---
 
+## 2026-09-04 — Reown AppKit + two more fee wrappers
+
+- Replaced RainbowKit with Reown AppKit (`@reown/appkit` + wagmi adapter), same pattern as the muscadine app: no SIWE, featured Rabby/MetaMask/Base/Phantom, theme sync, cookie wagmi storage.
+- Connect button shows Basename/ENS; wallet RPCs fall back to public endpoints instead of Alchemy `/demo`. History hides a flat 0% APY until Morpho indexes a rate (new wrappers).
+- Tracked cbBTC Prime wrapper `wmpcbBTC` (`0x0e0a857d2AF1A2d43c82d1FA54766239CAb70147` → mpCBBTC) and USDC Test wrapper (`0x9efdc9986052e058ef717c02d500Ca0456d8c1cb` → testing-usdc).
+
 ## 2026-09-02 — Fee wrapper review: names, users, inner fallback
 
 - Transact + configured labels use Morpho/on-chain names (`USDC Prime`); keep **Open on Morpho**. Wrappers and test vaults stay in transact.

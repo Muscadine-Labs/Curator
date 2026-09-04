@@ -1,6 +1,11 @@
 'use client';
 
-import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { useCallback } from 'react';
+import { useAccount } from 'wagmi';
+import { useAppKit } from '@reown/appkit/react';
+import { Button } from '@/components/ui/button';
+import { useIsClient } from '@/lib/hooks/useIsClient';
+import { useWalletDisplayName } from '@/lib/hooks/useWalletDisplayName';
 import { cn } from '@/lib/utils';
 
 type ConnectWalletButtonProps = {
@@ -9,18 +14,33 @@ type ConnectWalletButtonProps = {
   fullWidth?: boolean;
 };
 
-/** RainbowKit wallet controls (chain status hidden — app network is separate). */
+/** Reown AppKit wallet controls (chain status hidden — app network is separate). */
 export function ConnectWalletButton({
   className,
   fullWidth = false,
 }: ConnectWalletButtonProps) {
+  const { open } = useAppKit();
+  const { address, isConnected } = useAccount();
+  const isClient = useIsClient();
+  const { displayName } = useWalletDisplayName(address);
+
+  const handleClick = useCallback(() => {
+    void open({ view: isConnected ? 'Account' : 'Connect' });
+  }, [isConnected, open]);
+
   return (
-    <div className={cn(fullWidth && 'w-full [&_button]:w-full', className)}>
-      <ConnectButton
-        showBalance={false}
-        chainStatus="none"
-        accountStatus={fullWidth ? 'full' : 'address'}
-      />
-    </div>
+    <Button
+      type="button"
+      variant={isConnected ? 'outline' : 'default'}
+      size={fullWidth ? 'default' : 'sm'}
+      onClick={handleClick}
+      disabled={!isClient}
+      className={cn(
+        fullWidth && 'h-11 min-h-[44px] w-full touch-manipulation',
+        className
+      )}
+    >
+      {!isClient || !isConnected ? 'Connect Wallet' : displayName}
+    </Button>
   );
 }

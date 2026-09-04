@@ -158,7 +158,7 @@ npm run build   # next build
   (`CURATOR_MARKET_NETWORKS` + wagmi `chains`). Top-bar **NetworkSwitcher** sets
   preferred chain **without requiring a wallet**; when connected it also
   `switchChain`. `/markets` and `/markets/create` follow that preference
-  (not RainbowKit-only chain UI).
+  (not AppKit-only chain UI).
 - **Token display decimals** — `getTokenDisplayDecimals`: WETH/cbBTC → 6, USDC → 3
   (holders, txs, allocation history, markets token lines).
 - **ESLint** — stay on **v9.39.x** with `eslint-config-next` flat config in

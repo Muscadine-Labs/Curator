@@ -51,6 +51,12 @@ const VAULT_CBBTC_PRIME =
 const VAULT_USDC_FRONTIER =
   process.env.NEXT_PUBLIC_VAULT_USDC_V2_FRONTIER ||
   '0x314fD07319ef645bA7D548915CCd91F4788A1839';
+const VAULT_CBBTC_TEST =
+  process.env.NEXT_PUBLIC_VAULT_CBBTC_V2_TEST ||
+  '0xB15a51F46a53CF7dBB378A459A552F342bC54815';
+const VAULT_USDC_TEST =
+  process.env.NEXT_PUBLIC_VAULT_USDC_V2_TEST ||
+  '0x7D09D53637c8A3511de0eF1509b8dC5C2108a0AD';
 
 const vaultAddresses: VaultAddressConfig[] = [
   {
@@ -82,9 +88,7 @@ const vaultAddresses: VaultAddressConfig[] = [
     listCategory: 'frontier',
   },
   {
-    address:
-      process.env.NEXT_PUBLIC_VAULT_CBBTC_V2_TEST ||
-      '0xB15a51F46a53CF7dBB378A459A552F342bC54815',
+    address: VAULT_CBBTC_TEST,
     chainId: BASE_CHAIN_ID,
     morphoVersion: 'v2',
     assetSymbol: 'cbBTC',
@@ -92,9 +96,7 @@ const vaultAddresses: VaultAddressConfig[] = [
     excludeFromBusinessViews: true,
   },
   {
-    address:
-      process.env.NEXT_PUBLIC_VAULT_USDC_V2_TEST ||
-      '0x7D09D53637c8A3511de0eF1509b8dC5C2108a0AD',
+    address: VAULT_USDC_TEST,
     chainId: BASE_CHAIN_ID,
     morphoVersion: 'v2',
     assetSymbol: 'USDC',
@@ -133,6 +135,29 @@ const vaultAddresses: VaultAddressConfig[] = [
     listCategory: 'prime',
     kind: 'feeWrapper',
     innerVaultAddress: VAULT_WETH_PRIME,
+  },
+  {
+    address:
+      process.env.NEXT_PUBLIC_VAULT_CBBTC_PRIME_WRAPPER ||
+      '0x0e0a857d2AF1A2d43c82d1FA54766239CAb70147',
+    chainId: BASE_CHAIN_ID,
+    morphoVersion: 'v2',
+    assetSymbol: 'cbBTC',
+    listCategory: 'prime',
+    kind: 'feeWrapper',
+    innerVaultAddress: VAULT_CBBTC_PRIME,
+  },
+  {
+    address:
+      process.env.NEXT_PUBLIC_VAULT_USDC_TEST_WRAPPER ||
+      '0x9efdc9986052e058ef717c02d500Ca0456d8c1cb',
+    chainId: BASE_CHAIN_ID,
+    morphoVersion: 'v2',
+    assetSymbol: 'USDC',
+    listCategory: 'test',
+    kind: 'feeWrapper',
+    innerVaultAddress: VAULT_USDC_TEST,
+    excludeFromBusinessViews: true,
   },
 ];
 

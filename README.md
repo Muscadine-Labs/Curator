@@ -43,7 +43,7 @@ NEXT_PUBLIC_ALCHEMY_API_KEY=your_alchemy_api_key
 ALCHEMY_API_KEY=your_alchemy_api_key
 ```
 
-Get keys from [WalletConnect Cloud](https://cloud.walletconnect.com) and [Alchemy](https://www.alchemy.com/). For server RPC you can use `ALCHEMY_API_KEY` or `COINBASE_CDP_API_KEY` instead of Alchemy.
+Get keys from [Reown Cloud](https://dashboard.reown.com/) (WalletConnect project ID) and [Alchemy](https://www.alchemy.com/). For server RPC you can use `ALCHEMY_API_KEY` or `COINBASE_CDP_API_KEY` instead of Alchemy.
 
 ### 4. Run the development server
 
@@ -87,7 +87,7 @@ Copy `.env.example` → `.env.local`. Summary:
 - Next.js 16 (App Router)
 - TypeScript
 - Tailwind CSS + shadcn/ui
-- Wagmi + RainbowKit (wallet)
+- Wagmi + Reown AppKit (wallet)
 - Viem (blockchain)
 - React Query (data fetching)
 

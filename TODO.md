@@ -5,6 +5,7 @@ Running task list for agents and humans. Work **Today** top-to-bottom unless dir
 ## Today
 
 ## Done
+- Reown AppKit (from RainbowKit), matching the muscadine app: `WagmiAdapter` + `createAppKit`, Basename/ENS connect label, RPC fallbacks (no Alchemy `/demo`), history hides 0% APY on new wrappers. Added fee wrappers cbBTC Prime `wmpcbBTC` (`0x0e0a…0147`) and USDC Test (`0x9efd…c1cb`).
 - Fee wrappers on `/vaults`: GraphQL `MorphoVaultV2Adapter.innerVault` for Prime USDC, Frontier USDC, and Prime WETH wrappers. Empty allocate `data`. Excluded from protocol TVL; included in unique-user counts. Transact uses Morpho names.
 - #1 Markets browse: Loan / Collateral / Search also filter Midnight (pair tokens, order-independent) via `lib/morpho/market-pair-filter.ts`.
 - #2 `/markets/positions` MAX on every amount field (Muscadine app UX). Wallet ERC-20 for supply/add collateral; LLTV-buffered borrow; min(wallet, debt) repay (full → shares); max-safe collateral withdraw; full supply exit by shares. Morpho earn/borrow assets-flow.

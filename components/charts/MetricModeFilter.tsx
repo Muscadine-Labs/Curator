@@ -10,6 +10,8 @@ export type VaultHistoryMetric = 'supplied' | 'sharePrice' | 'apy';
 interface MetricModeFilterProps {
   value: VaultHistoryMetric;
   onChange: (value: VaultHistoryMetric) => void;
+  /** Metrics with no series yet (e.g. new fee wrappers before avgNetApy). */
+  hidden?: ReadonlyArray<VaultHistoryMetric>;
 }
 
 const OPTIONS: Array<{ value: VaultHistoryMetric; label: string }> = [
@@ -18,9 +20,10 @@ const OPTIONS: Array<{ value: VaultHistoryMetric; label: string }> = [
   { value: 'apy', label: 'APY' },
 ];
 
-export function MetricModeFilter({ value, onChange }: MetricModeFilterProps) {
+export function MetricModeFilter({ value, onChange, hidden }: MetricModeFilterProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const options = OPTIONS.filter((opt) => !hidden?.includes(opt.value));
 
   useEffect(() => {
     if (!open) return;
@@ -50,7 +53,7 @@ export function MetricModeFilter({ value, onChange }: MetricModeFilterProps) {
 
       {open && (
         <div className="absolute right-0 z-30 mt-1 w-44 rounded border bg-popover p-1 text-sm shadow-md">
-          {OPTIONS.map((opt) => {
+          {options.map((opt) => {
             const active = opt.value === value;
             return (
               <button

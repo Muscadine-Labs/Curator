@@ -2,7 +2,7 @@
 
 import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useAccount } from 'wagmi';
-import { useConnectModal } from '@rainbow-me/rainbowkit';
+import { useAppKit } from '@reown/appkit/react';
 import { Button } from '@/components/ui/button';
 import { TxErrorBanner } from '@/components/TxErrorBanner';
 
@@ -33,7 +33,7 @@ export function TransactionButton({
   suppressConnectPrompt = false,
 }: TransactionButtonProps) {
   const { isConnected } = useAccount();
-  const { openConnectModal } = useConnectModal();
+  const { open } = useAppKit();
 
   if (!isConnected) {
     if (suppressConnectPrompt) {
@@ -41,8 +41,7 @@ export function TransactionButton({
         <Button
           variant="outline"
           size={size}
-          onClick={openConnectModal}
-          disabled={!openConnectModal}
+          onClick={() => void open({ view: 'Connect' })}
           title="Connect wallet in the top bar to submit"
         >
           Connect wallet
@@ -53,8 +52,7 @@ export function TransactionButton({
       <Button
         variant="outline"
         size={size}
-        onClick={openConnectModal}
-        disabled={!openConnectModal}
+        onClick={() => void open({ view: 'Connect' })}
       >
         Connect Wallet
       </Button>

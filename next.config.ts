@@ -2,8 +2,11 @@ import path from "node:path";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Keep our AGENTS.md; Next 16.3 otherwise appends a generic rules block on `next dev`.
+  agentRules: false,
   transpilePackages: [
-    "@rainbow-me/rainbowkit",
+    "@reown/appkit",
+    "@reown/appkit-adapter-wagmi",
     "wagmi",
     "@wagmi/core",
     "@wagmi/connectors",
@@ -20,9 +23,24 @@ const nextConfig: NextConfig = {
       "valtio/vanilla": path.join(valtioRoot, "vanilla.js"),
       "valtio/react": path.join(valtioRoot, "react.js"),
       valtio: valtioRoot,
+      wagmi: path.join(process.cwd(), "node_modules/wagmi"),
+      "@tanstack/react-query": path.join(
+        process.cwd(),
+        "node_modules/@tanstack/react-query"
+      ),
       "pino-pretty": false,
       "@react-native-async-storage/async-storage": false,
     };
+    config.externals = [
+      ...(Array.isArray(config.externals)
+        ? config.externals
+        : config.externals
+          ? [config.externals]
+          : []),
+      "pino-pretty",
+      "lokijs",
+      "encoding",
+    ];
     // viem → ox (Tempo chain) via @safe-global/api-kit: dynamic require in a dependency.
     // Harmless for our Safe proposer route; silences "Compiled with warnings" on Vercel.
     config.ignoreWarnings = [

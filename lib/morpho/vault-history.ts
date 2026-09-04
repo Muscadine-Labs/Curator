@@ -142,6 +142,10 @@ export function computeSharePriceUsdSeries(
   return result;
 }
 
+function seriesHasPositiveValue(points: VaultHistoryChartPoint[]): boolean {
+  return points.some((p) => Number.isFinite(p.value) && p.value > 0);
+}
+
 export function buildV2HistorySeries(historicalState?: {
   totalAssets?: MorphoTimeseriesPoint[] | null;
   totalAssetsUsd?: MorphoTimeseriesPoint[] | null;
@@ -152,13 +156,16 @@ export function buildV2HistorySeries(historicalState?: {
   const totalAssetsUsd = mapMorphoTimeseries(historicalState?.totalAssetsUsd);
   const totalAssets = mapMorphoTimeseriesRaw(historicalState?.totalAssets);
   const totalSupply = mapMorphoTimeseriesRaw(historicalState?.totalSupply);
+  const apy = mapMorphoTimeseries(historicalState?.avgNetApy, (y) => y * 100);
 
   return {
     supplied: totalAssets,
     suppliedUsd: totalAssetsUsd,
     liquidityUsd: [],
     liquidity: [],
-    apy: mapMorphoTimeseries(historicalState?.avgNetApy, (y) => y * 100),
+    // Brand-new fee wrappers often have TVL/share-price before Morpho indexes
+    // avgNetApy. Keep deposits; hide a flat 0% APY series until a rate exists.
+    apy: seriesHasPositiveValue(apy) ? apy : [],
     sharePrice: mapMorphoTimeseries(historicalState?.sharePrice),
     sharePriceUsd: computeSharePriceUsdSeries(totalAssetsUsd, totalSupply),
   };

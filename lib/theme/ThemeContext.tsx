@@ -39,17 +39,21 @@ function resolveSystem(): 'light' | 'dark' {
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
+function resolveTheme(theme: Theme): 'light' | 'dark' {
+  return theme === 'system' ? resolveSystem() : theme;
+}
+
 function apply(theme: Theme) {
   const root = document.documentElement;
   root.classList.remove('dark', 'y2k');
-  const resolved = theme === 'system' ? resolveSystem() : theme;
-  if (resolved === 'dark') {
+  if (resolveTheme(theme) === 'dark') {
     root.classList.add('dark');
   }
 }
 
 type ThemeContextValue = {
   theme: Theme;
+  resolvedTheme: 'light' | 'dark';
   setTheme: (t: Theme) => void;
 };
 
@@ -63,26 +67,37 @@ export function useTheme(): ThemeContextValue {
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => getStored());
+  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>(() =>
+    resolveTheme(getStored())
+  );
 
   const setTheme = useCallback((t: Theme) => {
     setThemeState(t);
     localStorage.setItem(STORAGE_KEY, t);
     apply(t);
+    setResolvedTheme(resolveTheme(t));
   }, []);
 
   useEffect(() => {
     apply(theme);
+    setResolvedTheme(resolveTheme(theme));
   }, [theme]);
 
   useEffect(() => {
     if (theme !== 'system') return;
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    const handler = () => apply('system');
+    const handler = () => {
+      apply('system');
+      setResolvedTheme(resolveSystem());
+    };
     mq.addEventListener('change', handler);
     return () => mq.removeEventListener('change', handler);
   }, [theme]);
 
-  const value = useMemo(() => ({ theme, setTheme }), [theme, setTheme]);
+  const value = useMemo(
+    () => ({ theme, resolvedTheme, setTheme }),
+    [theme, resolvedTheme, setTheme]
+  );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
