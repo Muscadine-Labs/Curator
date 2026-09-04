@@ -457,9 +457,9 @@ deposits are not double-counted. Unique users and the active-vault KPI
 **Top nav + Sidebar** — Topbar areas: Overview · Vaults · Markets · Curator ·
 Business (`lib/nav/areas.ts`). Sidebar is **area-scoped**. Under **Vaults**: All
 vaults (`/vaults`), Transact (`/vaults/transact`), then network vault trees
-(Prime → Frontier → Vineyard → Test) via `useVaultList` sidebar filters. The
-`/vaults` catalog (`VaultsCatalog`) is a Morpho-style table (deposits, liquidity
-adapter, liquidity, APY) with the same category grouping. Legacy
+(Underlying → Wrapper, then Prime → Frontier → Vineyard → Test) via `useVaultList`
+sidebar filters. The `/vaults` catalog (`VaultsCatalog`) uses the same grouping
+(`groupVaultsByKindAndCategory`). Legacy
 page/API paths still **redirect** via `next.config.ts`. Catalog is `/vaults`;
 vault ops are `/vault/[address]/*`; user deposit/withdraw is `/vaults/transact`.
 
@@ -704,6 +704,7 @@ Outflows are tracked on Rebater, not as negative revenue.
 | -------- | -------- |
 | V1 MetaMorpho + V2 vault **token** positions for `TREASURY_ADDRESS` | Loose wallet balances (bare USDC/WETH/cbBTC/ETH) |
 | V1 mvUSDC / mvWETH / mvcbBTC (fee accounting only) | Test vaults (`excludeFromBusinessViews`) |
+| Business fee wrappers (performance-fee share mints on the wrapper) | |
 | Unknown Morpho vaults whose asset is USDC / WETH / cbBTC | Spam / unknown ERC-20s |
 
 **Treasury wallet:** `TREASURY_ADDRESS` in `lib/morpho/treasury-statement.ts`

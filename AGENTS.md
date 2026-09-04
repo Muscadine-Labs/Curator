@@ -29,10 +29,11 @@ npm run build   # next build
   `compute-blue-market-risk.ts`. MetaMorpho adapters are ignored in risk, allocation,
   and sentinel UIs. **Fee wrappers** (`kind: 'feeWrapper'`) use GraphQL
   `MorphoVaultV2Adapter.innerVault` (Morpho GraphQL) and empty allocate `data`
-  (`EMPTY_ADAPTER_DATA`); they are listed on `/vaults` but excluded from
-  protocol TVL (deposits sit in the underlying vault). Unique-user counts
-  include wrappers. Transact lists wrappers and test vaults using Morpho/on-chain
-  names. `underlyingAddress` is the GraphQL fallback for the child vault.
+  (`EMPTY_ADAPTER_DATA`); they are listed on `/vaults` (Underlying then Wrapper,
+  then Prime / Frontier / Test) but excluded from protocol TVL (deposits sit in
+  the underlying vault). Unique-user counts include wrappers. Transact lists
+  wrappers and test vaults using Morpho/on-chain names. `underlyingAddress` is
+  the GraphQL fallback for the child vault.
 - **React Query polling** — dashboard hooks poll every 30s; indexed vault data
   (history, reallocations, holders) does not background-poll. On-chain vault
   hooks (`risk`, `governance`) use `staleTime: 0` + `refetchOnMount: 'always'`.
@@ -69,7 +70,7 @@ npm run build   # next build
   Top nav: Overview · Vaults · Markets · Curator · Business; sidebar is
   area-scoped (`lib/nav/areas.ts`). Curator area: Curator tools · Bots ·
   Multisig Safe. Overview Protocol KPIs open drill-downs (Users: holdings +
-  combined txs). Bots (`/curator/bots`) watches allocator/sentinel/rebater activity
+  combined txs; fee wrappers and Treasury are labeled). Bots (`/curator/bots`) watches allocator/sentinel/rebater activity
   (Allocator + Sentinel Safes on by default; other role holders off until toggled). Telegram:
   @MuscadineVaultBot. Bot repos: `Muscadine-Labs/muscadine-bots` is the
   **downstream** fork (`main`); `morpho-org/morpho-bots` is the upstream

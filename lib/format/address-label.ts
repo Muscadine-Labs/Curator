@@ -1,5 +1,9 @@
 import type { Address } from 'viem';
 import { isVaultV2PublicAllocatorAddress } from '@/lib/constants/bots';
+import {
+  getConfiguredVaultDisplayName,
+  getVaultByAddress,
+} from '@/lib/config/vaults';
 import { getSafeByAddress } from '@/lib/safe/config';
 
 export type RoleAddressKind = 'public_allocator' | 'safe' | 'eoa';
@@ -25,6 +29,14 @@ export type BotActorInfo = {
   address: Address;
   label: string;
   kind: BotActorKind;
+};
+
+export type DepositorKind = 'treasury' | 'fee_wrapper' | 'vault' | 'safe';
+
+export type DepositorLabel = {
+  address: string;
+  label: string;
+  kind: DepositorKind;
 };
 
 /**
@@ -62,6 +74,37 @@ export function resolveRoleAddress(address: string): RoleAddressInfo {
 /** Human label for vault Roles UI (`AddressBadge` with `label="auto"`). */
 export function getRoleAddressLabel(address: string): string {
   return resolveRoleAddress(address).label;
+}
+
+/**
+ * Label known protocol addresses in depositor / holder / tx-user lists.
+ * Vaults (especially fee wrappers that hold the underlying vault) first, then Safes.
+ * Returns null for ordinary wallets.
+ */
+export function resolveDepositorLabel(address: string): DepositorLabel | null {
+  const vault = getVaultByAddress(address);
+  if (vault) {
+    return {
+      address: vault.address,
+      label: getConfiguredVaultDisplayName(vault),
+      kind: vault.kind === 'feeWrapper' ? 'fee_wrapper' : 'vault',
+    };
+  }
+
+  const safe = getSafeByAddress(address);
+  if (safe) {
+    return {
+      address: safe.address,
+      label: safe.role === 'treasury' ? 'Treasury' : `${safe.label} Safe`,
+      kind: safe.role === 'treasury' ? 'treasury' : 'safe',
+    };
+  }
+
+  return null;
+}
+
+export function getDepositorLabel(address: string): string | null {
+  return resolveDepositorLabel(address)?.label ?? null;
 }
 
 function shortAddressLabel(address: string): string {

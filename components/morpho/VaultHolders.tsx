@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Users, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
-import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CollapsibleCard } from '@/components/ui/collapsible-card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -17,8 +16,8 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useVaultHolders } from '@/lib/hooks/useVaultHolders';
+import { DepositorAddress } from '@/components/DepositorAddress';
 import {
-  formatAddress,
   formatRawTokenAmount,
   formatFullUSD,
   formatNumber,
@@ -170,14 +169,13 @@ export function VaultHolders({
             >
               <div className="min-w-0 space-y-0.5">
                 <p className="text-[10px] text-muted-foreground">#{rank}</p>
-                <Link
+                <DepositorAddress
+                  address={h.address}
                   href={`${scanUrl}/address/${h.address}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="break-all font-mono text-xs text-blue-600 hover:underline dark:text-blue-400"
-                >
-                  {formatAddress(h.address, 6, 4)}
-                </Link>
+                  startChars={6}
+                  endChars={4}
+                  className="break-all"
+                />
               </div>
               <div className="shrink-0 text-right">
                 <p className="font-mono text-xs tabular-nums">
@@ -217,14 +215,12 @@ export function VaultHolders({
                 <TableRow key={h.address}>
                   <TableCell className="text-xs text-muted-foreground">{rank}</TableCell>
                   <TableCell>
-                    <Link
+                    <DepositorAddress
+                      address={h.address}
                       href={`${scanUrl}/address/${h.address}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="font-mono text-xs text-blue-600 hover:underline dark:text-blue-400"
-                    >
-                      {formatAddress(h.address, 8, 6)}
-                    </Link>
+                      startChars={8}
+                      endChars={6}
+                    />
                   </TableCell>
                   <TableCell className="text-right font-mono text-xs">
                     {h.assets

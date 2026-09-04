@@ -9,7 +9,6 @@ import {
   ExternalLink,
   Filter,
 } from 'lucide-react';
-import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CollapsibleCard } from '@/components/ui/collapsible-card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -24,6 +23,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useVaultTransactions } from '@/lib/hooks/useVaultTransactions';
+import { DepositorAddress } from '@/components/DepositorAddress';
 import {
   formatAddress,
   formatRawTokenAmount,
@@ -208,14 +208,12 @@ export function VaultTransactions({
                 <TableCell>{txKindBadge(tx.type)}</TableCell>
                 <TableCell>
                   {tx.user ? (
-                    <Link
+                    <DepositorAddress
+                      address={tx.user}
                       href={`${scanUrl}/address/${tx.user}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="font-mono text-xs text-blue-600 hover:underline dark:text-blue-400"
-                    >
-                      {formatAddress(tx.user, 6, 4)}
-                    </Link>
+                      startChars={6}
+                      endChars={4}
+                    />
                   ) : (
                     <span className="text-xs text-muted-foreground">—</span>
                   )}

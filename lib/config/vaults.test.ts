@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  getAllVaultAddresses,
   getConfiguredVaultDisplayName,
+  getVaultListKind,
+  groupVaultsByKindAndCategory,
   withFeeWrapperLabel,
 } from '@/lib/config/vaults';
 
@@ -57,5 +60,33 @@ describe('getConfiguredVaultDisplayName', () => {
         kind: 'strategy',
       })
     ).toBe('Muscadine USDC Prime');
+  });
+});
+
+describe('groupVaultsByKindAndCategory', () => {
+  it('puts fee wrappers after underlying, then Prime / Frontier / Test', () => {
+    const grouped = groupVaultsByKindAndCategory(getAllVaultAddresses());
+    expect(grouped.map((g) => g.kind)).toEqual(['underlying', 'wrapper']);
+    expect(grouped[0].categories.map((c) => c.category)).toEqual([
+      'prime',
+      'frontier',
+      'test',
+    ]);
+    expect(
+      grouped[0].categories.every((c) =>
+        c.vaults.every((v) => getVaultListKind(v) === 'underlying')
+      )
+    ).toBe(true);
+    expect(
+      grouped[1].categories.every((c) =>
+        c.vaults.every((v) => getVaultListKind(v) === 'wrapper')
+      )
+    ).toBe(true);
+  });
+
+  it('classifies configured fee wrappers as wrapper', () => {
+    expect(getVaultListKind({ kind: 'feeWrapper' })).toBe('wrapper');
+    expect(getVaultListKind({ kind: 'strategy' })).toBe('underlying');
+    expect(getVaultListKind({})).toBe('underlying');
   });
 });

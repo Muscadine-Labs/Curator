@@ -9,7 +9,7 @@ import { BASE_CHAIN_ID } from '@/lib/constants';
 import { morphoGraphQLClient } from '@/lib/morpho/graphql-client';
 import {
   TREASURY_ADDRESS,
-  VAULT_ASSET_MAP,
+  treasuryAssetKeyForVault,
   type TreasuryAssetKey,
 } from '@/lib/morpho/treasury-statement';
 import { logger } from '@/lib/utils/logger';
@@ -196,10 +196,9 @@ function mapItem(treasury: string, item: TxItem): TreasuryVaultTransfer | null {
 
   const vaultAddress = item.vault?.address;
   if (!vaultAddress || !isAddress(vaultAddress)) return null;
-  const vaultKey = vaultAddress.toLowerCase();
-  const asset = VAULT_ASSET_MAP[vaultKey] ?? null;
-  const symbol =
-    item.vault?.asset?.symbol?.trim() || asset || 'TOKEN';
+  const symbolHint = item.vault?.asset?.symbol?.trim() || null;
+  const asset = treasuryAssetKeyForVault(vaultAddress, symbolHint);
+  const symbol = symbolHint || asset || 'TOKEN';
   const decimals = item.vault?.asset?.decimals ?? (symbol === 'USDC' ? 6 : 18);
   const assetsFromData =
     item.data && 'assets' in item.data ? rawToString(item.data.assets) : null;

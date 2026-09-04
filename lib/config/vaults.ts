@@ -271,3 +271,72 @@ export const getVaultCategory = (
   if (name.includes('test')) return 'test';
   return 'prime';
 };
+
+export const VAULT_LIST_KIND_ORDER = ['underlying', 'wrapper'] as const;
+export type VaultListKind = (typeof VAULT_LIST_KIND_ORDER)[number];
+
+export const VAULT_LIST_KIND_LABEL: Record<VaultListKind, string> = {
+  underlying: 'Underlying',
+  wrapper: 'Wrapper',
+};
+
+export const VAULT_LIST_CATEGORY_ORDER: readonly VaultCategory[] = [
+  'prime',
+  'frontier',
+  'vineyard',
+  'test',
+];
+
+export function getVaultListKind(
+  vault: { kind?: VaultKind | null } | null | undefined
+): VaultListKind {
+  return isFeeWrapperVault(vault) ? 'wrapper' : 'underlying';
+}
+
+export type VaultListCategoryGroup<T> = {
+  category: VaultCategory;
+  label: string;
+  vaults: T[];
+};
+
+export type VaultListKindGroup<T> = {
+  kind: VaultListKind;
+  label: string;
+  categories: VaultListCategoryGroup<T>[];
+};
+
+type GroupableVault = {
+  kind?: VaultKind | null;
+  name?: string | null;
+  address: string;
+};
+
+/** Nested list groups: Underlying / Wrapper, then Prime / Frontier / Test. */
+export function groupVaultsByKindAndCategory<T extends GroupableVault>(
+  vaults: readonly T[]
+): VaultListKindGroup<T>[] {
+  const groups: VaultListKindGroup<T>[] = [];
+  for (const kind of VAULT_LIST_KIND_ORDER) {
+    const ofKind = vaults.filter((v) => getVaultListKind(v) === kind);
+    if (ofKind.length === 0) continue;
+    const categories: VaultListCategoryGroup<T>[] = [];
+    for (const category of VAULT_LIST_CATEGORY_ORDER) {
+      const matched = ofKind.filter(
+        (v) => getVaultCategory(v.name, v.address) === category
+      );
+      if (matched.length === 0) continue;
+      categories.push({
+        category,
+        label: CATEGORY_LABEL[category],
+        vaults: matched,
+      });
+    }
+    if (categories.length === 0) continue;
+    groups.push({
+      kind,
+      label: VAULT_LIST_KIND_LABEL[kind],
+      categories,
+    });
+  }
+  return groups;
+}

@@ -1,3 +1,7 @@
+import {
+  getVaultAddressesForBusinessViews,
+  getVaultByAddress,
+} from '@/lib/config/vaults';
 import { utcCalendarYear } from '@/lib/utils/utc-calendar';
 
 /** Safe that receives vault performance fees and holds vault share positions. */
@@ -45,23 +49,31 @@ export function sumTreasuryRevenueYtdFromDaily(
   return daily.filter((d) => d.date.startsWith(prefix)).reduce((sum, d) => sum + d.value, 0);
 }
 
-/** Vault share tokens → treasury asset bucket (V2 business vaults + V1 MetaMorpho still paying fees). */
-export const VAULT_ASSET_MAP: Record<string, TreasuryAssetKey> = {
-  '0x89712980cb434ef5ae4ab29349419eb976b0b496': 'USDC',
-  '0x314fd07319ef645ba7d548915ccd91f4788a1839': 'USDC',
-  '0x99dcd0d75822ba398f13b2a8852b07c7e137ec70': 'cbBTC',
-  '0xd6dcad2f7da91fbb27bda471540d9770c97a5a43': 'WETH',
-  // V1 MetaMorpho — treasury fee accounting only; not in lib/config/vaults.ts
+/** V1 MetaMorpho — treasury fee accounting only; not in lib/config/vaults.ts */
+const V1_TREASURY_VAULT_ASSETS: Record<string, TreasuryAssetKey> = {
   '0xf7e26fa48a568b8b0038e104dfd8abdf0f99074f': 'USDC',
   '0x21e0d366272798da3a977feba699fcb91959d120': 'WETH',
   '0xaecc8113a7bd0cfaf7000ea7a31affd4691ff3e9': 'cbBTC',
 };
+
+function buildVaultAssetMap(): Record<string, TreasuryAssetKey> {
+  const map: Record<string, TreasuryAssetKey> = { ...V1_TREASURY_VAULT_ASSETS };
+  for (const vault of getVaultAddressesForBusinessViews()) {
+    map[vault.address.toLowerCase()] = vault.assetSymbol;
+  }
+  return map;
+}
+
+/** Vault share tokens → treasury asset bucket (configured V2 vaults + V1 MetaMorpho). */
+export const VAULT_ASSET_MAP: Record<string, TreasuryAssetKey> = buildVaultAssetMap();
 
 /** Map a Morpho vault position to USDC / WETH / cbBTC. Unknown tokens are skipped (no spam ERC-20s). */
 export function treasuryAssetKeyForVault(
   vaultAddress: string,
   assetSymbol?: string | null
 ): TreasuryAssetKey | null {
+  const cfg = getVaultByAddress(vaultAddress);
+  if (cfg && !cfg.excludeFromBusinessViews) return cfg.assetSymbol;
   const mapped = VAULT_ASSET_MAP[vaultAddress.toLowerCase()];
   if (mapped) return mapped;
   const symbol = (assetSymbol ?? '').trim().toUpperCase();

@@ -17,7 +17,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { TokenUsdValue } from '@/components/morpho/TokenUsdValue';
-import { getVaultCategory, withFeeWrapperLabel } from '@/lib/config/vaults';
+import { groupVaultsByKindAndCategory, withFeeWrapperLabel } from '@/lib/config/vaults';
 import { SIDEBAR_NETWORKS } from '@/lib/constants';
 import {
   useProtocolStats,
@@ -29,29 +29,6 @@ import { formatPercentage } from '@/lib/format/number';
 import { resolveTokenDisplayProps } from '@/lib/format/asset-decimals';
 import { formatCapCompactAmount } from '@/lib/morpho/v2-cap-format';
 import { cn } from '@/lib/utils';
-
-const CATEGORY_ORDER = ['prime', 'frontier', 'vineyard', 'test'] as const;
-
-const CATEGORY_LABEL: Record<(typeof CATEGORY_ORDER)[number], string> = {
-  prime: 'Prime',
-  frontier: 'Frontier',
-  vineyard: 'Vineyard',
-  test: 'Test',
-};
-
-function categoryOf(vault: VaultWithData): (typeof CATEGORY_ORDER)[number] {
-  if (
-    vault.listCategory === 'prime' ||
-    vault.listCategory === 'frontier' ||
-    vault.listCategory === 'vineyard' ||
-    vault.listCategory === 'test'
-  ) {
-    return vault.listCategory;
-  }
-  const cat = getVaultCategory(vault.name, vault.address);
-  if (cat === 'frontier' || cat === 'vineyard') return cat;
-  return 'prime';
-}
 
 function networkName(chainId: number): string {
   return SIDEBAR_NETWORKS.find((n) => n.chainId === chainId)?.name ?? `Chain ${chainId}`;
@@ -102,12 +79,7 @@ export function VaultsCatalog() {
   }, [vaults, search, assetFilter, networkFilter]);
 
   const groups = useMemo(
-    () =>
-      CATEGORY_ORDER.map((type) => ({
-        type,
-        label: CATEGORY_LABEL[type],
-        vaults: filtered.filter((v) => categoryOf(v) === type),
-      })).filter((g) => g.vaults.length > 0),
+    () => groupVaultsByKindAndCategory(filtered),
     [filtered]
   );
 
@@ -203,31 +175,42 @@ export function VaultsCatalog() {
       ) : groups.length === 0 ? (
         <p className="text-sm text-muted-foreground">No vaults match these filters.</p>
       ) : (
-        groups.map((group) => (
-          <section key={group.type} className="space-y-2">
-            <h2 className="text-sm font-semibold text-foreground">{group.label}</h2>
-            <div className="overflow-hidden rounded-xl border border-border">
-              <Table>
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead>Network</TableHead>
-                    <TableHead>Vault</TableHead>
-                    <TableHead className="text-right">Total deposits</TableHead>
-                    <TableHead>Liquidity adapter</TableHead>
-                    <TableHead>Liquidity</TableHead>
-                    <TableHead className="text-right">APY</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {group.vaults.map((vault) => (
-                    <VaultRow key={vault.address} vault={vault} />
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+        groups.map((kindGroup) => (
+          <section key={kindGroup.kind} className="space-y-4">
+            <h2 className="text-base font-semibold text-foreground">{kindGroup.label}</h2>
+            {kindGroup.categories.map((category) => (
+              <div key={`${kindGroup.kind}-${category.category}`} className="space-y-2">
+                <h3 className="text-sm font-medium text-muted-foreground">{category.label}</h3>
+                <VaultTable vaults={category.vaults} />
+              </div>
+            ))}
           </section>
         ))
       )}
+    </div>
+  );
+}
+
+function VaultTable({ vaults }: { vaults: VaultWithData[] }) {
+  return (
+    <div className="overflow-hidden rounded-xl border border-border">
+      <Table>
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead>Network</TableHead>
+            <TableHead>Vault</TableHead>
+            <TableHead className="text-right">Total deposits</TableHead>
+            <TableHead>Liquidity adapter</TableHead>
+            <TableHead>Liquidity</TableHead>
+            <TableHead className="text-right">APY</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {vaults.map((vault) => (
+            <VaultRow key={vault.address} vault={vault} />
+          ))}
+        </TableBody>
+      </Table>
     </div>
   );
 }

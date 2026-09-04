@@ -19,7 +19,7 @@ import {
   ChevronDown,
   ChevronRight,
 } from 'lucide-react';
-import { getVaultCategory, withFeeWrapperLabel } from '@/lib/config/vaults';
+import { groupVaultsByKindAndCategory, withFeeWrapperLabel } from '@/lib/config/vaults';
 import { useVaultList, SIDEBAR_VAULT_LIST_FILTERS } from '@/lib/hooks/useProtocolStats';
 import { Button } from '@/components/ui/button';
 import { SIDEBAR_NETWORKS } from '@/lib/constants';
@@ -27,48 +27,13 @@ import type { VaultWithData } from '@/lib/hooks/useProtocolStats';
 import { resolveCuratorNavArea, type CuratorNavArea } from '@/lib/nav/areas';
 import { cn } from '@/lib/utils';
 
-type VaultSectionType = 'prime' | 'frontier' | 'vineyard' | 'test';
-
-type VaultSection = { type: VaultSectionType; label: string; vaults: VaultWithData[] };
-
-const SECTION_ORDER: VaultSectionType[] = ['prime', 'frontier', 'vineyard', 'test'];
-
-const SECTION_LABELS: Record<VaultSectionType, string> = {
-  prime: 'Prime',
-  frontier: 'Frontier',
-  vineyard: 'Vineyard',
-  test: 'Test',
-};
-
-function vaultSectionType(vault: VaultWithData): VaultSectionType {
-  if (
-    vault.listCategory === 'prime' ||
-    vault.listCategory === 'frontier' ||
-    vault.listCategory === 'vineyard' ||
-    vault.listCategory === 'test'
-  ) {
-    return vault.listCategory;
-  }
-  const cat = getVaultCategory(vault.name, vault.address);
-  if (cat === 'frontier' || cat === 'vineyard') return cat;
-  return 'prime';
-}
-
-function getSectionsForNetwork(vaults: VaultWithData[], chainId: number): VaultSection[] {
-  const byChain = vaults.filter((v) => v.chainId === chainId);
-  const sections: VaultSection[] = [];
-  for (const type of SECTION_ORDER) {
-    const matched = byChain.filter((v) => vaultSectionType(v) === type);
-    if (matched.length > 0) {
-      sections.push({ type, label: SECTION_LABELS[type], vaults: matched });
-    }
-  }
-  return sections;
-}
-
 type SidebarProps = {
   onClose?: () => void;
 };
+
+function kindGroupsForNetwork(vaults: VaultWithData[], chainId: number) {
+  return groupVaultsByKindAndCategory(vaults.filter((v) => v.chainId === chainId));
+}
 
 function NavLink({
   href,
@@ -233,9 +198,9 @@ function AreaSidebar({
         </div>
 
         {SIDEBAR_NETWORKS.filter(
-          (network) => getSectionsForNetwork(vaults, network.chainId).length > 0
+          (network) => kindGroupsForNetwork(vaults, network.chainId).length > 0
         ).map((network) => {
-          const sections = getSectionsForNetwork(vaults, network.chainId);
+          const kindGroups = kindGroupsForNetwork(vaults, network.chainId);
           const isExpanded = expandedNetworks.has(network.chainId);
           return (
             <div key={network.chainId} className="space-y-1">
@@ -252,37 +217,44 @@ function AreaSidebar({
                 <span className="font-medium">{network.name}</span>
               </button>
               {isExpanded && (
-                <div className="ml-3 space-y-2 border-l border-slate-200 pl-2 dark:border-slate-700">
+                <div className="ml-3 space-y-3 border-l border-slate-200 pl-2 dark:border-slate-700">
                   {isLoading ? (
                     <div className="px-2 py-1.5 text-xs text-slate-500">Loading…</div>
                   ) : (
-                    sections.map((section) => (
-                      <div key={section.type} className="space-y-0.5">
-                        <SectionLabel>{section.label}</SectionLabel>
-                        {section.vaults.map((vault) => {
-                          const href = `/vault/${vault.address}`;
-                          const active = isActive(href);
-                          return (
-                            <Link
-                              key={vault.address}
-                              href={href}
-                              onClick={onLinkClick}
-                              className={cn(
-                                'flex min-h-[36px] w-full touch-manipulation items-center rounded-lg px-2 py-1.5 text-sm transition',
-                                active
-                                  ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
-                                  : 'text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'
-                              )}
-                            >
-                              <span className="truncate min-w-0">
-                                {withFeeWrapperLabel(
-                                  vault.name ?? 'Unknown Vault',
-                                  vault.address
-                                )}
-                              </span>
-                            </Link>
-                          );
-                        })}
+                    kindGroups.map((kindGroup) => (
+                      <div key={kindGroup.kind} className="space-y-1.5">
+                        <SectionLabel>{kindGroup.label}</SectionLabel>
+                        {kindGroup.categories.map((category) => (
+                          <div key={`${kindGroup.kind}-${category.category}`} className="space-y-0.5">
+                            <p className="px-2 text-[10px] font-medium text-slate-500 dark:text-slate-400">
+                              {category.label}
+                            </p>
+                            {category.vaults.map((vault) => {
+                              const href = `/vault/${vault.address}`;
+                              const active = isActive(href);
+                              return (
+                                <Link
+                                  key={vault.address}
+                                  href={href}
+                                  onClick={onLinkClick}
+                                  className={cn(
+                                    'flex min-h-[36px] w-full touch-manipulation items-center rounded-lg px-2 py-1.5 text-sm transition',
+                                    active
+                                      ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
+                                      : 'text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'
+                                  )}
+                                >
+                                  <span className="truncate min-w-0">
+                                    {withFeeWrapperLabel(
+                                      vault.name ?? 'Unknown Vault',
+                                      vault.address
+                                    )}
+                                  </span>
+                                </Link>
+                              );
+                            })}
+                          </div>
+                        ))}
                       </div>
                     ))
                   )}

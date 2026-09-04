@@ -4,6 +4,12 @@ Append-only session log. Newest first. Keep entries short; link files.
 
 ---
 
+## 2026-09-04 — Vault list kind groups + depositor labels
+
+- `/vaults` and the vaults sidebar group **Underlying** then **Wrapper**, then Prime / Frontier / Test (`groupVaultsByKindAndCategory`).
+- Overview Users, vault holders, and tx counterparties label fee wrappers and the Treasury Safe.
+- Treasury `VAULT_ASSET_MAP` is built from `getVaultAddressesForBusinessViews()` plus V1 leftovers; transfers use `treasuryAssetKeyForVault`.
+
 ## 2026-09-04 — Income months + Morpho create links
 
 - Treasury/DefiLlama statements keep every month after first income, including $0.00 (e.g. August 2026).

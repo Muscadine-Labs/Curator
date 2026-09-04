@@ -35,6 +35,7 @@ import {
 } from '@/lib/format/number';
 import { getTokenDisplayDecimals } from '@/lib/format/asset-decimals';
 import { getScanUrlForChain, BASE_CHAIN_ID } from '@/lib/constants';
+import { DepositorAddress } from '@/components/DepositorAddress';
 
 export type ProtocolStatKey = 'tvl' | 'fees' | 'users' | 'vaults';
 
@@ -163,9 +164,7 @@ function UsersDetail() {
                   >
                     <div className="min-w-0 space-y-0.5">
                       <p className="text-[10px] text-muted-foreground">#{rank}</p>
-                      <span className="font-mono text-xs">
-                        {formatAddress(u.address, 6, 4)}
-                      </span>
+                      <DepositorAddress address={u.address} startChars={6} endChars={4} />
                       <p className="text-[11px] text-muted-foreground">
                         {u.vaultCount} vault{u.vaultCount === 1 ? '' : 's'}
                       </p>
@@ -250,15 +249,13 @@ function UsersDetail() {
                           {rank}
                         </TableCell>
                         <TableCell>
-                          <Link
+                          <DepositorAddress
+                            address={u.address}
                             href={`${scanUrl}/address/${u.address}`}
-                            target="_blank"
-                            rel="noreferrer"
+                            startChars={8}
+                            endChars={6}
                             onClick={(e) => e.stopPropagation()}
-                            className="font-mono text-xs text-blue-600 hover:underline dark:text-blue-400"
-                          >
-                            {formatAddress(u.address, 8, 6)}
-                          </Link>
+                          />
                         </TableCell>
                         <TableCell className="text-right tabular-nums text-xs">
                           {u.vaultCount}
@@ -383,9 +380,11 @@ function UsersDetail() {
                     {tx.vaultName}
                   </Link>
                   <div className="mt-1 flex items-end justify-between gap-2">
-                    <span className="font-mono text-[11px] text-muted-foreground">
-                      {tx.user ? formatAddress(tx.user, 6, 4) : '—'}
-                    </span>
+                    {tx.user ? (
+                      <DepositorAddress address={tx.user} startChars={6} endChars={4} />
+                    ) : (
+                      <span className="font-mono text-[11px] text-muted-foreground">—</span>
+                    )}
                     <div className="text-right text-xs tabular-nums">
                       <p>
                         {tx.assets
@@ -468,8 +467,17 @@ function UsersDetail() {
                           {prettyType(tx.type)}
                         </Badge>
                       </TableCell>
-                      <TableCell className="font-mono text-xs">
-                        {tx.user ? formatAddress(tx.user, 6, 4) : '—'}
+                      <TableCell>
+                        {tx.user ? (
+                          <DepositorAddress
+                            address={tx.user}
+                            href={`${scanUrl}/address/${tx.user}`}
+                            startChars={6}
+                            endChars={4}
+                          />
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
                       </TableCell>
                       <TableCell className="text-right text-xs tabular-nums">
                         <p>
