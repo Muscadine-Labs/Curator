@@ -59,6 +59,20 @@ export function utcMonthsFrom(
   return months;
 }
 
+/**
+ * Drop leading empty periods; keep every month/quarter through the latest
+ * row (including $0.00 gaps after the first non-zero period).
+ */
+export function fromFirstNonZeroPeriod<T extends { month: string }>(
+  rows: readonly T[],
+  isNonZero: (row: T) => boolean
+): T[] {
+  const sorted = [...rows].sort((a, b) => a.month.localeCompare(b.month));
+  const first = sorted.findIndex(isNonZero);
+  if (first < 0) return sorted.slice(-1);
+  return sorted.slice(first);
+}
+
 /** Whether a `YYYY-MM`, `YYYY-Qn`, or `YYYY` period is fully in the past (UTC). */
 export function isUtcPeriodComplete(periodKey: string, now: Date = new Date()): boolean {
   const currentYear = now.getUTCFullYear();

@@ -22,6 +22,9 @@ import {
   MORPHO_APP_VAULTS_URL,
   MORPHO_AUTOMATION_BOTS,
   MORPHO_CURATOR_V2_VAULTS_URL,
+  MORPHO_CURATOR_CREATE_MARKET_URL,
+  MORPHO_CURATOR_CREATE_VAULT_URL,
+  MORPHO_CURATOR_CREATE_FEE_WRAPPER_URL,
   MORPHO_DOCS_GET_STARTED_URL,
   MORPHO_FIXED_RATE_MARKETS_URL,
   MORPHO_LIQUIDATION_APP_URL,
@@ -83,6 +86,27 @@ const EXTERNAL_TOOLS: readonly HubLink[] = [
     description: 'Official Morpho curator UI for Vault V2 (caps, roles, emergency).',
     href: MORPHO_CURATOR_V2_VAULTS_URL,
     icon: Shield,
+    external: true,
+  },
+  {
+    title: 'Create Morpho Blue market',
+    description: 'Official Morpho Curator create-market flow (permissionless Blue market).',
+    href: MORPHO_CURATOR_CREATE_MARKET_URL,
+    icon: Plus,
+    external: true,
+  },
+  {
+    title: 'Create Morpho Vault V2',
+    description: 'Official Morpho Curator vault setup (identity, adapter, roles, fees).',
+    href: MORPHO_CURATOR_CREATE_VAULT_URL,
+    icon: Shield,
+    external: true,
+  },
+  {
+    title: 'Create Fee Wrapper',
+    description: 'Official Morpho Curator fee-wrapper deploy on top of an existing Vault V2.',
+    href: MORPHO_CURATOR_CREATE_FEE_WRAPPER_URL,
+    icon: Sparkles,
     external: true,
   },
   {
@@ -227,17 +251,6 @@ export default function CuratorToolsPage() {
                     </span>
                   </a>
                   <div className="mt-1 flex shrink-0 flex-wrap items-center justify-end gap-x-2 gap-y-1 text-xs">
-                    {bot.upstreamBranchHref ? (
-                      <a
-                        href={bot.upstreamBranchHref}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-muted-foreground hover:underline"
-                        title="Vendored upstream tracking branch"
-                      >
-                        upstream branch
-                      </a>
-                    ) : null}
                     {bot.upstreamRepoHref ? (
                       <a
                         href={bot.upstreamRepoHref}

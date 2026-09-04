@@ -22,14 +22,14 @@ export interface VaultAddressConfig {
   assetSymbol: VaultAssetSymbol;
   /** Overrides name-based UI routing when the Morpho vault name lacks category keywords */
   listCategory?: VaultCategory;
-  /** Default `strategy`. Fee wrappers only allocate to one inner Vault V2. */
+  /** Default `strategy`. Fee wrappers only allocate to one underlying Vault V2. */
   kind?: VaultKind;
   /**
    * Child Vault V2 when `kind` is `feeWrapper`. Same env default as the
    * strategy vault (e.g. `NEXT_PUBLIC_VAULT_USDC_V2`). GraphQL fallback when
-   * `MorphoVaultV2Adapter.innerVault` is omitted.
+   * Morpho `MorphoVaultV2Adapter.innerVault` is omitted.
    */
-  innerVaultAddress?: string;
+  underlyingAddress?: string;
   /**
    * Test vaults: omitted from overview, catalog, monthly statements, and
    * default GET /api/vaults. Not the TVL double-count flag — use
@@ -51,6 +51,12 @@ const VAULT_CBBTC_PRIME =
 const VAULT_USDC_FRONTIER =
   process.env.NEXT_PUBLIC_VAULT_USDC_V2_FRONTIER ||
   '0x314fD07319ef645bA7D548915CCd91F4788A1839';
+const VAULT_CBBTC_TEST =
+  process.env.NEXT_PUBLIC_VAULT_CBBTC_V2_TEST ||
+  '0xB15a51F46a53CF7dBB378A459A552F342bC54815';
+const VAULT_USDC_TEST =
+  process.env.NEXT_PUBLIC_VAULT_USDC_V2_TEST ||
+  '0x7D09D53637c8A3511de0eF1509b8dC5C2108a0AD';
 
 const vaultAddresses: VaultAddressConfig[] = [
   {
@@ -82,9 +88,7 @@ const vaultAddresses: VaultAddressConfig[] = [
     listCategory: 'frontier',
   },
   {
-    address:
-      process.env.NEXT_PUBLIC_VAULT_CBBTC_V2_TEST ||
-      '0xB15a51F46a53CF7dBB378A459A552F342bC54815',
+    address: VAULT_CBBTC_TEST,
     chainId: BASE_CHAIN_ID,
     morphoVersion: 'v2',
     assetSymbol: 'cbBTC',
@@ -92,9 +96,7 @@ const vaultAddresses: VaultAddressConfig[] = [
     excludeFromBusinessViews: true,
   },
   {
-    address:
-      process.env.NEXT_PUBLIC_VAULT_USDC_V2_TEST ||
-      '0x7D09D53637c8A3511de0eF1509b8dC5C2108a0AD',
+    address: VAULT_USDC_TEST,
     chainId: BASE_CHAIN_ID,
     morphoVersion: 'v2',
     assetSymbol: 'USDC',
@@ -110,7 +112,7 @@ const vaultAddresses: VaultAddressConfig[] = [
     assetSymbol: 'USDC',
     listCategory: 'prime',
     kind: 'feeWrapper',
-    innerVaultAddress: VAULT_USDC_PRIME,
+    underlyingAddress: VAULT_USDC_PRIME,
   },
   {
     address:
@@ -121,7 +123,7 @@ const vaultAddresses: VaultAddressConfig[] = [
     assetSymbol: 'USDC',
     listCategory: 'frontier',
     kind: 'feeWrapper',
-    innerVaultAddress: VAULT_USDC_FRONTIER,
+    underlyingAddress: VAULT_USDC_FRONTIER,
   },
   {
     address:
@@ -132,7 +134,30 @@ const vaultAddresses: VaultAddressConfig[] = [
     assetSymbol: 'WETH',
     listCategory: 'prime',
     kind: 'feeWrapper',
-    innerVaultAddress: VAULT_WETH_PRIME,
+    underlyingAddress: VAULT_WETH_PRIME,
+  },
+  {
+    address:
+      process.env.NEXT_PUBLIC_VAULT_CBBTC_PRIME_WRAPPER ||
+      '0x0e0a857d2AF1A2d43c82d1FA54766239CAb70147',
+    chainId: BASE_CHAIN_ID,
+    morphoVersion: 'v2',
+    assetSymbol: 'cbBTC',
+    listCategory: 'prime',
+    kind: 'feeWrapper',
+    underlyingAddress: VAULT_CBBTC_PRIME,
+  },
+  {
+    address:
+      process.env.NEXT_PUBLIC_VAULT_USDC_TEST_WRAPPER ||
+      '0x9efdc9986052e058ef717c02d500Ca0456d8c1cb',
+    chainId: BASE_CHAIN_ID,
+    morphoVersion: 'v2',
+    assetSymbol: 'USDC',
+    listCategory: 'test',
+    kind: 'feeWrapper',
+    underlyingAddress: VAULT_USDC_TEST,
+    excludeFromBusinessViews: true,
   },
 ];
 
@@ -159,26 +184,41 @@ export function isFeeWrapperVault(
 
 /**
  * Fallback label when GraphQL / on-chain name is unavailable.
- * Fee wrappers match Morpho names (`USDC Prime`); strategy vaults keep the
- * Muscadine prefix (`Muscadine USDC Prime`).
+ * Fee wrappers match Morpho names (`USDC Prime`) plus ` (wrapper)`;
+ * strategy vaults keep the Muscadine prefix (`Muscadine USDC Prime`).
  */
 export function getConfiguredVaultDisplayName(
   vault: Pick<VaultAddressConfig, 'assetSymbol' | 'listCategory' | 'kind'>
 ): string {
   const category = vault.listCategory ? CATEGORY_LABEL[vault.listCategory] : 'V2';
   if (vault.kind === 'feeWrapper') {
-    return `${vault.assetSymbol} ${category}`;
+    return `${vault.assetSymbol} ${category} (wrapper)`;
   }
   return `Muscadine ${vault.assetSymbol} ${category}`;
 }
 
-/** GraphQL `innerVault.address`, else the wrapper's configured child. */
-export function resolveInnerVaultAddress(
+const WRAPPER_SUFFIX_RE = /\(\s*wrapper\s*\)\s*$/i;
+
+/** Append ` (wrapper)` for fee-wrapper addresses. Idempotent. */
+export function withFeeWrapperLabel(
+  name: string | null | undefined,
+  address: string | null | undefined,
+  fallback = 'Unknown Vault'
+): string {
+  const base = name?.trim() || fallback;
+  if (!address) return base;
+  if (getVaultByAddress(address)?.kind !== 'feeWrapper') return base;
+  if (WRAPPER_SUFFIX_RE.test(base)) return base;
+  return `${base} (wrapper)`;
+}
+
+/** GraphQL `innerVault.address`, else the wrapper's configured underlying vault. */
+export function resolveUnderlyingVaultAddress(
   wrapperAddress: string,
   graphQlAddress?: string | null
 ): string | null {
   if (graphQlAddress) return graphQlAddress;
-  return getVaultByAddress(wrapperAddress)?.innerVaultAddress ?? null;
+  return getVaultByAddress(wrapperAddress)?.underlyingAddress ?? null;
 }
 
 /** Vaults included in the catalog, monthly statements, and GET /api/vaults */
@@ -187,7 +227,7 @@ export const getVaultAddressesForBusinessViews = (): VaultAddressConfig[] => {
 };
 
 /**
- * Strategy vaults for protocol TVL. Fee wrappers deposit into inner vaults —
+ * Strategy vaults for protocol TVL. Fee wrappers deposit into underlying vaults —
  * summing both would double-count. Unique users use
  * `getActiveVaultAddressesForStats` (includes wrappers).
  */

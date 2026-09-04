@@ -17,6 +17,7 @@ import {
 import { TxPreviewDialog } from '@/components/morpho/TxPreviewDialog';
 import { TxErrorBanner } from '@/components/TxErrorBanner';
 import { useVaultWrite } from '@/lib/hooks/useVaultWrite';
+import { isBroadcastTxHash } from '@/lib/utils/wallet-error';
 import { v2WriteConfigs } from '@/lib/onchain/vault-writes';
 import { formatAllocationTableAmount } from '@/lib/format/allocation-display';
 import { resolveAssetDecimals } from '@/lib/format/asset-decimals';
@@ -406,12 +407,15 @@ export function VaultV2LiquidityAdapter({
         open={previewOpen}
         preview={txPreview}
         onOpenChange={(open) => {
-          if (write.isLoading || queueingSafe) return;
+          if (!open && ((write.isLoading && isBroadcastTxHash(write.txHash)) || queueingSafe)) {
+            return;
+          }
           setPreviewOpen(open);
           if (!open) {
             setTxPreview(null);
             setSubmitError(null);
             setQueueSafeError(null);
+            if (!isBroadcastTxHash(write.txHash)) write.reset();
           }
         }}
         destinationOptions={{

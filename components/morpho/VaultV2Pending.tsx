@@ -20,6 +20,7 @@ import { v2WriteConfigs } from '@/lib/onchain/vault-writes';
 import { getScanUrlForChain } from '@/lib/constants';
 import { TransactionButton } from '@/components/TransactionButton';
 import { TxPreviewDialog } from '@/components/morpho/TxPreviewDialog';
+import { isBroadcastTxHash } from '@/lib/utils/wallet-error';
 import type { VaultV2PendingResponse, VaultV2PendingItem } from '@/app/api/vaults/[id]/pending/route';
 import type { VaultV2GovernanceResponse } from '@/app/api/vaults/[id]/governance/route';
 import type { V2VaultRiskResponse } from '@/app/api/vaults/[id]/risk/route';
@@ -592,13 +593,20 @@ export function VaultV2Pending({
         open={acceptPreviewOpen}
         preview={acceptPreview}
         onOpenChange={(open) => {
-          if (acceptBusy) return;
+          if (
+            !open &&
+            (queueingSafe ||
+              (acceptWrite.isLoading && isBroadcastTxHash(acceptWrite.txHash)))
+          ) {
+            return;
+          }
           setAcceptPreviewOpen(open);
           if (!open) {
             setAcceptPreview(null);
             setAcceptItem(null);
             setAcceptError(null);
             setActiveRowId(null);
+            if (!isBroadcastTxHash(acceptWrite.txHash)) acceptWrite.reset();
           }
         }}
         destinationOptions={{
@@ -626,13 +634,20 @@ export function VaultV2Pending({
         open={revokePreviewOpen}
         preview={revokePreview}
         onOpenChange={(open) => {
-          if (revokeInFlight) return;
+          if (
+            !open &&
+            (queueingRevokeSafe ||
+              (revokeWrite.isLoading && isBroadcastTxHash(revokeWrite.txHash)))
+          ) {
+            return;
+          }
           setRevokePreviewOpen(open);
           if (!open) {
             setRevokePreview(null);
             setRevokeItem(null);
             setRevokeError(null);
             setActiveRowId(null);
+            if (!isBroadcastTxHash(revokeWrite.txHash)) revokeWrite.reset();
           }
         }}
         destinationOptions={{

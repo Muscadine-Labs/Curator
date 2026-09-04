@@ -34,6 +34,7 @@ import { VaultV2Pending } from '@/components/morpho/VaultV2Pending';
 import { useVaultV2Governance, vaultV2GovernanceQueryKey } from '@/lib/hooks/useVaultV2Governance';
 import { useVaultV2Risk } from '@/lib/hooks/useVaultV2Risk';
 import { useVaultWrite } from '@/lib/hooks/useVaultWrite';
+import { isBroadcastTxHash } from '@/lib/utils/wallet-error';
 import { v2WriteConfigs } from '@/lib/onchain/vault-writes';
 import { minTargetFromLiquidity } from '@/lib/onchain/v2-rebalance-plan';
 import {
@@ -62,7 +63,7 @@ import {
   resolveAssetDecimals,
 } from '@/lib/format/asset-decimals';
 import { marketKeyFromGraphQL, morphoMarketHref, curatorVaultHref } from '@/lib/morpho/morpho-app-links';
-import { resolveInnerVaultAddress } from '@/lib/config/vaults';
+import { resolveUnderlyingVaultAddress } from '@/lib/config/vaults';
 import { isMorphoVaultV2Adapter } from '@/lib/morpho/vault-v2-adapter';
 import type { CapInfo, VaultV2GovernanceResponse } from '@/app/api/vaults/[id]/governance/route';
 import type { V2VaultRiskResponse } from '@/app/api/vaults/[id]/risk/route';
@@ -884,13 +885,16 @@ function DecreaseCapsPanel({
         open={previewOpen}
         preview={txPreview}
         onOpenChange={(open) => {
-          if (writeInFlight || queueingSafe) return;
+          if (!open && ((writeInFlight && isBroadcastTxHash(write.txHash)) || queueingSafe)) {
+            return;
+          }
           setPreviewOpen(open);
           if (!open) {
             setTxPreview(null);
             pendingConfirmRef.current = null;
             pendingCalldataRef.current = null;
             setQueueSafeError(null);
+            if (!isBroadcastTxHash(write.txHash)) write.reset();
           }
         }}
         destinationOptions={{
@@ -1345,13 +1349,16 @@ function DeallocatePanel({
         open={previewOpen}
         preview={txPreview}
         onOpenChange={(open) => {
-          if (writeInFlight || queueingSafe) return;
+          if (!open && ((writeInFlight && isBroadcastTxHash(write.txHash)) || queueingSafe)) {
+            return;
+          }
           setPreviewOpen(open);
           if (!open) {
             setTxPreview(null);
             pendingConfirmRef.current = null;
             pendingCalldataRef.current = null;
             setQueueSafeError(null);
+            if (!isBroadcastTxHash(write.txHash)) write.reset();
           }
         }}
         destinationOptions={{
@@ -1450,30 +1457,30 @@ function buildOverviewAndDeallocate(
     if (isMorphoVaultV2Adapter(adapter)) {
       const raw = parseBig(adapter.bookedAllocationAssets ?? adapter.allocationAssets);
       totalRaw += raw;
-      const inner = adapter.innerVault;
-      const label = adapter.adapterLabel || inner?.name || inner?.symbol || 'Inner Vault V2';
-      const innerHref = curatorVaultHref(
-        resolveInnerVaultAddress(wrapperVaultAddress, inner?.address)
+      const underlying = adapter.underlying;
+      const label = adapter.adapterLabel || underlying?.name || underlying?.symbol || 'Underlying vault';
+      const underlyingHref = curatorVaultHref(
+        resolveUnderlyingVaultAddress(wrapperVaultAddress, underlying?.address)
       );
       const adapterCap = capByAdapter.get(adapter.adapterAddress.toLowerCase());
       overviewSegments.push({
-        key: `inner-${adapter.adapterAddress}`,
+        key: `underlying-${adapter.adapterAddress}`,
         label,
-        morphoHref: innerHref,
+        morphoHref: underlyingHref,
         pct: 0,
         raw,
         color: BAR_COLORS[1] ?? BAR_COLORS[2],
       });
       deallocateRows.push({
-        key: `inner-${adapter.adapterAddress}`,
+        key: `underlying-${adapter.adapterAddress}`,
         label,
-        morphoHref: innerHref,
+        morphoHref: underlyingHref,
         lltv: null,
         adapterAddress: adapter.adapterAddress,
         idData: EMPTY_ADAPTER_DATA,
         currentRaw: raw,
         liquidityAssets: (() => {
-          const liq = inner?.liquidity;
+          const liq = underlying?.liquidity;
           if (liq == null) return null;
           try {
             return BigInt(String(liq));
@@ -1482,8 +1489,8 @@ function buildOverviewAndDeallocate(
           }
         })(),
         allocationPct: 0,
-        supplyApy: inner?.avgNetApy ?? null,
-        liquidityUsd: inner?.liquidityUsd ?? null,
+        supplyApy: underlying?.avgNetApy ?? null,
+        liquidityUsd: underlying?.liquidityUsd ?? null,
         absoluteCap: adapterCap?.absoluteCap ?? null,
         relativeCap: adapterCap?.relativeCap ?? null,
         canDeallocate: raw > 0n,

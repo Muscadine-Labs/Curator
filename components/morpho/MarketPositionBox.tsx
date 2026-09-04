@@ -38,6 +38,7 @@ import { ConnectWalletButton } from '@/components/ConnectWalletButton';
 import { TxErrorBanner } from '@/components/TxErrorBanner';
 import { TxPreviewDialog } from '@/components/morpho/TxPreviewDialog';
 import { buildUserTxPreview, type TxPreview } from '@/lib/morpho/tx-preview';
+import { isBroadcastTxHash, isWalletRejection } from '@/lib/utils/wallet-error';
 import { useVaultWrite } from '@/lib/hooks/useVaultWrite';
 import { useUserMarketPositions } from '@/lib/hooks/useUserMarketPositions';
 import { useCuratorNetwork } from '@/lib/network/CuratorNetworkContext';
@@ -378,7 +379,6 @@ export function MarketPositionBox({ initialMarketId }: MarketPositionBoxProps) {
     if (busyRef.current) return;
     busyRef.current = true;
     setBusy(true);
-    setBusy(true);
     setError(null);
     setSuccess(null);
     setTxHash(null);
@@ -397,6 +397,11 @@ export function MarketPositionBox({ initialMarketId }: MarketPositionBoxProps) {
       void refetchWalletPositions();
       void queryClient.invalidateQueries({ queryKey: ['user-market-positions'] });
     } catch (err) {
+      if (isWalletRejection(err)) {
+        setError(null);
+        setStep(null);
+        return;
+      }
       setError(err);
       setStep(null);
     } finally {
@@ -1216,8 +1221,17 @@ export function MarketPositionBox({ initialMarketId }: MarketPositionBoxProps) {
         open={reviewOpen}
         preview={reviewPreview}
         onOpenChange={(open) => {
-          if (!open && busy) return;
-          setReviewOpen(open);
+          if (!open) {
+            if (busy && isBroadcastTxHash(txHash)) return;
+            if (busy) {
+              busyRef.current = false;
+              setBusy(false);
+              setStep(null);
+            }
+            setReviewOpen(false);
+            return;
+          }
+          setReviewOpen(true);
         }}
         onConfirm={() => confirmReview()}
         isLoading={busy}

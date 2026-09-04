@@ -27,6 +27,7 @@ import {
   utcDayKeyFromTimestamp,
   utcMonthKeyFromTimestamp,
   utcMonthsFrom,
+  fromFirstNonZeroPeriod,
 } from '@/lib/utils/utc-calendar';
 import { gql } from 'graphql-request';
 import { formatUnits, getAddress, isAddress } from 'viem';
@@ -449,12 +450,7 @@ async function computeTreasuryStatementUncached(): Promise<TreasuryStatementResu
   }
 
   const nowMs = Date.now();
-  const isCurrentMonth = (monthKey: string) => {
-    const [y, mo] = monthKey.split('-').map(Number);
-    return now.getUTCFullYear() === y && now.getUTCMonth() + 1 === mo;
-  };
-
-  const statements: MonthlyStatementData[] = Array.from(monthlyStatements.entries())
+  const mapped: MonthlyStatementData[] = Array.from(monthlyStatements.entries())
     .map(([month, assets]) => {
       const [year, monthNum] = month.split('-').map(Number);
       const lastDayMs = Date.UTC(year, monthNum, 0, 23, 59, 59, 999);
@@ -468,8 +464,12 @@ async function computeTreasuryStatementUncached(): Promise<TreasuryStatementResu
         isComplete,
       };
     })
-    .filter((s) => s.total.tokens !== 0 || s.total.usd !== 0 || isCurrentMonth(s.month))
     .sort((a, b) => a.month.localeCompare(b.month));
+
+  const statements = fromFirstNonZeroPeriod(
+    mapped,
+    (s) => s.total.tokens !== 0 || s.total.usd !== 0
+  );
 
   logger.info('Monthly statement from GraphQL daily share change', {
     positions: positionCount,
@@ -488,7 +488,7 @@ async function computeTreasuryStatementUncached(): Promise<TreasuryStatementResu
 
 export function computeTreasuryStatement(): Promise<TreasuryStatementResult> {
   return withServerResponseCache(
-    'treasury-statement-daily-shares-v2',
+    'treasury-statement-daily-shares-v3',
     API_CACHE_MAX_AGE_MS,
     computeTreasuryStatementUncached
   );

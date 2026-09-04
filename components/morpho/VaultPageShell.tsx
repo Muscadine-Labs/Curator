@@ -13,7 +13,7 @@ import { Shield } from 'lucide-react';
 import { getScanUrlForChain, getScanNameForChain } from '@/lib/constants';
 import { useVaultV2Complete } from '@/lib/hooks/useVaultV2Complete';
 import { vaultV2GovernanceQueryKey } from '@/lib/hooks/useVaultV2Governance';
-import { getVaultCategory, isFeeWrapperVault } from '@/lib/config/vaults';
+import { getVaultCategory, isFeeWrapperVault, withFeeWrapperLabel } from '@/lib/config/vaults';
 import { morphoVaultHref } from '@/lib/morpho/morpho-app-links';
 import { AppShell } from '@/components/layout/AppShell';
 import { Button } from '@/components/ui/button';
@@ -147,7 +147,7 @@ export function VaultPageShell({ children }: { children: ReactNode }) {
   const emergencyActionsUrl = vault.address
     ? `https://curator.morpho.org/vaults/${vault.chainId}/${vault.address}/emergency-actions`
     : '#';
-  const vaultName = vault.name ?? 'Unknown Vault';
+  const vaultName = withFeeWrapperLabel(vault.name ?? 'Unknown Vault', vault.address);
   const vaultSymbol = vault.symbol ?? 'UNKNOWN';
   const vaultAsset = vault.asset ?? 'UNKNOWN';
 

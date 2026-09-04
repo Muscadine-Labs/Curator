@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
+import { useAppKitEvents } from '@reown/appkit/react';
 import {
   useAccount,
   useChainId,
@@ -11,6 +12,7 @@ import {
 import type { Abi, Address, Chain } from 'viem';
 import { chains } from '@/lib/wallet/config';
 import { BASE_CHAIN_ID } from '@/lib/constants';
+import { isBroadcastTxHash } from '@/lib/utils/wallet-error';
 
 interface WriteContractConfig {
   address: Address;
@@ -27,7 +29,8 @@ type UseVaultWriteOptions = {
 };
 
 function resolveChain(chainId: number): Chain | undefined {
-  return chains.find((c) => c.id === chainId);
+  const network = chains.find((c) => Number(c.id) === chainId);
+  return network as Chain | undefined;
 }
 
 export function useVaultWrite(options?: UseVaultWriteOptions) {
@@ -53,6 +56,17 @@ export function useVaultWrite(options?: UseVaultWriteOptions) {
     chainId: requiredChainId,
   });
 
+  const appKitEvent = useAppKitEvents();
+  const pendingWriteRef = useRef({ isWriting, txHash, reset });
+  pendingWriteRef.current = { isWriting, txHash, reset };
+
+  useEffect(() => {
+    if (appKitEvent.data?.event !== 'USER_REJECTED') return;
+    const pending = pendingWriteRef.current;
+    if (!pending.isWriting || isBroadcastTxHash(pending.txHash)) return;
+    pending.reset();
+  }, [appKitEvent.timestamp, appKitEvent.data?.event]);
+
   const write = useCallback(
     async (config: WriteContractConfig) => {
       if (!isConnected || !address) {
@@ -69,18 +83,31 @@ export function useVaultWrite(options?: UseVaultWriteOptions) {
         await switchChainAsync({ chainId: targetChainId });
       }
 
-      return writeContractAsync({
-        account: address,
-        address: config.address,
-        abi: config.abi as Abi,
-        functionName: config.functionName,
-        args: config.args as unknown[],
-        ...(config.value != null && config.value > 0n ? { value: config.value } : {}),
-        chain,
-        chainId: targetChainId,
-      });
+      try {
+        return await writeContractAsync({
+          account: address,
+          address: config.address,
+          abi: config.abi as Abi,
+          functionName: config.functionName,
+          args: config.args as unknown[],
+          ...(config.value != null && config.value > 0n ? { value: config.value } : {}),
+          chain,
+          chainId: targetChainId,
+        });
+      } catch (error) {
+        reset();
+        throw error;
+      }
     },
-    [activeChainId, address, isConnected, requiredChainId, switchChainAsync, writeContractAsync]
+    [
+      activeChainId,
+      address,
+      isConnected,
+      requiredChainId,
+      reset,
+      switchChainAsync,
+      writeContractAsync,
+    ]
   );
 
   return {

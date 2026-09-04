@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ArrowRight, CheckCircle2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,7 @@ import {
 import type { SafeRole } from '@/lib/safe/config';
 import { VaultWriteDestinationSelect } from '@/components/morpho/VaultWriteDestinationSelect';
 import { TxErrorBanner } from '@/components/TxErrorBanner';
+import { isBroadcastTxHash } from '@/lib/utils/wallet-error';
 
 export interface VaultWriteDestinationOptions {
   destination: VaultWriteDestination;
@@ -131,7 +132,21 @@ export function TxPreviewDialog({
   const [locked, setLocked] = useState(false);
   isLoadingRef.current = isLoading;
   isSuccessRef.current = isSuccess;
-  const blocked = (isLoading || locked) && !isSuccess;
+  const submitted = isBroadcastTxHash(txHash);
+  const waitingForReceipt = submitted && isLoading && error == null && !isSuccess;
+  const queueingSafe =
+    destinationOptions?.destination.kind === 'safe' &&
+    isLoading &&
+    error == null &&
+    !isSuccess;
+  const blocked = waitingForReceipt || Boolean(queueingSafe);
+
+  const dismiss = useCallback(() => {
+    if (blocked) return;
+    lockedRef.current = false;
+    setLocked(false);
+    onOpenChange(false);
+  }, [blocked, onOpenChange]);
 
   useEffect(() => {
     setMounted(true);
@@ -144,14 +159,27 @@ export function TxPreviewDialog({
     }
   }, [open]);
 
+  const wasLoadingRef = useRef(false);
+
+  useEffect(() => {
+    if (error != null) {
+      lockedRef.current = false;
+      setLocked(false);
+    } else if (wasLoadingRef.current && !isLoading && !isSuccess) {
+      lockedRef.current = false;
+      setLocked(false);
+    }
+    wasLoadingRef.current = isLoading;
+  }, [error, isLoading, isSuccess]);
+
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !blocked) onOpenChange(false);
+      if (e.key === 'Escape') dismiss();
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [open, blocked, onOpenChange]);
+  }, [open, blocked, dismiss]);
 
   useEffect(() => {
     if (!open) return;
@@ -181,11 +209,16 @@ export function TxPreviewDialog({
   const confirmLabel = destinationOptions
     ? confirmLabelForDestination(destinationOptions.destination)
     : 'Confirm & sign';
-  const loadingLabel = destinationOptions
-    ? loadingLabelForDestination(destinationOptions.destination)
-    : 'Confirming…';
+  const loadingLabel = submitted
+    ? destinationOptions
+      ? loadingLabelForDestination(destinationOptions.destination)
+      : 'Confirming…'
+    : 'Waiting for wallet…';
   const confirmDisabled =
-    blocked || (destinationOptions?.confirmEnabled === false);
+    isLoading ||
+    locked ||
+    isSuccess ||
+    destinationOptions?.confirmEnabled === false;
 
   const handleConfirmClick = async () => {
     if (lockedRef.current || isLoading || isSuccess) return;
@@ -211,7 +244,7 @@ export function TxPreviewDialog({
         aria-label="Close preview"
         className="absolute inset-0 bg-black/50"
         disabled={blocked}
-        onClick={() => !blocked && onOpenChange(false)}
+        onClick={dismiss}
       />
       <div
         ref={panelRef}
@@ -235,7 +268,7 @@ export function TxPreviewDialog({
             variant="ghost"
             size="icon-sm"
             disabled={blocked}
-            onClick={() => onOpenChange(false)}
+            onClick={dismiss}
             aria-label="Close"
           >
             <X className="h-4 w-4" />
@@ -297,7 +330,7 @@ export function TxPreviewDialog({
               type="button"
               variant="outline"
               disabled={blocked}
-              onClick={() => onOpenChange(false)}
+              onClick={dismiss}
             >
               Cancel
             </Button>

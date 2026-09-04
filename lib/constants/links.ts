@@ -58,6 +58,10 @@ export const INFRASTRUCTURE_DEV_LINKS: readonly ExternalLinkItem[] = [
 ];
 
 export const MORPHO_CURATOR_V2_VAULTS_URL = 'https://curator.morpho.org/vaults';
+export const MORPHO_CURATOR_CREATE_MARKET_URL = 'https://curator.morpho.org/markets/create';
+export const MORPHO_CURATOR_CREATE_VAULT_URL = 'https://curator.morpho.org/vaults/create';
+export const MORPHO_CURATOR_CREATE_FEE_WRAPPER_URL =
+  'https://curator.morpho.org/fee-wrapper/create';
 export const MORPHO_APP_VAULTS_URL = 'https://app.morpho.org/vaults';
 export const MORPHO_LIQUIDATION_APP_URL = 'https://liquidation.morpho.org/';
 export const MORPHO_DOCS_GET_STARTED_URL = 'https://docs.morpho.org/get-started/';
@@ -68,9 +72,6 @@ export const MORPHO_ORACLE_PORTAL_URL = 'https://oracles.morpho.dev/';
 /** Muscadine fork of the Morpho bots monorepo (downstream changes live on `main`). */
 export const MUSCADINE_BOTS_GITHUB_URL =
   'https://github.com/Muscadine-Labs/muscadine-bots';
-/** Vendored upstream tracking branch — Morpho code before Muscadine changes. */
-export const MUSCADINE_BOTS_UPSTREAM_BRANCH_URL =
-  'https://github.com/Muscadine-Labs/muscadine-bots/tree/upstream';
 /** Upstream implementation the fork tracks. */
 export const MORPHO_BOTS_GITHUB_URL = 'https://github.com/morpho-org/morpho-bots';
 export const MUSCADINE_VAULT_BOT_TELEGRAM_URL = 'https://t.me/MuscadineVaultBot';
@@ -80,10 +81,9 @@ export const MORPHO_AUTOMATION_BOTS: readonly MorphoAutomationBot[] = [
     title: 'Muscadine Vault Bots (downstream)',
     description:
       'Muscadine Vault v2 allocator + sentinel + rebater bots on Base, plus Telegram alerts.',
-    body: 'Muscadine-Labs/muscadine-bots — allocator, sentinel, and rebater bots with liquidityAwareUtilBand and rankedYieldWithGuards strategies. Downstream changes on `main`; the `upstream` branch vendors morpho-org/morpho-bots for diffing and merges. Live alerts via @MuscadineVaultBot.',
+    body: 'Muscadine-Labs/muscadine-bots — allocator, sentinel, and rebater bots with liquidityAwareUtilBand and rankedYieldWithGuards strategies. Live alerts via @MuscadineVaultBot.',
     href: MUSCADINE_BOTS_GITHUB_URL,
     telegramHref: MUSCADINE_VAULT_BOT_TELEGRAM_URL,
-    upstreamBranchHref: MUSCADINE_BOTS_UPSTREAM_BRANCH_URL,
     upstreamRepoHref: MORPHO_BOTS_GITHUB_URL,
   },
   {

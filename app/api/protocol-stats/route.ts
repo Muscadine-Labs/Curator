@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import {
   getActiveVaultAddressesForStats,
   getVaultAddressesForProtocolStats,
+  withFeeWrapperLabel,
 } from '@/lib/config/vaults';
 import {
   BASE_CHAIN_ID,
@@ -133,7 +134,10 @@ async function fetchVaultV2TvlSeries(address: string): Promise<VaultTvlSeries | 
     if (dataPoints.length === 0) return null;
 
     return {
-      name: vault.name || `Vault ${address.slice(0, 6)}...`,
+      name: withFeeWrapperLabel(
+        vault.name || `Vault ${address.slice(0, 6)}...`,
+        address
+      ),
       address: address.toLowerCase(),
       data: dataPoints,
     };
@@ -301,7 +305,7 @@ export async function GET(request: Request) {
       users: uniqueUsers.size,
       tvlTrend,
       tvlByVault: tvlByVault.map((v) => ({
-        name: v.name,
+        name: withFeeWrapperLabel(v.name, v.address),
         address: v.address,
         data: v.data,
       })),

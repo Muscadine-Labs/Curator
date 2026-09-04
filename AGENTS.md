@@ -28,11 +28,11 @@ npm run build   # next build
   No MetaMorpho / V1 vault routes. Blue market risk uses `blue-market-data.ts` +
   `compute-blue-market-risk.ts`. MetaMorpho adapters are ignored in risk, allocation,
   and sentinel UIs. **Fee wrappers** (`kind: 'feeWrapper'`) use GraphQL
-  `MorphoVaultV2Adapter.innerVault` and empty allocate `data` (`EMPTY_ADAPTER_DATA`);
-  they are listed on `/vaults` but excluded from protocol TVL (deposits sit in
-  the inner vault). Unique-user counts include wrappers. Transact lists
-  wrappers and test vaults using Morpho/on-chain names. `innerVaultAddress`
-  is the GraphQL fallback for the child vault.
+  `MorphoVaultV2Adapter.innerVault` (Morpho GraphQL) and empty allocate `data`
+  (`EMPTY_ADAPTER_DATA`); they are listed on `/vaults` but excluded from
+  protocol TVL (deposits sit in the underlying vault). Unique-user counts
+  include wrappers. Transact lists wrappers and test vaults using Morpho/on-chain
+  names. `underlyingAddress` is the GraphQL fallback for the child vault.
 - **React Query polling** — dashboard hooks poll every 30s; indexed vault data
   (history, reallocations, holders) does not background-poll. On-chain vault
   hooks (`risk`, `governance`) use `staleTime: 0` + `refetchOnMount: 'always'`.
@@ -64,18 +64,16 @@ npm run build   # next build
   Create +
   dead deposit/seed — `/markets/create` (Morpho app link after create).
   Vault transact holdings — any Morpho vault via indexed positions API.
-  Configured dropdown includes wrappers and test vaults; labels are Morpho
-  names (GraphQL / on-chain), not a synthetic “Wrapper” suffix.
+  Configured dropdown includes wrappers and test vaults; fee wrappers
+  append ` (wrapper)` via `withFeeWrapperLabel`.
   Top nav: Overview · Vaults · Markets · Curator · Business; sidebar is
   area-scoped (`lib/nav/areas.ts`). Curator area: Curator tools · Bots ·
   Multisig Safe. Overview Protocol KPIs open drill-downs (Users: holdings +
   combined txs). Bots (`/curator/bots`) watches allocator/sentinel/rebater activity
   (Allocator + Sentinel Safes on by default; other role holders off until toggled). Telegram:
   @MuscadineVaultBot. Bot repos: `Muscadine-Labs/muscadine-bots` is the
-  **downstream** fork (`main`), its `upstream` branch vendors the upstream code,
-  and `morpho-org/morpho-bots` is the **upstream** implementation
-  (`MUSCADINE_BOTS_GITHUB_URL`, `MUSCADINE_BOTS_UPSTREAM_BRANCH_URL`,
-  `MORPHO_BOTS_GITHUB_URL`).
+  **downstream** fork (`main`); `morpho-org/morpho-bots` is the upstream
+  implementation (`MUSCADINE_BOTS_GITHUB_URL`, `MORPHO_BOTS_GITHUB_URL`).
 - **Tx preview** — Allocation, Sentinel, `/vaults/transact`, and `/markets/positions`
   confirm writes through `TxPreviewDialog` + `lib/morpho/tx-preview.ts` before the
   wallet signs. Transact/positions stay in the dialog through confirm and show a
@@ -158,7 +156,7 @@ npm run build   # next build
   (`CURATOR_MARKET_NETWORKS` + wagmi `chains`). Top-bar **NetworkSwitcher** sets
   preferred chain **without requiring a wallet**; when connected it also
   `switchChain`. `/markets` and `/markets/create` follow that preference
-  (not RainbowKit-only chain UI).
+  (not AppKit-only chain UI).
 - **Token display decimals** — `getTokenDisplayDecimals`: WETH/cbBTC → 6, USDC → 3
   (holders, txs, allocation history, markets token lines).
 - **ESLint** — stay on **v9.39.x** with `eslint-config-next` flat config in

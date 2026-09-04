@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getVaultByAddress } from '@/lib/config/vaults';
+import { getVaultByAddress, withFeeWrapperLabel } from '@/lib/config/vaults';
 import { BPS_PER_ONE, GRAPHQL_FIRST_LIMIT, GRAPHQL_TRANSACTIONS_LIMIT } from '@/lib/constants';
 import { handleApiError, AppError } from '@/lib/utils/error-handler';
 import { createRateLimitMiddleware, RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS } from '@/lib/utils/rate-limit';
@@ -245,7 +245,7 @@ function mapV2VaultDetail(
     ...cfg,
     version: 'v2' as const,
     address,
-    name: mv.name ?? 'Unknown Vault',
+    name: withFeeWrapperLabel(mv.name ?? 'Unknown Vault', address),
     symbol: mv.symbol ?? mv.asset?.symbol ?? 'UNKNOWN',
     asset: mv.asset?.symbol ?? 'UNKNOWN',
     assetDecimals: mv.asset?.decimals ?? null,

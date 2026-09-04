@@ -55,11 +55,11 @@ Muscadine for managing and reporting on Morpho-style vaults on Base (chainId
 - **Language**: TypeScript (strict)
 - **Styling**: Tailwind CSS + shadcn-style components in `components/ui/*`
 - **Data**: React Query (`@tanstack/react-query`) for client caches
-- **Wallet UI**: `@rainbow-me/rainbowkit` + `wagmi` (`getDefaultConfig` in
-  `lib/wallet/config.ts`, `RainbowKitProvider` in `app/providers.tsx`,
-  `ConnectButton` in topbar). Connect modal wallets (in order): **Rabby,
-  MetaMask, Base, Phantom, WalletConnect** — no server-side private keys for
-  vault writes.
+- **Wallet UI**: `@reown/appkit` + `@reown/appkit-adapter-wagmi` + `wagmi`
+  (`WagmiAdapter` in `lib/wallet/config.ts`, `createAppKit` in
+  `lib/wallet/appkit.ts`, custom connect button in topbar). Featured wallets
+  (in order): **Rabby, MetaMask, Base, Phantom** — plus WalletConnect and
+  injected EIP-6963. No server-side private keys for vault writes.
 - **GraphQL**: Morpho Blue API (`https://api.morpho.org/graphql`) via
   `graphql-request` in `lib/morpho/graphql-client.ts`. **Vault list, detail,
   history, risk, and protocol stats BFF routes use this client directly** — not
@@ -120,7 +120,7 @@ lib/
                        deallocate, caps, multicall, ...)
   theme/               Theme context
   utils/               Logger, rate limit, env validation, error handler
-  wallet/              Wagmi + RainbowKit config (`getDefaultConfig`), indexeddb polyfill
+  wallet/              Wagmi + Reown AppKit (`WagmiAdapter`, `createAppKit`), indexeddb polyfill
 
 .env / .env.local      Public env vars: NEXT_PUBLIC_VAULT_* addresses, RPC URL,
                        Morpho API URL, auth secrets
@@ -257,11 +257,12 @@ Getting those semantics wrong is the #1 source of reverts.
   - **Risk tab** (`VaultRiskV2.tsx`): idle counts toward **Adapters Count**
     (`strategy adapters + 1`) and appears as its own row (“No strategy risk”).
 
-#### 3.2.1 Fee wrappers (Vault V2 → inner Vault V2)
+#### 3.2.1 Fee wrappers (Vault V2 → underlying Vault V2)
 
-A **fee wrapper** is a Vault V2 that allocates only to one child Vault V2 via
+A **fee wrapper** is a Vault V2 that allocates only to one underlying Vault V2 via
 `MorphoVaultV2Adapter` (GraphQL `__typename`; `type` is `MorphoVaultV2`).
-`innerVault { address name symbol avgNetApy liquidity }` is the child.
+Morpho GraphQL names the child `innerVault { address name symbol avgNetApy liquidity }`;
+curator maps that to **underlying vault** (`underlying` / `underlyingAddress`).
 Allocate/deallocate `data` is **empty** (`0x` / `EMPTY_ADAPTER_DATA`) — not
 market params. Cap `idData` is still `abi.encode("this", adapterAddress)`.
 `addAdapter` / `removeAdapter` and critical gates are typically abdicated.
@@ -269,22 +270,22 @@ Wrappers are **not listed** on app.morpho.org (`listed: false`). Keep the
 **Open on Morpho** overview link anyway. Morpho docs:
 [Fee Wrapper](https://docs.morpho.org/developers/earn/concepts/fee-wrapper/).
 
-Config: `kind: 'feeWrapper'` + `innerVaultAddress` in `lib/config/vaults.ts`.
-`innerVaultAddress` uses the **same env default** as the child strategy vault
+Config: `kind: 'feeWrapper'` + `underlyingAddress` in `lib/config/vaults.ts`.
+`underlyingAddress` uses the **same env default** as the child strategy vault
 (`NEXT_PUBLIC_VAULT_USDC_V2`, etc.) and is the GraphQL fallback when
-`innerVault` is omitted. Display names are Morpho/on-chain names (`USDC Prime`),
-not a synthetic “Wrapper” suffix — the catalog/sidebar **Wrapper** badge
-disambiguates. GraphQL fragments must include `... on MorphoVaultV2Adapter` on
+`innerVault` is omitted. Display names are Morpho/on-chain names (`USDC Prime`)
+with a ` (wrapper)` suffix on fee wrappers (`withFeeWrapperLabel`). Catalog also
+keeps a **Wrapper** badge. GraphQL fragments must include `... on MorphoVaultV2Adapter` on
 list, governance, and risk queries — omitting them makes the adapter invisible
 (same failure mode as skipping `marketId`). Do **not** treat wrappers as
 Blue-market strategy vaults. Do **not** sum wrapper TVL into protocol stats —
-deposits sit inside the inner vault. Unique-user / active-vault KPIs **do**
+deposits sit inside the underlying vault. Unique-user / active-vault KPIs **do**
 include wrappers. Treasury statements **do** include wrappers (their
 performance/management fees). Transact lists wrappers and test vaults with
 their real names.
 
 Allocation sections on wrappers: **Idle → Morpho Vault V2**. Writes use empty
-adapter data. Risk grades live on the inner vault page, not the wrapper.
+adapter data. Risk grades live on the underlying vault page, not the wrapper.
 
 Keep **skipping** `MetaMorphoAdapter` (V1 MetaMorpho child). That is not a fee
 wrapper.
@@ -353,8 +354,8 @@ grades; Sentinel holds emergency actions at the bottom.
      next to name. Utilization, borrow/supply APY, liquidity from `market.state`.
      APY/utilization GraphQL values are **decimals**; multiply by 100 before
      `formatPercentage`.
-   - **MorphoVaultV2Adapter** — fee wrapper inner vault (empty allocate `data`).
-     Name links to `/vault/{innerVault}`. Rate column is inner `avgNetApy`.
+   - **MorphoVaultV2Adapter** — fee wrapper underlying vault (empty allocate `data`).
+     Name links to `/vault/{underlying}`. Rate column is underlying `avgNetApy`.
    - **Idle** — vault cash row; no on-chain cap; no direct writes.
 7. **Risk** — `VaultAnalyticsPanel` on the **Risk** tab (`/vault/[address]/risk`;
    `/analytics` redirects here): market risk grades (`VaultRiskV2`) only.
@@ -442,8 +443,8 @@ from `lib/config/vaults.ts` with:
 - `version` — `v1` | `v2` from config `morphoVersion`
 - `listCategory` — optional `prime` | `vineyard` | `frontier` | `test`
 - `kind` — optional `strategy` (default) | `feeWrapper`
-- `innerVaultAddress` — child Vault V2 when `kind` is `feeWrapper` (same env
-  default as the strategy vault; GraphQL fallback)
+- `underlyingAddress` — child Vault V2 when `kind` is `feeWrapper` (same env
+  default as the strategy vault; GraphQL `innerVault` fallback)
 
 `?includeAll=true` includes test vaults (`excludeFromBusinessViews`); default list
 is business vaults only (including fee wrappers). `/vaults/transact` uses
@@ -688,7 +689,8 @@ daily token-change (`app/page.tsx`). Toggle treasury vs DefiLlama via
    first history point is not income. Redeems / Rebater outflows are not
    negative revenue.
 5. Response always includes `statements`, `daily`, and `vaults`. Cached 30s via
-   `withServerResponseCache` inside `computeTreasuryStatement()`.
+   `withServerResponseCache` inside `computeTreasuryStatement()`. Months run from
+   the first month with income through the current month, including $0.00 gaps.
 
 **Why the graph can go negative without withdrawals**
 
@@ -978,16 +980,16 @@ components.
 - Write UI (reallocate, caps, etc.) is gated on both wallet connection and
   curator role.
 - **All on-chain writes** (V1/V2 reallocate, caps, etc.) go through
-  **RainbowKit → connected wallet** (`useVaultWrite` / wagmi `writeContract`).
+  **Reown AppKit → connected wallet** (`useVaultWrite` / wagmi `writeContract`).
   Do not add server-side private keys for allocation flows.
 - **Multisig Safe writes** — when a vault's on-chain allocator/sentinel is a
   Muscadine Safe (`lib/safe/config.ts`), queue proposals from Allocation /
   Sentinel preview dialogs; owners sign EIP-712 on `/safe/[role]`.
   Direct wallet confirm remains for EOA role holders only (`lib/safe/vault-role-match.ts`).
-- Wallet connect lives in the **topbar** (`ConnectWalletButton` / RainbowKit
-  `ConnectButton`). Recommended wallets are configured in
-  `lib/wallet/config.ts` (`wallets` array on `getDefaultConfig`). Chain
-  switching is in the RainbowKit account modal.
+- Wallet connect lives in the **topbar** (`ConnectWalletButton` / Reown
+  AppKit). Featured wallets are configured in `lib/wallet/appkit.ts`. Chain
+  switching for the **app network** is the top-bar `NetworkSwitcher`; the
+  AppKit account modal can still switch the wallet chain.
 
 ---
 
@@ -1082,10 +1084,10 @@ components.
   rebalance UI and is omitted from `vaultRiskScore` / idle overlay. Strategy vaults
   use Morpho Blue market adapters; fee wrappers use `MorphoVaultV2Adapter` (not MetaMorpho).
 
-### Fee wrapper GraphQL missing inner vault
+### Fee wrapper GraphQL missing underlying vault
 
 - Query `... on MorphoVaultV2Adapter { innerVault { address name } }` on adapters and
-  `liquidityAdapter`. Allocate/deallocate `data` must be `0x`. Do not sum wrapper TVL
+  `liquidityAdapter` (Morpho field name). Allocate/deallocate `data` must be `0x`. Do not sum wrapper TVL
   into protocol stats. `avgNetApy` is often null until history accumulates — use `netApy`.
 
 ### V2 adapter count wrong in Risk
@@ -1150,8 +1152,8 @@ npm run build
 - **Pin ESLint 9** — `eslint@^9.39.4` and `@eslint/js@^9.39.4`. Do **not** upgrade to
   ESLint 10 while using `eslint-config-next`; transitive plugins (`eslint-plugin-react`,
   etc.) still break on removed ESLint 10 APIs.
-- **Pin wagmi 2** — `@rainbow-me/rainbowkit` still peers `wagmi@^2.9.0`. Do not
-  upgrade to wagmi 3 until RainbowKit supports it.
+- **Pin wagmi 2** — `@reown/appkit-adapter-wagmi` peers `wagmi@2`. Do not
+  upgrade to wagmi 3 until AppKit supports it.
 - **Pin TypeScript 6** — `typescript-eslint` peers `typescript <6.1.0` for the
   tooling path used by `eslint-config-next`; stay on `typescript@^6.0.x` (not 7).
 - **`sharp` override** — Next still optional-deps `sharp@^0.34.5`; override to
@@ -1202,7 +1204,7 @@ npm run build
 | Client fetch + refetch interval  | `lib/data/api-fetch.ts`, `lib/data/query-config.ts`      |
 | BFF cache headers                | `lib/api/response-cache.ts`, `lib/api/server-response-cache.ts` |
 | Governance query key helper      | `vaultV2GovernanceQueryKey` in `lib/hooks/useVaultV2Governance.ts` |
-| Wallet / RainbowKit config       | `lib/wallet/config.ts`, `app/providers.tsx`, `components/ConnectWalletButton.tsx` |
+| Wallet / Reown AppKit config     | `lib/wallet/config.ts`, `lib/wallet/appkit.ts`, `app/providers.tsx`, `components/ConnectWalletButton.tsx` |
 | Shared filters UI                | `components/morpho/AllocationFilters.tsx`               |
 | Number formatting                | `lib/format/number.ts`                                   |
 | ABIs                             | `lib/onchain/abis.ts` (V2 only)                          |
@@ -1366,8 +1368,9 @@ import `lib/cctp/` until Cross-Chain Transfer is reintroduced under Later.
 `knip` was run on 2026-04-24 to audit imports. Summary:
 
 - **No unused files** — all source files are referenced.
-- **Unused direct deps** — none flagged at last knip run after RainbowKit
-  migration (wallet stack is `@rainbow-me/rainbowkit` + `wagmi`).
+- **Unused direct deps** — none flagged at last knip run after Reown AppKit
+  migration (wallet stack is `@reown/appkit` + `@reown/appkit-adapter-wagmi` +
+  `wagmi`).
 - **Unused test/lint devDeps** — `fake-indexeddb` is required for the SSR
   indexedDB polyfill (`lib/wallet/polyfill-indexeddb.ts`), not for Jest.
   `@eslint/*` and `eslint-config-next` are wired in `eslint.config.mjs` (ESLint 9

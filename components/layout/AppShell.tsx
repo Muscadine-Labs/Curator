@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
+import { useClearStuckWalletUi } from '@/lib/hooks/useClearStuckWalletUi';
 
 type AppShellProps = {
   title: ReactNode;
@@ -26,6 +27,7 @@ export function AppShell({
   children,
 }: AppShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  useClearStuckWalletUi();
 
   return (
     <div className="min-h-dvh bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">

@@ -127,6 +127,14 @@ export function VaultOverviewHistoryChart({
   const [range, setRange] = useState<TimeRange>('all');
   const [amountUnit, setAmountUnit] = useState<AmountUnit>('token');
 
+  const hiddenMetrics = useMemo((): VaultHistoryMetric[] => {
+    if (!data?.series) return [];
+    return data.series.apy.length === 0 ? ['apy'] : [];
+  }, [data?.series]);
+  const chartMetric: VaultHistoryMetric = hiddenMetrics.includes(metric)
+    ? 'supplied'
+    : metric;
+
   const chainDecimals = data
     ? resolveAssetDecimals(data.assetSymbol, data.assetDecimals)
     : 18;
@@ -139,7 +147,7 @@ export function VaultOverviewHistoryChart({
 
     const { series } = data;
 
-    if (metric === 'apy') {
+    if (chartMetric === 'apy') {
       return filterDataByRange(series.apy ?? [], range).map((p) => ({
         date: p.date,
         value: p.value,
@@ -147,7 +155,7 @@ export function VaultOverviewHistoryChart({
       }));
     }
 
-    if (metric === 'sharePrice') {
+    if (chartMetric === 'sharePrice') {
       const shareSeries =
         amountUnit === 'usd' ? series.sharePriceUsd ?? [] : series.sharePrice ?? [];
       return filterDataByRange(shareSeries, range).map((p) => ({
@@ -167,14 +175,14 @@ export function VaultOverviewHistoryChart({
       }));
     }
     return rawPointsToChart(series.supplied ?? [], range);
-  }, [data, metric, range, amountUnit]);
+  }, [data, chartMetric, range, amountUnit]);
 
   const yDomain = useMemo(
     () => computeZoomedYDomain(chartPoints),
     [chartPoints]
   );
 
-  const showUnitToggle = metric === 'supplied' || metric === 'sharePrice';
+  const showUnitToggle = chartMetric === 'supplied' || chartMetric === 'sharePrice';
 
   const sharePriceAxisDigits = useMemo(
     () => axisFractionDigits(yDomain),
@@ -182,8 +190,8 @@ export function VaultOverviewHistoryChart({
   );
 
   const yAxisFormatter = (value: number) => {
-    if (metric === 'apy') return formatPercentage(value, 0);
-    if (metric === 'sharePrice') {
+    if (chartMetric === 'apy') return formatPercentage(value, 0);
+    if (chartMetric === 'sharePrice') {
       return formatSharePriceAxis(value, amountUnit, sharePriceAxisDigits);
     }
     if (amountUnit === 'usd') return formatCompactUSD(value);
@@ -191,8 +199,8 @@ export function VaultOverviewHistoryChart({
   };
 
   const formatTooltipValue = (value: number, raw: string) => {
-    if (metric === 'apy') return formatPercentage(value, 2);
-    if (metric === 'sharePrice') {
+    if (chartMetric === 'apy') return formatPercentage(value, 2);
+    if (chartMetric === 'sharePrice') {
       if (amountUnit === 'usd') return formatFullUSD(value, 6);
       const symbol = data?.assetSymbol ?? '';
       return `${value.toLocaleString('en-US', { maximumFractionDigits: 8 })} ${symbol}`.trim();
@@ -212,7 +220,7 @@ export function VaultOverviewHistoryChart({
 
   const chartFilters = (
     <div className="flex flex-wrap items-center gap-2">
-      <MetricModeFilter value={metric} onChange={setMetric} />
+      <MetricModeFilter value={chartMetric} onChange={setMetric} hidden={hiddenMetrics} />
       {showUnitToggle && (
         <UsdTokenModeFilter value={amountUnit} onChange={setAmountUnit} />
       )}
@@ -278,7 +286,7 @@ export function VaultOverviewHistoryChart({
     </ResponsiveContainer>
   );
 
-  const title = data ? METRIC_TITLES[metric] : 'History';
+  const title = data ? METRIC_TITLES[chartMetric] : 'History';
 
   if (collapsible) {
     return (

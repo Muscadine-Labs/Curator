@@ -1,20 +1,17 @@
 'use client';
 
-import '@rainbow-me/rainbowkit/styles.css';
-
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { WagmiProvider, cookieToInitialState } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import dynamic from 'next/dynamic';
-import { darkTheme, lightTheme, RainbowKitProvider } from '@rainbow-me/rainbowkit';
-import { base } from 'wagmi/chains';
 import { config } from '@/lib/wallet/config';
-import { useTheme } from '@/lib/theme/ThemeContext';
+import '@/lib/wallet/appkit';
+import { useAppKitTheme } from '@reown/appkit/react';
+import { useTheme, ThemeProvider } from '@/lib/theme/ThemeContext';
 import { CopyFeedbackProvider } from '@/components/CopyFeedbackProvider';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { CuratorAuthProvider } from '@/lib/auth/CuratorAuthContext';
 import { AuthGuard } from '@/components/AuthGuard';
-import { ThemeProvider } from '@/lib/theme/ThemeContext';
 import { RevenueSourceProvider } from '@/lib/RevenueSourceContext';
 import { CuratorSafeAppsProvider } from '@/lib/safe/safe-apps-context';
 import { CuratorNetworkProvider } from '@/lib/network/CuratorNetworkContext';
@@ -40,35 +37,15 @@ const queryClient = new QueryClient({
   },
 });
 
-function resolveDark(theme: 'light' | 'dark' | 'system'): boolean {
-  if (typeof window === 'undefined') return false;
-  if (theme === 'dark') return true;
-  if (theme === 'light') return false;
-  return window.matchMedia('(prefers-color-scheme: dark)').matches;
-}
-
-function RainbowKitThemeProvider({ children }: { children: ReactNode }) {
-  const { theme } = useTheme();
-  const [isDark, setIsDark] = useState(false);
+function AppKitThemeSync() {
+  const { resolvedTheme } = useTheme();
+  const { setThemeMode } = useAppKitTheme();
 
   useEffect(() => {
-    const update = () => setIsDark(resolveDark(theme));
-    update();
-    if (theme === 'system') {
-      const mq = window.matchMedia('(prefers-color-scheme: dark)');
-      mq.addEventListener('change', update);
-      return () => mq.removeEventListener('change', update);
-    }
-  }, [theme]);
+    setThemeMode(resolvedTheme);
+  }, [resolvedTheme, setThemeMode]);
 
-  return (
-    <RainbowKitProvider
-      theme={isDark ? darkTheme() : lightTheme()}
-      initialChain={base}
-    >
-      {children}
-    </RainbowKitProvider>
-  );
+  return null;
 }
 
 export function Providers({
@@ -84,24 +61,23 @@ export function Providers({
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <WagmiProvider config={config} initialState={initialState} reconnectOnMount>
-          <RainbowKitThemeProvider>
-            <CuratorNetworkProvider>
-              <CuratorAuthProvider>
-                <AuthGuard>
-                  <RevenueSourceProvider>
-                    <CuratorSafeAppsProvider>
-                      <CopyFeedbackProvider>
-                        <ErrorBoundary>{children}</ErrorBoundary>
-                      </CopyFeedbackProvider>
-                    </CuratorSafeAppsProvider>
-                  </RevenueSourceProvider>
-                </AuthGuard>
-              </CuratorAuthProvider>
-            </CuratorNetworkProvider>
-            {process.env.NODE_ENV === 'development' && (
-              <ReactQueryDevtools initialIsOpen={false} />
-            )}
-          </RainbowKitThemeProvider>
+          <AppKitThemeSync />
+          <CuratorNetworkProvider>
+            <CuratorAuthProvider>
+              <AuthGuard>
+                <RevenueSourceProvider>
+                  <CuratorSafeAppsProvider>
+                    <CopyFeedbackProvider>
+                      <ErrorBoundary>{children}</ErrorBoundary>
+                    </CopyFeedbackProvider>
+                  </CuratorSafeAppsProvider>
+                </RevenueSourceProvider>
+              </AuthGuard>
+            </CuratorAuthProvider>
+          </CuratorNetworkProvider>
+          {process.env.NODE_ENV === 'development' && (
+            <ReactQueryDevtools initialIsOpen={false} />
+          )}
         </WagmiProvider>
       </ThemeProvider>
     </QueryClientProvider>

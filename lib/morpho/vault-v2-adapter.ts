@@ -9,7 +9,9 @@ export const MORPHO_VAULT_V2_ADAPTER_TYPENAME = 'MorphoVaultV2Adapter';
 /** GraphQL `type` field on MorphoVaultV2Adapter. */
 export const MORPHO_VAULT_V2_ADAPTER_TYPE = 'MorphoVaultV2';
 
-export type VaultV2InnerVaultInfo = {
+export const UNDERLYING_VAULT_FALLBACK = 'Underlying vault';
+
+export type VaultV2UnderlyingInfo = {
   address: string;
   name: string | null;
   symbol: string | null;
@@ -27,14 +29,15 @@ export function isMorphoVaultV2Adapter(adapter: {
   return t === MORPHO_VAULT_V2_ADAPTER_TYPENAME || t === MORPHO_VAULT_V2_ADAPTER_TYPE;
 }
 
-export function innerVaultLabel(
-  inner: { name?: string | null; symbol?: string | null } | null | undefined,
-  fallback = 'Inner Vault V2'
+export function underlyingVaultLabel(
+  vault: { name?: string | null; symbol?: string | null } | null | undefined,
+  fallback = UNDERLYING_VAULT_FALLBACK
 ): string {
-  return inner?.name || inner?.symbol || fallback;
+  return vault?.name || vault?.symbol || fallback;
 }
 
-export type GraphInnerVaultFields = {
+/** Morpho GraphQL `innerVault` fields on MorphoVaultV2Adapter. */
+export type GraphUnderlyingVaultFields = {
   address?: string | null;
   name?: string | null;
   symbol?: string | null;
@@ -44,13 +47,14 @@ export type GraphInnerVaultFields = {
 };
 
 /**
- * GraphQL inner vault plus config fallback (`innerVaultAddress` on the wrapper).
+ * GraphQL `innerVault` plus config fallback (`underlyingAddress` on the wrapper).
  */
-export function mergeInnerVaultInfo(
+export function mergeUnderlyingVaultInfo(
   wrapperVaultAddress: string,
-  graph: GraphInnerVaultFields | null | undefined
-): VaultV2InnerVaultInfo | null {
-  const address = graph?.address || getVaultByAddress(wrapperVaultAddress)?.innerVaultAddress;
+  graph: GraphUnderlyingVaultFields | null | undefined
+): VaultV2UnderlyingInfo | null {
+  const address =
+    graph?.address || getVaultByAddress(wrapperVaultAddress)?.underlyingAddress;
   if (!address) return null;
   const childCfg = getVaultByAddress(address);
   const liquidity =

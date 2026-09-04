@@ -3,6 +3,7 @@ import { getAddress } from 'viem';
 import {
   getActiveVaultAddressesForStats,
   getConfiguredVaultDisplayName,
+  withFeeWrapperLabel,
 } from '@/lib/config/vaults';
 import { BASE_CHAIN_ID } from '@/lib/constants';
 import { handleApiError } from '@/lib/utils/error-handler';
@@ -88,8 +89,10 @@ export async function GET(request: NextRequest) {
 
         for (const { vault, address, items } of results) {
           const gqlMeta = meta.get(vault.address.toLowerCase());
-          const vaultName =
-            gqlMeta?.name?.trim() || getConfiguredVaultDisplayName(vault);
+          const vaultName = withFeeWrapperLabel(
+            gqlMeta?.name?.trim() || getConfiguredVaultDisplayName(vault),
+            address
+          );
           const assetSymbol = gqlMeta?.asset?.symbol ?? vault.assetSymbol;
           const assetDecimals = gqlMeta?.asset?.decimals ?? null;
 
