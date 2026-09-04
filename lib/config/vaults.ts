@@ -184,17 +184,32 @@ export function isFeeWrapperVault(
 
 /**
  * Fallback label when GraphQL / on-chain name is unavailable.
- * Fee wrappers match Morpho names (`USDC Prime`); strategy vaults keep the
- * Muscadine prefix (`Muscadine USDC Prime`).
+ * Fee wrappers match Morpho names (`USDC Prime`) plus ` (wrapper)`;
+ * strategy vaults keep the Muscadine prefix (`Muscadine USDC Prime`).
  */
 export function getConfiguredVaultDisplayName(
   vault: Pick<VaultAddressConfig, 'assetSymbol' | 'listCategory' | 'kind'>
 ): string {
   const category = vault.listCategory ? CATEGORY_LABEL[vault.listCategory] : 'V2';
   if (vault.kind === 'feeWrapper') {
-    return `${vault.assetSymbol} ${category}`;
+    return `${vault.assetSymbol} ${category} (wrapper)`;
   }
   return `Muscadine ${vault.assetSymbol} ${category}`;
+}
+
+const WRAPPER_SUFFIX_RE = /\(\s*wrapper\s*\)\s*$/i;
+
+/** Append ` (wrapper)` for fee-wrapper addresses. Idempotent. */
+export function withFeeWrapperLabel(
+  name: string | null | undefined,
+  address: string | null | undefined,
+  fallback = 'Unknown Vault'
+): string {
+  const base = name?.trim() || fallback;
+  if (!address) return base;
+  if (getVaultByAddress(address)?.kind !== 'feeWrapper') return base;
+  if (WRAPPER_SUFFIX_RE.test(base)) return base;
+  return `${base} (wrapper)`;
 }
 
 /** GraphQL `innerVault.address`, else the wrapper's configured underlying vault. */

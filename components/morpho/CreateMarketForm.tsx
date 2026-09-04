@@ -26,6 +26,7 @@ import { useVaultWrite } from '@/lib/hooks/useVaultWrite';
 import {
   getAddressScanUrl,
   getScanUrlForChain,
+  MORPHO_CURATOR_CREATE_MARKET_URL,
   MORPHO_ORACLE_PORTAL_URL,
 } from '@/lib/constants';
 import {
@@ -631,17 +632,30 @@ export function CreateMarketForm() {
       backHref="/markets"
       backLabel="Markets"
       actions={
-        <Button asChild variant="outline" size="sm">
-          <a
-            href={MORPHO_ORACLE_PORTAL_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2"
-          >
-            Oracle Portal
-            <ExternalLink className="h-3.5 w-3.5" />
-          </a>
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button asChild variant="outline" size="sm">
+            <a
+              href={MORPHO_CURATOR_CREATE_MARKET_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2"
+            >
+              Morpho Curator
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <a
+              href={MORPHO_ORACLE_PORTAL_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2"
+            >
+              Oracle Portal
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          </Button>
+        </div>
       }
     >
       <div className="mx-auto max-w-3xl space-y-6">

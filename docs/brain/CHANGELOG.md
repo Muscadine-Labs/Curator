@@ -4,6 +4,20 @@ Append-only session log. Newest first. Keep entries short; link files.
 
 ---
 
+## 2026-09-04 — Income months + Morpho create links
+
+- Treasury/DefiLlama statements keep every month after first income, including $0.00 (e.g. August 2026).
+- Curator Morpho hub: create [market](https://curator.morpho.org/markets/create), [vault](https://curator.morpho.org/vaults/create), [fee wrapper](https://curator.morpho.org/fee-wrapper/create). Create-market page links Morpho as an alternative. Removed muscadine-bots `upstream` branch links.
+
+## 2026-09-04 — Fee wrapper display suffix
+
+- Vault names append ` (wrapper)` via `withFeeWrapperLabel` (transact, catalog, sidebar, vault page, protocol/user/tx APIs).
+
+## 2026-09-04 — Unstick cancelled wallet txs
+
+- Preview dialogs stay dismissible until a real tx hash is broadcast, except while
+  a Safe queue is in flight. Wallet reject resets wagmi so Confirming does not stick.
+
 ## 2026-09-04 — Dependabot #114 / #115
 
 - Overrides: `browserslist>=4.28.7` (CVE-2026-73088, babel via eslint-config-next) and `decode-uri-component>=0.5.0` (CVE-2026-45822, WalletConnect `query-string`).

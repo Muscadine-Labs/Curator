@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useAppKitEvents } from '@reown/appkit/react';
 import {
   useAccount,
   useChainId,
@@ -22,7 +23,12 @@ import {
   getAddressScanUrl,
   getScanUrlForChain,
 } from '@/lib/constants';
-import { getAllVaultAddresses, getConfiguredVaultDisplayName, getVaultByAddress } from '@/lib/config/vaults';
+import {
+  getAllVaultAddresses,
+  getConfiguredVaultDisplayName,
+  getVaultByAddress,
+  withFeeWrapperLabel,
+} from '@/lib/config/vaults';
 import { TxErrorBanner } from '@/components/TxErrorBanner';
 import { TxPreviewDialog } from '@/components/morpho/TxPreviewDialog';
 import { buildUserTxPreview, type TxPreview } from '@/lib/morpho/tx-preview';
@@ -44,6 +50,7 @@ import { formatAllocationEditInputExact } from '@/lib/format/allocation-display'
 import { formatPercentage } from '@/lib/format/number';
 import { parseExactAmount, isNearFullAmount } from '@/components/morpho/AmountMaxInput';
 import { cn } from '@/lib/utils';
+import { isBroadcastTxHash, isWalletRejection } from '@/lib/utils/wallet-error';
 import {
   CuratorEmptyText,
   CuratorSegmented,
@@ -157,7 +164,10 @@ export function VaultTransactBox({
       const cfg = getVaultByAddress(activeAddress);
       setVault({
         address: activeAddress,
-        name: meta.vaultName || cfg?.assetSymbol || 'Vault',
+        name: withFeeWrapperLabel(
+          meta.vaultName || cfg?.assetSymbol || 'Vault',
+          activeAddress
+        ),
         symbol: meta.vaultSymbol,
         assetAddress: meta.assetAddress,
         assetSymbol: meta.assetSymbol || cfg?.assetSymbol || 'ASSET',
@@ -214,13 +224,28 @@ export function VaultTransactBox({
     void refreshBalances();
   }, [refreshBalances]);
 
-  const resetStatus = () => {
+  const clearWalletPending = useCallback(() => {
     setStatus('idle');
-    setError(null);
-    setTxHash(null);
     setStepLabel(null);
+    setError(null);
+  }, []);
+
+  const resetStatus = () => {
+    clearWalletPending();
+    setTxHash(null);
     setReviewOpen(false);
   };
+
+  const appKitEvent = useAppKitEvents();
+  const pendingTxRef = useRef({ status, txHash });
+  pendingTxRef.current = { status, txHash };
+
+  useEffect(() => {
+    if (appKitEvent.data?.event !== 'USER_REJECTED') return;
+    const pending = pendingTxRef.current;
+    if (pending.status !== 'signing' || isBroadcastTxHash(pending.txHash)) return;
+    clearWalletPending();
+  }, [appKitEvent.timestamp, appKitEvent.data?.event, clearWalletPending]);
 
   const selectHolding = (holding: UserVaultPositionSummary) => {
     const configured = configuredVaults.some(
@@ -339,6 +364,10 @@ export function VaultTransactBox({
       void refetchHoldings();
       void queryClient.invalidateQueries({ queryKey: ['user-vault-positions'] });
     } catch (err) {
+      if (isWalletRejection(err)) {
+        clearWalletPending();
+        return;
+      }
       setStatus('error');
       setStepLabel(null);
       setError(err);
@@ -441,7 +470,7 @@ export function VaultTransactBox({
                               rel="noopener noreferrer"
                               className="text-sm font-medium text-blue-600 underline-offset-2 hover:underline dark:text-blue-400"
                             >
-                              {holding.name}
+                              {withFeeWrapperLabel(holding.name, holding.address)}
                             </a>
                             <CopyButton
                               text={holding.address}
@@ -517,8 +546,11 @@ export function VaultTransactBox({
             >
               {configuredVaults.map((v) => (
                 <option key={v.address} value={v.address.toLowerCase()}>
-                  {listedNameByAddress.get(v.address.toLowerCase()) ??
-                    getConfiguredVaultDisplayName(v)}
+                  {withFeeWrapperLabel(
+                    listedNameByAddress.get(v.address.toLowerCase()) ??
+                      getConfiguredVaultDisplayName(v),
+                    v.address
+                  )}
                 </option>
               ))}
             </select>
@@ -690,8 +722,13 @@ export function VaultTransactBox({
             open={reviewOpen}
             preview={reviewPreview}
             onOpenChange={(open) => {
-              if (!open && status === 'signing') return;
-              setReviewOpen(open);
+              if (!open) {
+                if (status === 'signing' && isBroadcastTxHash(txHash)) return;
+                if (status === 'signing') resetStatus();
+                else setReviewOpen(false);
+                return;
+              }
+              setReviewOpen(true);
             }}
             onConfirm={() => handleSubmit()}
             isLoading={status === 'signing'}

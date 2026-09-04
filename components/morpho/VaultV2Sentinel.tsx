@@ -34,6 +34,7 @@ import { VaultV2Pending } from '@/components/morpho/VaultV2Pending';
 import { useVaultV2Governance, vaultV2GovernanceQueryKey } from '@/lib/hooks/useVaultV2Governance';
 import { useVaultV2Risk } from '@/lib/hooks/useVaultV2Risk';
 import { useVaultWrite } from '@/lib/hooks/useVaultWrite';
+import { isBroadcastTxHash } from '@/lib/utils/wallet-error';
 import { v2WriteConfigs } from '@/lib/onchain/vault-writes';
 import { minTargetFromLiquidity } from '@/lib/onchain/v2-rebalance-plan';
 import {
@@ -884,13 +885,16 @@ function DecreaseCapsPanel({
         open={previewOpen}
         preview={txPreview}
         onOpenChange={(open) => {
-          if (writeInFlight || queueingSafe) return;
+          if (!open && ((writeInFlight && isBroadcastTxHash(write.txHash)) || queueingSafe)) {
+            return;
+          }
           setPreviewOpen(open);
           if (!open) {
             setTxPreview(null);
             pendingConfirmRef.current = null;
             pendingCalldataRef.current = null;
             setQueueSafeError(null);
+            if (!isBroadcastTxHash(write.txHash)) write.reset();
           }
         }}
         destinationOptions={{
@@ -1345,13 +1349,16 @@ function DeallocatePanel({
         open={previewOpen}
         preview={txPreview}
         onOpenChange={(open) => {
-          if (writeInFlight || queueingSafe) return;
+          if (!open && ((writeInFlight && isBroadcastTxHash(write.txHash)) || queueingSafe)) {
+            return;
+          }
           setPreviewOpen(open);
           if (!open) {
             setTxPreview(null);
             pendingConfirmRef.current = null;
             pendingCalldataRef.current = null;
             setQueueSafeError(null);
+            if (!isBroadcastTxHash(write.txHash)) write.reset();
           }
         }}
         destinationOptions={{

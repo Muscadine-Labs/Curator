@@ -19,7 +19,7 @@ import {
   ChevronDown,
   ChevronRight,
 } from 'lucide-react';
-import { getVaultCategory } from '@/lib/config/vaults';
+import { getVaultCategory, withFeeWrapperLabel } from '@/lib/config/vaults';
 import { useVaultList, SIDEBAR_VAULT_LIST_FILTERS } from '@/lib/hooks/useProtocolStats';
 import { Button } from '@/components/ui/button';
 import { SIDEBAR_NETWORKS } from '@/lib/constants';
@@ -275,9 +275,10 @@ function AreaSidebar({
                               )}
                             >
                               <span className="truncate min-w-0">
-                                {vault.kind === 'feeWrapper'
-                                  ? `${vault.name ?? 'Unknown Vault'} (wrapper)`
-                                  : (vault.name ?? 'Unknown Vault')}
+                                {withFeeWrapperLabel(
+                                  vault.name ?? 'Unknown Vault',
+                                  vault.address
+                                )}
                               </span>
                             </Link>
                           );

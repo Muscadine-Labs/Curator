@@ -17,7 +17,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { TokenUsdValue } from '@/components/morpho/TokenUsdValue';
-import { getVaultCategory } from '@/lib/config/vaults';
+import { getVaultCategory, withFeeWrapperLabel } from '@/lib/config/vaults';
 import { SIDEBAR_NETWORKS } from '@/lib/constants';
 import {
   useProtocolStats,
@@ -282,7 +282,7 @@ function VaultRow({ vault }: { vault: VaultWithData }) {
         <Link href={href} className="min-w-0" onClick={(e) => e.stopPropagation()}>
           <span className="flex items-center gap-1.5">
             <span className="block truncate text-sm font-medium text-foreground">
-              {vault.name ?? 'Unknown Vault'}
+              {withFeeWrapperLabel(vault.name ?? 'Unknown Vault', vault.address)}
             </span>
             {vault.kind === 'feeWrapper' ? (
               <Badge variant="outline" className="shrink-0 text-[10px] font-normal">

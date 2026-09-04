@@ -8,6 +8,7 @@ import { morphoGraphQLClient } from '@/lib/morpho/graphql-client';
 import { morphoVaultHref } from '@/lib/morpho/morpho-app-links';
 import { resolveAssetDecimals } from '@/lib/format/asset-decimals';
 import { AppError } from '@/lib/utils/error-handler';
+import { withFeeWrapperLabel } from '@/lib/config/vaults';
 
 export type UserVaultPositionSummary = {
   address: Address;
@@ -81,7 +82,7 @@ function mapV1(item: GqlV1, chainId: number): UserVaultPositionSummary | null {
   const address = getAddress(addressRaw);
   return {
     address,
-    name: item.vault?.name?.trim() || address,
+    name: withFeeWrapperLabel(item.vault?.name?.trim() || address, address),
     assetSymbol,
     assetDecimals,
     assets: assets > 0n ? assets : 0n,
@@ -107,7 +108,7 @@ function mapV2(item: GqlV2, chainId: number): UserVaultPositionSummary | null {
   const address = getAddress(addressRaw);
   return {
     address,
-    name: item.vault?.name?.trim() || address,
+    name: withFeeWrapperLabel(item.vault?.name?.trim() || address, address),
     assetSymbol,
     assetDecimals,
     assets: assets > 0n ? assets : 0n,

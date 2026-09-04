@@ -4,6 +4,7 @@ import {
   getSidebarVaultAddresses,
   getVaultAddressesForBusinessViews,
   getVaultByAddress,
+  withFeeWrapperLabel,
 } from '@/lib/config/vaults';
 import { BASE_CHAIN_ID, BPS_PER_ONE, getScanUrlForChain, GRAPHQL_FIRST_LIMIT } from '@/lib/constants';
 import { handleApiError } from '@/lib/utils/error-handler';
@@ -247,7 +248,7 @@ export async function GET(request: Request) {
         const cfg = getVaultByAddress(v.address!);
         return enrichFromConfig({
           address: v.address!,
-          name: v.name ?? 'Unknown Vault',
+          name: withFeeWrapperLabel(v.name ?? 'Unknown Vault', v.address!),
           symbol: v.symbol ?? v.asset?.symbol ?? 'UNKNOWN',
           asset: v.asset?.symbol ?? 'UNKNOWN',
           assetDecimals: v.asset?.decimals ?? null,

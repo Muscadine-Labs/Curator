@@ -497,11 +497,10 @@ export async function depositToVaultV2(
   }
 
   onProgress?.({
-    type: 'confirming',
+    type: 'signing',
     stepIndex: currentStep,
     totalSteps,
     stepLabel: 'Deposit',
-    txHash: '',
   });
 
   const depositHash = await walletClient.writeContract({
@@ -589,11 +588,10 @@ export async function withdrawFromVaultV2(
 
   emitTransactionPlan(onProgress, ['Withdraw']);
   onProgress?.({
-    type: 'confirming',
+    type: 'signing',
     stepIndex: 0,
     totalSteps: 1,
     stepLabel: 'Withdraw',
-    txHash: '',
   });
 
   const withdrawHash = await walletClient.writeContract({
@@ -660,11 +658,10 @@ export async function redeemFromVaultV2(
 
   emitTransactionPlan(onProgress, ['Redeem']);
   onProgress?.({
-    type: 'confirming',
+    type: 'signing',
     stepIndex: 0,
     totalSteps: 1,
     stepLabel: 'Redeem',
-    txHash: '',
   });
 
   const redeemHash = await walletClient.writeContract({

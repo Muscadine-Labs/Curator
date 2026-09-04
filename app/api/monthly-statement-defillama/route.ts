@@ -5,7 +5,7 @@ import { mergeApiCacheHeaders } from '@/lib/api/response-cache';
 import {
   STATEMENT_START_DATE,
 } from '@/lib/morpho/treasury-statement';
-import { monthKeyFromIsoDate, utcMonthsFrom } from '@/lib/utils/utc-calendar';
+import { monthKeyFromIsoDate, utcMonthsFrom, fromFirstNonZeroPeriod } from '@/lib/utils/utc-calendar';
 import { 
   fetchDefiLlamaFees,
   fetchDefiLlamaRevenue,
@@ -122,25 +122,25 @@ export async function GET(request: Request) {
       const grossProtocolRevenue = assetsYields;
       const grossProfit = protocolRevenue;
 
-      // Only include months with data
-      if (assetsYields > 0 || protocolRevenue > 0) {
-        monthlyData.push({
-          month: month.key,
-          grossProtocolRevenue,
-          assetsYields,
-          costOfRevenue,
-          grossProfit,
-          earnings: grossProfit,
-        });
-      }
+      monthlyData.push({
+        month: month.key,
+        grossProtocolRevenue,
+        assetsYields,
+        costOfRevenue,
+        grossProfit,
+        earnings: grossProfit,
+      });
     }
 
-    // Sort by month
     monthlyData.sort((a, b) => a.month.localeCompare(b.month));
+    const statements = fromFirstNonZeroPeriod(
+      monthlyData,
+      (row) => row.assetsYields > 0 || row.grossProfit > 0
+    );
 
     const responseHeaders = mergeApiCacheHeaders(rateLimitResult.headers, 300);
 
-    return NextResponse.json({ statements: monthlyData }, { headers: responseHeaders });
+    return NextResponse.json({ statements }, { headers: responseHeaders });
   } catch (err) {
     const { error, statusCode } = handleApiError(err, 'Failed to fetch DefiLlama monthly statement');
     return NextResponse.json(error, { status: statusCode });

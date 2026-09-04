@@ -17,6 +17,7 @@ import { useVaultWrite } from '@/lib/hooks/useVaultWrite';
 import { TransactionButton } from '@/components/TransactionButton';
 import { TxErrorBanner } from '@/components/TxErrorBanner';
 import { TxPreviewDialog } from '@/components/morpho/TxPreviewDialog';
+import { isBroadcastTxHash, isWalletRejection } from '@/lib/utils/wallet-error';
 import { buildAllocationRebalancePreview } from '@/lib/morpho/tx-preview';
 import type { TxPreview } from '@/lib/morpho/tx-preview';
 import { queueVaultRebalanceInSafe } from '@/lib/safe/queue-vault-write';
@@ -1592,6 +1593,10 @@ export function VaultV2Allocations({
         await multicallWrite.write(v2WriteConfigs.multicall(vault, allCalls));
       }
     } catch (error) {
+      if (isWalletRejection(error)) {
+        multicallWrite.reset();
+        return;
+      }
       setSubmitError(error);
     }
   }, [
@@ -2218,13 +2223,8 @@ export function VaultV2Allocations({
             )}
 
             <TransactionButton
-              label={
-                preparingPreview
-                  ? 'Preparing…'
-                  : multicallWrite.isLoading
-                    ? 'Confirming...'
-                    : 'Rebalance'
-              }
+              label="Rebalance"
+              loadingLabel={preparingPreview ? 'Preparing…' : undefined}
               onClick={() => void openRebalancePreview()}
               disabled={!resolvedAllocations?.valid || preparingPreview}
               isLoading={multicallWrite.isLoading || preparingPreview}
@@ -2237,10 +2237,17 @@ export function VaultV2Allocations({
               open={rebalancePreviewOpen}
               preview={preparedSubmit?.preview ?? null}
               onOpenChange={(open) => {
+                if (!open && queueingSafe) return;
+                if (!open && isBroadcastTxHash(multicallWrite.txHash) && multicallWrite.isLoading) {
+                  return;
+                }
                 setRebalancePreviewOpen(open);
                 if (!open) {
                   setPreparedSubmit(null);
                   setQueueSafeError(null);
+                  if (!isBroadcastTxHash(multicallWrite.txHash)) {
+                    multicallWrite.reset();
+                  }
                 }
               }}
               destinationOptions={{

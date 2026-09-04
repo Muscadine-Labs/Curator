@@ -273,9 +273,9 @@ Wrappers are **not listed** on app.morpho.org (`listed: false`). Keep the
 Config: `kind: 'feeWrapper'` + `underlyingAddress` in `lib/config/vaults.ts`.
 `underlyingAddress` uses the **same env default** as the child strategy vault
 (`NEXT_PUBLIC_VAULT_USDC_V2`, etc.) and is the GraphQL fallback when
-`innerVault` is omitted. Display names are Morpho/on-chain names (`USDC Prime`),
-not a synthetic “Wrapper” suffix — the catalog/sidebar **Wrapper** badge
-disambiguates. GraphQL fragments must include `... on MorphoVaultV2Adapter` on
+`innerVault` is omitted. Display names are Morpho/on-chain names (`USDC Prime`)
+with a ` (wrapper)` suffix on fee wrappers (`withFeeWrapperLabel`). Catalog also
+keeps a **Wrapper** badge. GraphQL fragments must include `... on MorphoVaultV2Adapter` on
 list, governance, and risk queries — omitting them makes the adapter invisible
 (same failure mode as skipping `marketId`). Do **not** treat wrappers as
 Blue-market strategy vaults. Do **not** sum wrapper TVL into protocol stats —
@@ -689,7 +689,8 @@ daily token-change (`app/page.tsx`). Toggle treasury vs DefiLlama via
    first history point is not income. Redeems / Rebater outflows are not
    negative revenue.
 5. Response always includes `statements`, `daily`, and `vaults`. Cached 30s via
-   `withServerResponseCache` inside `computeTreasuryStatement()`.
+   `withServerResponseCache` inside `computeTreasuryStatement()`. Months run from
+   the first month with income through the current month, including $0.00 gaps.
 
 **Why the graph can go negative without withdrawals**
 

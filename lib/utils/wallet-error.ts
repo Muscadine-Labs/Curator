@@ -42,6 +42,11 @@ export function isWalletRejection(error: unknown): boolean {
   );
 }
 
+/** True after the wallet broadcast a hash — empty `0x` / progress placeholders do not count. */
+export function isBroadcastTxHash(hash?: string | null): boolean {
+  return typeof hash === 'string' && hash.startsWith('0x') && hash.length >= 66;
+}
+
 /**
  * Prefer a short headline; keep the full viem dump only as expandable details.
  */

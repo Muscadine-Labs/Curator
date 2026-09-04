@@ -13,8 +13,6 @@ export type MorphoAutomationBot = {
   href: string;
   /** Optional Telegram bot for live alerts. */
   telegramHref?: string;
-  /** Vendored upstream tracking branch (Morpho code before Muscadine changes). */
-  upstreamBranchHref?: string;
   /** Repo the fork tracks upstream. */
   upstreamRepoHref?: string;
 };

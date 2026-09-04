@@ -64,18 +64,16 @@ npm run build   # next build
   Create +
   dead deposit/seed — `/markets/create` (Morpho app link after create).
   Vault transact holdings — any Morpho vault via indexed positions API.
-  Configured dropdown includes wrappers and test vaults; labels are Morpho
-  names (GraphQL / on-chain), not a synthetic “Wrapper” suffix.
+  Configured dropdown includes wrappers and test vaults; fee wrappers
+  append ` (wrapper)` via `withFeeWrapperLabel`.
   Top nav: Overview · Vaults · Markets · Curator · Business; sidebar is
   area-scoped (`lib/nav/areas.ts`). Curator area: Curator tools · Bots ·
   Multisig Safe. Overview Protocol KPIs open drill-downs (Users: holdings +
   combined txs). Bots (`/curator/bots`) watches allocator/sentinel/rebater activity
   (Allocator + Sentinel Safes on by default; other role holders off until toggled). Telegram:
   @MuscadineVaultBot. Bot repos: `Muscadine-Labs/muscadine-bots` is the
-  **downstream** fork (`main`), its `upstream` branch vendors the upstream code,
-  and `morpho-org/morpho-bots` is the **upstream** implementation
-  (`MUSCADINE_BOTS_GITHUB_URL`, `MUSCADINE_BOTS_UPSTREAM_BRANCH_URL`,
-  `MORPHO_BOTS_GITHUB_URL`).
+  **downstream** fork (`main`); `morpho-org/morpho-bots` is the upstream
+  implementation (`MUSCADINE_BOTS_GITHUB_URL`, `MORPHO_BOTS_GITHUB_URL`).
 - **Tx preview** — Allocation, Sentinel, `/vaults/transact`, and `/markets/positions`
   confirm writes through `TxPreviewDialog` + `lib/morpho/tx-preview.ts` before the
   wallet signs. Transact/positions stay in the dialog through confirm and show a

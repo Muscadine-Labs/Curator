@@ -349,11 +349,10 @@ export async function executeBundler3Multicall(
     calls.reduce((sum, call) => sum + call.value, BigInt(0));
 
   options?.onProgress?.({
-    type: 'confirming',
+    type: 'signing',
     stepIndex,
     totalSteps,
     stepLabel,
-    txHash: '',
   });
 
   logger.info('Executing Bundler3 multicall', {
