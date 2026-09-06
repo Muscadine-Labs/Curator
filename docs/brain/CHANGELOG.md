@@ -4,6 +4,10 @@ Append-only session log. Newest first. Keep entries short; link files.
 
 ---
 
+## 2026-09-05 — Allow Reown + esbuild install scripts
+
+- `package.json` `allowScripts` now includes `@reown/appkit`, `esbuild`, and `fsevents` so npm 12 / Vercel stop warning on those postinstalls.
+
 ## 2026-09-05 — Sidebar + vault list load time
 
 - Vaults sidebar renders from config (`getSidebarNavVaults`) — no Morpho wait, no 30s poll, wrappers omitted.
