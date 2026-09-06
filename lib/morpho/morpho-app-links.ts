@@ -1,3 +1,4 @@
+import { getVaultPageHref } from '@/lib/config/vaults';
 import {
   BASE_CHAIN_ID,
   ETHEREUM_CHAIN_ID,
@@ -38,10 +39,15 @@ export function morphoVaultHref(vaultAddress: string, chainId: number): string {
   return `${MORPHO_APP_ORIGIN}/${morphoChainSlug(chainId)}/vault/${vaultAddress.toLowerCase()}`;
 }
 
-/** In-app vault detail (`/vault/{address}`). */
+/** In-app vault detail. Fee wrappers land on the underlying vault's Fee wrapper tab. */
 export function curatorVaultHref(vaultAddress: string | null | undefined): string | null {
   if (!vaultAddress) return null;
-  return `/vault/${vaultAddress}`;
+  return getVaultPageHref(vaultAddress);
+}
+
+/** Morpho Curator vault page (claim fees, writes). */
+export function morphoCuratorVaultHref(vaultAddress: string, chainId: number): string {
+  return `https://curator.morpho.org/vaults/${chainId}/${vaultAddress}`;
 }
 
 /** Curator Morpho Blue market positions (supply, borrow, collateral). */

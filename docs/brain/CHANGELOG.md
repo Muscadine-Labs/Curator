@@ -4,6 +4,29 @@ Append-only session log. Newest first. Keep entries short; link files.
 
 ---
 
+## 2026-09-05 — Sidebar + vault list load time
+
+- Vaults sidebar renders from config (`getSidebarNavVaults`) — no Morpho wait, no 30s poll, wrappers omitted.
+- `GET /api/vaults` no longer pulls treasury or 1k positions per vault (catalog/transact never used them).
+- Vault detail skips treasury + unused tx list. Gate RPC moved off governance onto `GET /api/vaults/[id]/gates` (Fee wrapper tab only).
+
+## 2026-09-05 — Fee wrapper tab on underlying vaults
+
+- Strategy vaults with a configured wrapper get `/vault/[address]/fee-wrapper` (condensed TVL, users, history, fees, roles, gates, max rate, timelocks).
+- Wrapper contract URLs redirect to that tab; vaults sidebar lists underlyings only. Catalog Wrapper rows still link through `getVaultPageHref`.
+- Governance overlay now includes on-chain gate addresses (`lib/morpho/vault-v2-gate-state.ts`).
+
+## 2026-09-05 — Gate verify CLI + app config-only allowlist
+
+- `npm run gates:verify` — RPC read of `sendAssetsGate`, gate `isWhitelisted`, vault `canSendAssets` vs config.
+- Docs: app never calls gate RPC; run verify after every allowlist change (`docs/brain/deposit-gates.md`).
+
+## 2026-09-05 — Send-assets gate config (no deploy)
+
+- `lib/config/deposit-gates.ts`: underlying-only gate on four strategy vaults; gate whitelist = 4 adapters + 5 partner/Treasury depositors (9 total). Wrappers stay open.
+- Gate ABI + `npm run gates:calldata` (requires `SEND_ASSETS_GATE_ADDRESS` after external deploy).
+- Docs: `docs/brain/deposit-gates.md`.
+
 ## 2026-09-04 — Wrapper adapters + treasury migration
 
 - Users / holders / txs label **MorphoVaultV2Adapter** addresses as the parent fee wrapper (`adapterAddress` on wrapper config). The adapter — not the wrapper vault — holds the underlying.

@@ -6,16 +6,10 @@ import {
   getVaultByAddress,
   withFeeWrapperLabel,
 } from '@/lib/config/vaults';
-import { BASE_CHAIN_ID, BPS_PER_ONE, getScanUrlForChain, GRAPHQL_FIRST_LIMIT } from '@/lib/constants';
+import { BASE_CHAIN_ID, BPS_PER_ONE, getScanUrlForChain } from '@/lib/constants';
 import { handleApiError } from '@/lib/utils/error-handler';
 import { createRateLimitMiddleware, RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS } from '@/lib/utils/rate-limit';
-import { computeTreasuryStatement } from '@/lib/morpho/compute-treasury-statement';
-import {
-  aggregateTreasuryRevenueByVault,
-  treasuryRevenueAllTimeForVault,
-} from '@/lib/morpho/treasury-statement';
 import { batchVaultV2ByAddress } from '@/lib/morpho/batch-vault-graphql';
-import { fetchAllV2Positions } from '@/lib/morpho/paginate-v2-positions';
 import { getAddress } from 'viem';
 import { logger } from '@/lib/utils/logger';
 import { mergeApiCacheHeaders, API_CACHE_MAX_AGE_MS } from '@/lib/api/response-cache';
@@ -56,7 +50,6 @@ type VaultListGql = {
     } | null;
     metaMorpho?: { name?: string | null; symbol?: string | null } | null;
   } | null;
-  positions?: { items?: Array<{ user?: { address?: string } | null } | null> | null };
 };
 
 const VAULT_LIST_SELECTION = `
@@ -96,9 +89,6 @@ const VAULT_LIST_SELECTION = `
     ... on MetaMorphoLiquidityData {
       metaMorpho { name symbol }
     }
-  }
-  positions(first: ${GRAPHQL_FIRST_LIMIT}) {
-    items { user { address } }
   }
 `;
 
@@ -172,57 +162,19 @@ export async function GET(request: Request) {
       const addresses = vaultConfigs.map((v) => getAddress(v.address));
       const configuredAddressSet = new Set(addresses.map((a) => a.toLowerCase()));
 
-      const revenueByVaultPromise = computeTreasuryStatement()
-        .then((data) => aggregateTreasuryRevenueByVault(data.vaults))
-        .catch((error) => {
-          logger.warn('Treasury statement failed for vault list revenue', {
-            error: error instanceof Error ? error.message : String(error),
-          });
-          return {} as Record<string, number>;
-        });
-
       const vaultRefs = vaultConfigs.map((v) => ({
         address: v.address,
         chainId: v.chainId ?? BASE_CHAIN_ID,
       }));
 
-      const [gqlMap, revenueByVault] = await Promise.all([
-        batchVaultV2ByAddress<VaultListGql>(vaultRefs, VAULT_LIST_SELECTION),
-        revenueByVaultPromise,
-      ]);
+      const gqlMap = await batchVaultV2ByAddress<VaultListGql>(
+        vaultRefs,
+        VAULT_LIST_SELECTION
+      );
 
       const v2Vaults = addresses
         .map((address) => gqlMap.get(address.toLowerCase()) ?? null)
         .filter((v): v is VaultListGql => Boolean(v?.address));
-
-      const depositorsByVault: Record<string, Set<string>> = {};
-      await Promise.all(
-        v2Vaults.map(async (v2Vault) => {
-          if (!v2Vault.address) return;
-          const addr = v2Vault.address.toLowerCase();
-          const set = new Set<string>();
-          const first = v2Vault.positions?.items || [];
-          for (const pos of first) {
-            if (pos?.user?.address) set.add(pos.user.address.toLowerCase());
-          }
-          if (first.length >= GRAPHQL_FIRST_LIMIT) {
-            const rest = await fetchAllV2Positions(
-              v2Vault.address,
-              getVaultByAddress(v2Vault.address)?.chainId ?? BASE_CHAIN_ID,
-              GRAPHQL_FIRST_LIMIT
-            );
-            for (const pos of rest) {
-              if (pos.user?.address) set.add(pos.user.address.toLowerCase());
-            }
-          }
-          depositorsByVault[addr] = set;
-        })
-      );
-
-      const depositorCounts: Record<string, number> = {};
-      for (const [addr, users] of Object.entries(depositorsByVault)) {
-        depositorCounts[addr] = users.size;
-      }
 
       const addressToChainId = Object.fromEntries(
         vaultConfigs.map((v) => [v.address.toLowerCase(), v.chainId])
@@ -273,8 +225,8 @@ export async function GET(request: Request) {
                 : v.apy != null
                   ? v.apy * 100
                   : null,
-          depositors: depositorCounts[v.address!.toLowerCase()] ?? 0,
-          revenueAllTime: treasuryRevenueAllTimeForVault(revenueByVault, v.address!),
+          depositors: 0,
+          revenueAllTime: null,
           feesAllTime: null,
           lastHarvest: null,
           idleAssetsUnderlying:

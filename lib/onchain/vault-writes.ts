@@ -88,6 +88,13 @@ export const v2WriteConfigs = {
     args: [liquidityAdapter, liquidityData] as const,
   }),
 
+  setSendAssetsGate: (vaultAddress: Address, gateAddress: Address) => ({
+    address: vaultAddress,
+    abi: vaultV2Abi,
+    functionName: 'setSendAssetsGate' as const,
+    args: [gateAddress] as const,
+  }),
+
   submit: (vaultAddress: Address, data: Hex) => ({
     address: vaultAddress,
     abi: vaultV2Abi,

@@ -1,15 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getVaultByAddress, withFeeWrapperLabel } from '@/lib/config/vaults';
-import { BPS_PER_ONE, GRAPHQL_FIRST_LIMIT, GRAPHQL_TRANSACTIONS_LIMIT } from '@/lib/constants';
+import { BPS_PER_ONE, GRAPHQL_FIRST_LIMIT } from '@/lib/constants';
 import { handleApiError, AppError } from '@/lib/utils/error-handler';
 import { createRateLimitMiddleware, RATE_LIMIT_REQUESTS_PER_MINUTE, MINUTE_MS } from '@/lib/utils/rate-limit';
 import { morphoGraphQLClient } from '@/lib/morpho/graphql-client';
-import { computeTreasuryStatement } from '@/lib/morpho/compute-treasury-statement';
-import {
-  aggregateTreasuryRevenueByVault,
-  treasuryRevenueAllTimeForVault,
-  treasuryRevenueYtdForVault,
-} from '@/lib/morpho/treasury-statement';
 import { gql } from 'graphql-request';
 import { getAddress, isAddress } from 'viem';
 import { logger } from '@/lib/utils/logger';
@@ -17,22 +11,10 @@ import { buildVaultAnalytics } from '@/lib/morpho/vault-analytics';
 import { mapCap } from '@/lib/morpho/vault-v2-governance-map';
 import type { CapInfo } from '@/app/api/vaults/[id]/governance/route';
 import { mergeApiCacheHeaders } from '@/lib/api/response-cache';
-import {
-  vaultV2TransactionUser,
-  type VaultV2TxData,
-} from '@/lib/morpho/vault-v2-transaction-utils';
 import { unauthorizedUnlessAdmin } from '@/lib/auth/require-admin';
 
 type VaultDetailQueryResponse = {
   vaultV2ByAddress?: V2VaultGraphQL | null;
-  vaultV2transactions?: {
-    items: Array<{
-      blockNumber: number | string | null;
-      txHash: string | null;
-      type: string | null;
-      data?: VaultV2TxData;
-    } | null> | null;
-  } | null;
 };
 
 type V2VaultGraphQL = {
@@ -131,43 +113,13 @@ const VAULT_V2_DETAIL_QUERY = gql`
         items { user { address } }
       }
     }
-    vaultV2transactions(
-      first: ${GRAPHQL_TRANSACTIONS_LIMIT},
-      orderBy: Time,
-      orderDirection: Desc,
-      where: { vaultAddress_in: [$address], chainId_in: [$chainId] }
-    ) {
-      items {
-        blockNumber
-        txHash
-        type
-        data {
-          __typename
-          ... on VaultV2DepositData {
-            onBehalf
-            sender
-          }
-          ... on VaultV2WithdrawData {
-            onBehalf
-            receiver
-            sender
-          }
-          ... on VaultV2TransferData {
-            from
-            to
-          }
-        }
-      }
-    }
   }
 `;
 
 function mapV2VaultDetail(
   mv: V2VaultGraphQL,
   cfg: ReturnType<typeof getVaultByAddress>,
-  address: string,
-  txs: VaultDetailQueryResponse['vaultV2transactions'],
-  revenue: { revenueAllTime: number | null; treasuryRevenueYtd: number | null }
+  address: string
 ) {
   const positions = (mv.positions?.items ?? []).filter(
     (p): p is { user: { address: string } } =>
@@ -228,19 +180,6 @@ function mapV2VaultDetail(
   const performanceFeeBps =
     mv.performanceFee != null ? Math.round(mv.performanceFee * BPS_PER_ONE) : null;
 
-  const txItems = (txs?.items ?? []).filter(
-    (t): t is {
-      blockNumber: number | string;
-      txHash: string;
-      type: string;
-      data?: VaultV2TxData;
-    } =>
-      t !== null &&
-      t.txHash != null &&
-      t.blockNumber != null &&
-      t.type != null
-  );
-
   return {
     ...cfg,
     version: 'v2' as const,
@@ -254,11 +193,11 @@ function mapV2VaultDetail(
     apy: apyPct,
     apyBase: mv.apy != null ? mv.apy * 100 : null,
     apyBoosted: mv.avgNetApy != null ? mv.avgNetApy * 100 : null,
-    treasuryRevenueYtd: revenue.treasuryRevenueYtd,
+    treasuryRevenueYtd: null,
     utilization,
     analytics,
     depositors,
-    revenueAllTime: revenue.revenueAllTime,
+    revenueAllTime: null,
     feesAllTime: null,
     lastHarvest: null,
     apyBreakdown: {
@@ -303,12 +242,7 @@ function mapV2VaultDetail(
       guardian: null,
       timelock: null,
     },
-    transactions: txItems.map((t) => ({
-      blockNumber: Number(t.blockNumber),
-      hash: t.txHash,
-      type: t.type,
-      userAddress: vaultV2TransactionUser(t.data),
-    })),
+    transactions: [],
     parameters: {
       performanceFeeBps: performanceFeeBps,
       performanceFeePercent: performanceFeeBps != null ? performanceFeeBps / 100 : null,
@@ -363,35 +297,13 @@ export async function GET(
 
     const variables = { address, chainId: cfg.chainId };
 
-    const revenuePromise = computeTreasuryStatement()
-      .then((data) => {
-        const revenueByVault = aggregateTreasuryRevenueByVault(data.vaults);
-        return {
-          revenueAllTime: treasuryRevenueAllTimeForVault(revenueByVault, address),
-          treasuryRevenueYtd: treasuryRevenueYtdForVault(data.vaults, address),
-        };
-      })
-      .catch((error) => {
-        logger.warn('Treasury statement failed for vault detail revenue', {
-          address,
-          error: error instanceof Error ? error.message : String(error),
-        });
-        return { revenueAllTime: null, treasuryRevenueYtd: null };
-      });
-
     let data: VaultDetailQueryResponse;
-    let revenue: { revenueAllTime: number | null; treasuryRevenueYtd: number | null } = {
-      revenueAllTime: null,
-      treasuryRevenueYtd: null,
-    };
 
     try {
-      const [graphqlData, revenueData] = await Promise.all([
-        morphoGraphQLClient.request<VaultDetailQueryResponse>(VAULT_V2_DETAIL_QUERY, variables),
-        revenuePromise,
-      ]);
-      data = graphqlData;
-      revenue = revenueData;
+      data = await morphoGraphQLClient.request<VaultDetailQueryResponse>(
+        VAULT_V2_DETAIL_QUERY,
+        variables
+      );
       if (data.vaultV2ByAddress) {
         logger.debug('V2 vault data found', {
           address: cfg.address,
@@ -401,13 +313,12 @@ export async function GET(
         });
       }
     } catch (graphqlError) {
-      revenue = await revenuePromise;
       logger.error(
         'GraphQL query failed for v2 vault',
         graphqlError instanceof Error ? graphqlError : new Error(String(graphqlError)),
         { address }
       );
-      data = { vaultV2ByAddress: null, vaultV2transactions: null };
+      data = { vaultV2ByAddress: null };
     }
 
     const vaultData = data.vaultV2ByAddress;
@@ -428,9 +339,9 @@ export async function GET(
           tvl: null,
           apy: null,
           depositors: 0,
-          revenueAllTime: revenue.revenueAllTime,
+          revenueAllTime: null,
           feesAllTime: null,
-          treasuryRevenueYtd: revenue.treasuryRevenueYtd,
+          treasuryRevenueYtd: null,
           lastHarvest: null,
           apyBreakdown: null,
           rewards: [],
@@ -453,7 +364,7 @@ export async function GET(
       );
     }
 
-    const result = mapV2VaultDetail(vaultData, cfg, address, data.vaultV2transactions, revenue);
+    const result = mapV2VaultDetail(vaultData, cfg, address);
     const responseHeaders = mergeApiCacheHeaders(rateLimitResult.headers, 60);
     return NextResponse.json(result, { headers: responseHeaders });
   } catch (err) {

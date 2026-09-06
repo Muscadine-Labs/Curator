@@ -286,6 +286,11 @@ their real names.
 
 Allocation sections on wrappers: **Idle → Morpho Vault V2**. Writes use empty
 adapter data. Risk grades live on the underlying vault page, not the wrapper.
+Wrapper **viewing** lives on the underlying vault's **Fee wrapper** tab
+(`/vault/[underlying]/fee-wrapper`): condensed TVL / users / history plus
+Morpho-style overview, fees, roles, gates, max rate, and timelocks. Visiting a
+fee-wrapper address redirects to that tab. The vaults sidebar lists underlyings
+only; `/vaults` still groups Wrapper rows and links them to the tab.
 
 Keep **skipping** `MetaMorphoAdapter` (V1 MetaMorpho child). That is not a fee
 wrapper.
@@ -319,9 +324,10 @@ Query (`useVaultV2Complete` → BFF + on-chain hooks). Keep the `[address]` segm
 **dynamic**; do not add `generateStaticParams` or SSG — TVL, allocations, caps,
 and risk change continuously and hooks refetch on tab switch and post-tx.
 
-**Tab order**: Overview → Allocation → Caps → Risk → Timelocks → Sentinel.
+**Tab order**: Overview → Fee wrapper (when configured) → Allocation → Caps → Risk → Timelocks → Sentinel.
 Overview holds metrics, collapsible holders → recent txs → history (10 per page
-with arrows, default closed), fees, roles, and adapters; Risk holds market risk
+with arrows, default closed), fees, roles, and adapters; the Fee wrapper tab
+holds condensed wrapper TVL / users / history and Morpho wrapper facts; Risk holds market risk
 grades; Sentinel holds emergency actions at the bottom.
 
 1. `useVaultV2Complete` fans out to:
@@ -412,8 +418,8 @@ TTL clamped to 30s; expired keys pruned; loader timeout 40s.
 
 | Tier | Hooks | Poll | staleTime | Refetch triggers |
 | ---- | ----- | ---- | --------- | ---------------- |
-| Dashboard | vault list, protocol stats | 30s | 30s | mount, poll |
-| Indexed vault | history, reallocations, holders, tx | none | 30s | mount, tab |
+| Dashboard | protocol stats | 30s | 30s | mount, poll |
+| Indexed vault | history, reallocations, holders, tx, vault list | none | 30s | mount, tab |
 | On-chain vault | `useVaultV2Risk`, `useVaultV2Governance` | none | 0 | mount (always), vault tab switch (allocations/caps/sentinel/adapters), post-tx, **Rebalance** click |
 
 Hooks use `apiFetch` (`cache: 'no-store'`) to bypass the browser HTTP cache.
@@ -1205,6 +1211,7 @@ npm run build
 | Morpho app deep links            | `lib/morpho/morpho-app-links.ts`                         |
 | V2 pending UI                    | `components/morpho/VaultV2Pending.tsx`                    |
 | V2 vault page (tabs)             | `app/vault/[address]/page.tsx`                            |
+| Fee wrapper tab                  | `app/vault/[address]/fee-wrapper/page.tsx`, `FeeWrapperPanel.tsx`, `GET /api/vaults/[id]/gates` |
 | Blue market types + normalize      | `lib/morpho/blue-market-data.ts` (`asBlueMarketData`) |
 | Client fetch + refetch interval  | `lib/data/api-fetch.ts`, `lib/data/query-config.ts`      |
 | BFF cache headers                | `lib/api/response-cache.ts`, `lib/api/server-response-cache.ts` |
@@ -1229,7 +1236,7 @@ npm run build
 | V2 cap helpers                   | `lib/morpho/cap-utils.ts`, `lib/morpho/vault-v2-governance-map.ts` |
 | Vault list API                   | `app/api/vaults/route.ts`, `app/api/vaults/[id]/route.ts`|
 | Vault history + share price      | `lib/morpho/vault-history.ts`, `useVaultHistory.ts`, `VaultOverviewHistoryChart.tsx` |
-| Sidebar vault sections           | `components/layout/Sidebar.tsx`, `lib/config/vaults.ts` (`getVaultCategory`) |
+| Sidebar vault sections           | `components/layout/Sidebar.tsx`, `lib/config/vaults.ts` (`getSidebarNavVaults`) |
 | Market id helpers                | `lib/morpho/morpho-app-links.ts` (`marketKeyFromGraphQL`, `curatorBlueMarketHref`, `curatorMidnightMarketHref`, `morphoMidnightMarketHref`) |
 | Midnight markets                 | `lib/morpho/midnight-markets.ts`, `app/midnight/[id]/page.tsx`, `GET /api/markets/midnight`, `GET /api/markets/midnight/[id]` |
 | Oracle address from GraphQL      | `lib/morpho/market-oracle-address.ts` (`resolveMarketOracleAddress`) |

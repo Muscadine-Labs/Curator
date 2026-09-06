@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   getAllVaultAddresses,
   getConfiguredVaultDisplayName,
+  getFeeWrapperForUnderlying,
+  getSidebarNavVaults,
   getVaultByAdapterAddress,
   getVaultListKind,
+  getVaultPageHref,
   groupVaultsByKindAndCategory,
   isFeeWrapperAdapterAddress,
   withFeeWrapperLabel,
@@ -104,5 +107,46 @@ describe('groupVaultsByKindAndCategory', () => {
     expect(getVaultListKind({ kind: 'feeWrapper' })).toBe('wrapper');
     expect(getVaultListKind({ kind: 'strategy' })).toBe('underlying');
     expect(getVaultListKind({})).toBe('underlying');
+  });
+});
+
+describe('getFeeWrapperForUnderlying', () => {
+  it('resolves the USDC Prime wrapper from the strategy vault', () => {
+    const wrapper = getFeeWrapperForUnderlying(USDC_PRIME);
+    expect(wrapper?.kind).toBe('feeWrapper');
+    expect(wrapper?.address.toLowerCase()).toBe(USDC_PRIME_WRAPPER.toLowerCase());
+  });
+
+  it('does not treat a wrapper as having its own wrapper', () => {
+    expect(getFeeWrapperForUnderlying(USDC_PRIME_WRAPPER)).toBeUndefined();
+  });
+});
+
+describe('getVaultPageHref', () => {
+  it('keeps strategy vaults on their own page', () => {
+    expect(getVaultPageHref(USDC_PRIME).toLowerCase()).toBe(
+      `/vault/${USDC_PRIME}`.toLowerCase()
+    );
+  });
+
+  it('sends fee-wrapper addresses to the underlying Fee wrapper tab', () => {
+    expect(getVaultPageHref(USDC_PRIME_WRAPPER).toLowerCase()).toBe(
+      `/vault/${USDC_PRIME}/fee-wrapper`.toLowerCase()
+    );
+  });
+});
+
+describe('getSidebarNavVaults', () => {
+  it('lists underlyings only, with configured display names', () => {
+    const nav = getSidebarNavVaults();
+    expect(nav.every((v) => v.kind !== 'feeWrapper')).toBe(true);
+    expect(nav.some((v) => v.address.toLowerCase() === USDC_PRIME.toLowerCase())).toBe(
+      true
+    );
+    expect(nav.some((v) => v.address.toLowerCase() === USDC_PRIME_WRAPPER.toLowerCase())).toBe(
+      false
+    );
+    const usdc = nav.find((v) => v.address.toLowerCase() === USDC_PRIME.toLowerCase());
+    expect(usdc?.name).toBe('Muscadine USDC Prime');
   });
 });

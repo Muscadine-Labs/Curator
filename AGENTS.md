@@ -30,13 +30,21 @@ npm run build   # next build
   and sentinel UIs. **Fee wrappers** (`kind: 'feeWrapper'`) use GraphQL
   `MorphoVaultV2Adapter.innerVault` (Morpho GraphQL) and empty allocate `data`
   (`EMPTY_ADAPTER_DATA`); they are listed on `/vaults` (Underlying then Wrapper,
-  then Prime / Frontier / Test) but excluded from protocol TVL (deposits sit in
+  then Prime / Frontier / Test) but **not as peer vault pages**. Strategy vaults
+  that have a wrapper get a **Fee wrapper** tab (`/vault/[address]/fee-wrapper`)
+  with condensed TVL / users / history plus Morpho wrapper facts. Visiting a
+  wrapper address redirects there. Sidebar lists underlyings only. Wrappers are
+  excluded from protocol TVL (deposits sit in
   the underlying vault). Unique-user counts include wrappers but skip
   wrapper adapter contracts. Transact lists
   wrappers and test vaults using Morpho/on-chain names. `underlyingAddress` is
-  the GraphQL fallback for the child vault.
+  the GraphQL fallback for the child vault. Send-assets gate (underlying strategy
+  vaults only): `lib/config/deposit-gates.ts` (`docs/brain/deposit-gates.md`,
+  `npm run gates:calldata`, **`npm run gates:verify`** after allowlist changes). Fee wrappers stay open on-chain.
+  App uses config-only allowlist — no gate RPC in app; sync `app/src/lib/deposit-gate-config.ts`.
 - **React Query polling** — dashboard hooks poll every 30s; indexed vault data
-  (history, reallocations, holders) does not background-poll. On-chain vault
+  (history, reallocations, holders, vault list) does not background-poll. The
+  vaults sidebar is config-only (no Morpho fetch). On-chain vault
   hooks (`risk`, `governance`) use `staleTime: 0` + `refetchOnMount: 'always'`.
   See `lib/data/query-config.ts`.
 - **V2 allocate/deallocate** is delta-based; idle is never in calldata;
@@ -47,9 +55,10 @@ npm run build   # next build
   allocate/deallocate adapter `data` is `encodeMarketParamsData(market)` for Morpho
   Blue markets only. Never pass bare addresses or raw MarketParams as cap `idData`.
 - **V2 vault routes** (Morpho-style segments under `/vault/[address]/…`):
-  Overview (`/vault/[address]`) → `/allocation` → `/caps` → `/risk` → `/timelocks` →
+  Overview (`/vault/[address]`) → **Fee wrapper** (only when the vault has one) → `/allocation` → `/caps` → `/risk` → `/timelocks` →
   `/sentinel`. `/analytics` redirects to `/risk`. Overview: metrics (token + USD), collapsible holders → recent txs → history
   (10 per page with arrows, default closed), fees, roles, adapters.
+  Fee wrapper tab: condensed boxes for wrapper TVL/APY/users/fees, overview, roles, gates, max rate, timelocks, plus collapsible holders/txs/history for the wrapper contract.
   Risk: market risk grades. Emergency actions on Sentinel (bottom).
   Pending actions embed in Caps; Sentinel is the only tab with sentinel writes (decrease caps,
   deallocate).

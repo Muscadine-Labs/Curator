@@ -209,7 +209,7 @@ export const useVaultList = (filters?: {
       if (!response.ok) throw new Error('Failed to fetch vaults');
       return response.json();
     },
-    ...DASHBOARD_QUERY_OPTIONS,
+    ...INDEXED_VAULT_QUERY_OPTIONS,
   });
 };
 

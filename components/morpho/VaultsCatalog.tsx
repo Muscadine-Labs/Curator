@@ -17,7 +17,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { TokenUsdValue } from '@/components/morpho/TokenUsdValue';
-import { groupVaultsByKindAndCategory, withFeeWrapperLabel } from '@/lib/config/vaults';
+import { groupVaultsByKindAndCategory, getVaultPageHref, withFeeWrapperLabel } from '@/lib/config/vaults';
 import { SIDEBAR_NETWORKS } from '@/lib/constants';
 import {
   useProtocolStats,
@@ -242,7 +242,7 @@ function FilterChip({
 
 function VaultRow({ vault }: { vault: VaultWithData }) {
   const router = useRouter();
-  const href = `/vault/${vault.address}`;
+  const href = getVaultPageHref(vault.address);
   const assetSymbol = vault.asset ?? 'UNKNOWN';
   const { chainDecimals, displayDecimals } = resolveTokenDisplayProps(
     assetSymbol,

@@ -11,7 +11,11 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "npx eslint . --max-warnings=0",
-    "test": "vitest run"
+    "test": "vitest run",
+    "gates:calldata": "node --experimental-strip-types scripts/print-deposit-gate-calldata.ts",
+    "gates:verify": "npx tsx scripts/verify-deposit-gate-rpc.ts",
+    "gates:propose": "npx tsx scripts/propose-deposit-gate-safe.ts",
+    "gates:propose-whitelister": "npx tsx scripts/propose-gate-whitelister.ts"
   },
   "dependencies": {
     "@base-org/account": "^2.5.10",

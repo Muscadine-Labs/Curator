@@ -261,6 +261,32 @@ export function resolveUnderlyingVaultAddress(
   return getVaultByAddress(wrapperAddress)?.underlyingAddress ?? null;
 }
 
+/** Fee wrapper immutably bound to this strategy vault, if any. */
+export function getFeeWrapperForUnderlying(
+  underlyingAddress: string
+): VaultAddressConfig | undefined {
+  const key = underlyingAddress.toLowerCase();
+  return vaultAddresses.find(
+    (v) => v.kind === 'feeWrapper' && v.underlyingAddress?.toLowerCase() === key
+  );
+}
+
+/**
+ * Canonical vault page. Fee-wrapper contracts redirect onto the underlying
+ * vault's Fee wrapper tab instead of existing as a peer vault page.
+ */
+export function getVaultPageHref(
+  address: string,
+  segment?: string
+): string {
+  const cfg = getVaultByAddress(address);
+  if (cfg?.kind === 'feeWrapper' && cfg.underlyingAddress) {
+    return `/vault/${cfg.underlyingAddress}/fee-wrapper`;
+  }
+  if (!segment) return `/vault/${address}`;
+  return `/vault/${address}/${segment}`;
+}
+
 /** Vaults included in the catalog, monthly statements, and GET /api/vaults */
 export const getVaultAddressesForBusinessViews = (): VaultAddressConfig[] => {
   return vaultAddresses.filter((v) => !v.excludeFromBusinessViews);
@@ -290,6 +316,28 @@ export const getActiveVaultAddressesForStats = (): VaultAddressConfig[] => {
 export const getSidebarVaultAddresses = (): VaultAddressConfig[] => {
   return vaultAddresses.filter((v) => !v.inactive && !v.excludeFromSidebar);
 };
+
+export type SidebarNavVault = {
+  address: string;
+  chainId: number;
+  name: string;
+  kind: VaultKind;
+};
+
+/**
+ * Instant sidebar rows from config — no Morpho round-trip.
+ * Fee wrappers are omitted; they live on the underlying vault's Fee wrapper tab.
+ */
+export function getSidebarNavVaults(): SidebarNavVault[] {
+  return getSidebarVaultAddresses()
+    .filter((v) => v.kind !== 'feeWrapper')
+    .map((v) => ({
+      address: v.address,
+      chainId: v.chainId,
+      name: getConfiguredVaultDisplayName(v),
+      kind: v.kind ?? 'strategy',
+    }));
+}
 
 /** All vault addresses including hidden vaults (e.g. test). */
 export const getAllVaultAddresses = (): VaultAddressConfig[] => {

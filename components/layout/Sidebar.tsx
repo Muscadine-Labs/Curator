@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
@@ -19,11 +19,14 @@ import {
   ChevronDown,
   ChevronRight,
 } from 'lucide-react';
-import { groupVaultsByKindAndCategory, withFeeWrapperLabel } from '@/lib/config/vaults';
-import { useVaultList, SIDEBAR_VAULT_LIST_FILTERS } from '@/lib/hooks/useProtocolStats';
+import {
+  getSidebarNavVaults,
+  getVaultPageHref,
+  groupVaultsByKindAndCategory,
+  type SidebarNavVault,
+} from '@/lib/config/vaults';
 import { Button } from '@/components/ui/button';
 import { SIDEBAR_NETWORKS } from '@/lib/constants';
-import type { VaultWithData } from '@/lib/hooks/useProtocolStats';
 import { resolveCuratorNavArea, type CuratorNavArea } from '@/lib/nav/areas';
 import { cn } from '@/lib/utils';
 
@@ -31,7 +34,7 @@ type SidebarProps = {
   onClose?: () => void;
 };
 
-function kindGroupsForNetwork(vaults: VaultWithData[], chainId: number) {
+function kindGroupsForNetwork(vaults: SidebarNavVault[], chainId: number) {
   return groupVaultsByKindAndCategory(vaults.filter((v) => v.chainId === chainId));
 }
 
@@ -76,7 +79,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 export function Sidebar({ onClose }: SidebarProps) {
   const pathname = usePathname();
   const area = resolveCuratorNavArea(pathname);
-  const { data: vaults = [], isLoading } = useVaultList(SIDEBAR_VAULT_LIST_FILTERS);
+  const vaults = useMemo(() => getSidebarNavVaults(), []);
   const [expandedNetworks, setExpandedNetworks] = useState<Set<number>>(
     () => new Set(SIDEBAR_NETWORKS.map((n) => n.chainId))
   );
@@ -133,7 +136,6 @@ export function Sidebar({ onClose }: SidebarProps) {
           isActive={isActive}
           onLinkClick={handleLinkClick}
           vaults={vaults}
-          isLoading={isLoading}
           expandedNetworks={expandedNetworks}
           toggleNetwork={toggleNetwork}
         />
@@ -148,7 +150,6 @@ function AreaSidebar({
   isActive,
   onLinkClick,
   vaults,
-  isLoading,
   expandedNetworks,
   toggleNetwork,
 }: {
@@ -156,8 +157,7 @@ function AreaSidebar({
   pathname: string;
   isActive: (href: string) => boolean;
   onLinkClick: () => void;
-  vaults: VaultWithData[];
-  isLoading: boolean;
+  vaults: SidebarNavVault[];
   expandedNetworks: Set<number>;
   toggleNetwork: (chainId: number) => void;
 }) {
@@ -218,19 +218,18 @@ function AreaSidebar({
               </button>
               {isExpanded && (
                 <div className="ml-3 space-y-3 border-l border-slate-200 pl-2 dark:border-slate-700">
-                  {isLoading ? (
-                    <div className="px-2 py-1.5 text-xs text-slate-500">Loading…</div>
-                  ) : (
-                    kindGroups.map((kindGroup) => (
+                  {kindGroups.map((kindGroup) => (
                       <div key={kindGroup.kind} className="space-y-1.5">
-                        <SectionLabel>{kindGroup.label}</SectionLabel>
+                        {kindGroups.length > 1 ? (
+                          <SectionLabel>{kindGroup.label}</SectionLabel>
+                        ) : null}
                         {kindGroup.categories.map((category) => (
                           <div key={`${kindGroup.kind}-${category.category}`} className="space-y-0.5">
                             <p className="px-2 text-[10px] font-medium text-slate-500 dark:text-slate-400">
                               {category.label}
                             </p>
                             {category.vaults.map((vault) => {
-                              const href = `/vault/${vault.address}`;
+                              const href = getVaultPageHref(vault.address);
                               const active = isActive(href);
                               return (
                                 <Link
@@ -244,20 +243,14 @@ function AreaSidebar({
                                       : 'text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'
                                   )}
                                 >
-                                  <span className="truncate min-w-0">
-                                    {withFeeWrapperLabel(
-                                      vault.name ?? 'Unknown Vault',
-                                      vault.address
-                                    )}
-                                  </span>
+                                  <span className="truncate min-w-0">{vault.name}</span>
                                 </Link>
                               );
                             })}
                           </div>
                         ))}
                       </div>
-                    ))
-                  )}
+                    ))}
                 </div>
               )}
             </div>

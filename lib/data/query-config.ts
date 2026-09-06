@@ -27,7 +27,7 @@ export const INDEXED_VAULT_QUERY_OPTIONS = {
   staleTime: CURATOR_DEFAULT_STALE_MS,
 };
 
-/** Dashboard aggregates (protocol stats, vault list). */
+/** Dashboard aggregates (protocol stats). */
 export const DASHBOARD_QUERY_OPTIONS = {
   refetchInterval: CURATOR_REFETCH_INTERVAL_MS,
   refetchOnWindowFocus: false as const,
