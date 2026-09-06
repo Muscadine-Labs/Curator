@@ -13,6 +13,12 @@ const nextConfig: NextConfig = {
   ],
   // Use webpack for builds to support alias configuration
   // Turbopack doesn't support false aliases yet
+  turbopack: {
+    resolveAlias: {
+      '../build/polyfills/polyfill-module': './lib/modern-polyfill.js',
+      'next/dist/build/polyfills/polyfill-module': './lib/modern-polyfill.js',
+    },
+  },
   webpack: (config) => {
     const valtioRoot = path.dirname(require.resolve("valtio/package.json"));
     // Silence optional deps required by walletconnect/metamask in browser builds
@@ -28,6 +34,8 @@ const nextConfig: NextConfig = {
         process.cwd(),
         "node_modules/@tanstack/react-query"
       ),
+      "../build/polyfills/polyfill-module": false,
+      "next/dist/build/polyfills/polyfill-module": false,
       "pino-pretty": false,
       "@react-native-async-storage/async-storage": false,
     };

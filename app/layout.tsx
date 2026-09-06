@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { headers } from "next/headers";
-import { Analytics } from "@vercel/analytics/next";
+import DeferredAnalytics from "@/components/DeferredAnalytics";
 import "@/lib/wallet/polyfill-indexeddb";
 import "./globals.css";
 import { Providers } from "./providers";
@@ -57,7 +57,7 @@ export default async function RootLayout({
         <Providers cookies={cookies}>
           {children}
         </Providers>
-        <Analytics />
+        <DeferredAnalytics />
       </body>
     </html>
   );
