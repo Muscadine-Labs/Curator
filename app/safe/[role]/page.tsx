@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation';
 import { getSafeByRole, isSafeRole } from '@/lib/safe/config';
-import { SafeRoleHeader, SafeOverviewPanel } from '@/components/safe/SafeOverviewPanel';
-import { SafeTransactionQueue } from '@/components/safe/SafeTransactionQueue';
+import { SafeOverviewPanel } from '@/components/safe/SafeOverviewPanel';
 
 type PageProps = {
   params: Promise<{ role: string }>;
@@ -11,15 +10,7 @@ export default async function SafeRolePage({ params }: PageProps) {
   const { role } = await params;
   if (!isSafeRole(role)) notFound();
 
-  const account = getSafeByRole(role);
-
-  return (
-    <div className="space-y-6">
-      <SafeRoleHeader account={account} />
-      <SafeOverviewPanel account={account} />
-      <SafeTransactionQueue account={account} />
-    </div>
-  );
+  return <SafeOverviewPanel account={getSafeByRole(role)} />;
 }
 
 export function generateStaticParams() {

@@ -3,4 +3,33 @@
 Running task list for agents and humans. Work **Today** top-to-bottom unless directed otherwise. **Later** is out of scope unless asked. Log finished work under **Done** and in `docs/brain/CHANGELOG.md`.
 
 ## Today
-- Delete on https://curator.muscadine.xyz/muscadine-frontends namesilio and add cloudfare. 
+
+- Create scripts to make a new v2 vault that has two adaptors that deposits into two morpho v2 vaults (muscadine USDC prime and frontier) The roles should be set all the same how muscadine USDC prime is, with owner, curator, allocator, sentinal and all the timelocks. The only difference is that it would not be apar of the morpho regristry so that would not be abicated. In the script to create the v2 vault, have a readme.md of every vault value before its deployed. The name would be Muscadine USDC Vinyard on base, mvUSDC
+
+- delete pologon from chain list.
+
+- Delete on https://curator.muscadine.xyz/muscadine-frontends namesilio and add cloudfare.
+  (Registrar/DNS change — needs Namesilo + Cloudflare account access, not a code change.)
+
+- Set `CURATOR_TRUSTED_PROXY_HOPS` in the production environment (Cloudflare + Vercel = `2`).
+  Until it is set, every login attempt shares one rate-limit bucket instead of one per IP.
+
+## Later
+
+- Safe: executed-transaction **history** tab (Transaction Service `getAllTransactions`,
+  on-demand only — the free tier is 5 req/s / 50K per month).
+- Safe: address book for recipients, and a read-only Settings tab (modules, guards).
+- Safe: batch several queued proposals into one `MultiSend`.
+
+## Done
+
+- **Auth rate-limit bypass** — `POST /api/auth/verify` keyed its bucket off the
+  client-supplied `x-forwarded-for`, so rotating the header gave a fresh
+  10-attempt bucket per request and allowed unbounded password guessing.
+  Fixed in `lib/utils/rate-limit.ts` (`resolveClientIp` only trusts a forwarded
+  IP when `CURATOR_TRUSTED_PROXY_HOPS` — or Vercel — says how many proxies are
+  in front) plus a failures-only global backstop. Verified against the running
+  app: rotated IPs now 429 at attempt 11.
+- **Safe multisig** — Assets / Send / Receive, `app.safe.global`-style
+  Home/Assets/Transactions tabs, transfers to and from a Safe, and RPC
+  optimizations. See `docs/brain/CHANGELOG.md` 2026-09-08.

@@ -114,6 +114,15 @@ export const EXTERNAL_API_TIMEOUT_MS = 60000;
 export const RATE_LIMIT_REQUESTS_PER_MINUTE = 60;
 /** Login is stricter than other BFFs — unauthenticated and password-guessable. */
 export const AUTH_LOGIN_MAX_ATTEMPTS = 10;
+/**
+ * Backstop on failed logins across all clients — bounds an attacker spraying
+ * from many hosts, which per-client limits cannot catch. Any global counter is
+ * also a lockout the attacker can hold open, so this window is deliberately
+ * short: guessing stays capped at ~50/min while a locked-out admin recovers in
+ * under a minute instead of 15.
+ */
+export const AUTH_LOGIN_GLOBAL_MAX_ATTEMPTS = 50;
+export const AUTH_LOGIN_GLOBAL_WINDOW_MS = MINUTE_MS;
 export const AUTH_LOGIN_WINDOW_MS = 15 * MINUTE_MS;
 
 export const getDaysAgoTimestamp = (days: number): number => {

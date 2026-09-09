@@ -1,9 +1,10 @@
-import { decodeFunctionData, getAddress, type Address, type Hex } from 'viem';
+import { decodeFunctionData, erc20Abi, getAddress, type Address, type Hex } from 'viem';
 import { vaultV2Abi } from '@/lib/onchain/abis';
 import { getVaultByAddress, getVaultAssetSymbol } from '@/lib/config/vaults';
 import { formatRawTokenAmount } from '@/lib/format/number';
 import { formatCapRelative } from '@/lib/morpho/v2-cap-format';
 import { resolveAssetDecimals } from '@/lib/format/asset-decimals';
+import { getDefaultSafeTokens, SAFE_AMOUNT_DP } from '@/lib/safe/tokens';
 import type { TxPreview, TxPreviewChange } from '@/lib/morpho/tx-preview';
 import type { SafePendingTransaction, SafeTransactionSource } from '@/lib/safe/types';
 
@@ -188,6 +189,56 @@ export function buildVaultCalldataPreview(input: {
   };
 }
 
+/**
+ * An ERC-20 `transfer` on a token contract. Vault shares are ERC-20s, so a
+ * share transfer targets a tracked vault address while being a plain token
+ * movement — decoding it as vault calldata would show an owner
+ * "Undecoded calldata" instead of who is receiving how much.
+ */
+function decodeErc20Transfer(data: Hex): { recipient: Address; amount: bigint } | null {
+  try {
+    const decoded = decodeFunctionData({ abi: erc20Abi, data });
+    if (decoded.functionName !== 'transfer') return null;
+    const [recipient, amount] = decoded.args as [Address, bigint];
+    return { recipient: getAddress(recipient), amount };
+  } catch {
+    return null;
+  }
+}
+
+function lookupSafeToken(address: Address): { symbol: string; decimals: number } | null {
+  const match = getDefaultSafeTokens().find(
+    (t) => String(t.address).toLowerCase() === address.toLowerCase()
+  );
+  return match ? { symbol: match.symbol, decimals: match.decimals } : null;
+}
+
+function buildTransferPreviewFromCalldata(
+  token: Address,
+  transfer: { recipient: Address; amount: bigint }
+): TxPreview {
+  const meta = lookupSafeToken(token);
+  const amount = meta
+    ? `${formatRawTokenAmount(transfer.amount, meta.decimals, SAFE_AMOUNT_DP)} ${meta.symbol}`
+    : `${transfer.amount.toString()} raw units`;
+
+  return {
+    title: `Send ${amount}`,
+    description: `ERC-20 transfer to ${shortAddress(transfer.recipient)}`,
+    changes: [
+      {
+        action: 'withdraw',
+        label: meta?.symbol ?? `Token ${shortAddress(token)}`,
+        subtitle: `To ${transfer.recipient}`,
+        delta: `−${amount}`,
+      },
+    ],
+    footnote: meta
+      ? null
+      : `Unrecognised token ${token} — amount shown in raw units, decimals unknown.`,
+  };
+}
+
 export function resolveVaultAddressFromPending(tx: SafePendingTransaction): Address | null {
   if (
     tx.source.type === 'allocation' ||
@@ -197,6 +248,12 @@ export function resolveVaultAddressFromPending(tx: SafePendingTransaction): Addr
   ) {
     return getAddress(tx.source.vaultAddress);
   }
+  // A share transfer targets the vault contract but is not a vault operation —
+  // surfacing a "view vault" link there reads as a rebalance. Check the
+  // calldata too, not just the source: a transfer imported from the
+  // Transaction Service arrives with source `manual`.
+  if (tx.source.type === 'transfer') return null;
+  if (decodeErc20Transfer(tx.data)) return null;
   if (getVaultByAddress(tx.to)) {
     return getAddress(tx.to);
   }
@@ -225,6 +282,28 @@ export function resolveSafePendingPreview(tx: SafePendingTransaction): TxPreview
     return tx.preview;
   }
 
+  const transfer = decodeErc20Transfer(tx.data);
+  if (transfer) {
+    return buildTransferPreviewFromCalldata(getAddress(tx.to), transfer);
+  }
+
+  // Native ETH leaving the Safe carries no calldata at all.
+  if ((tx.data === '0x' || tx.data.length <= 2) && BigInt(tx.value || '0') > 0n) {
+    const amount = `${formatRawTokenAmount(BigInt(tx.value), 18, SAFE_AMOUNT_DP)} ETH`;
+    return {
+      title: `Send ${amount}`,
+      description: `Native transfer to ${shortAddress(getAddress(tx.to))}`,
+      changes: [
+        {
+          action: 'withdraw',
+          label: 'ETH',
+          subtitle: `To ${getAddress(tx.to)}`,
+          delta: `−${amount}`,
+        },
+      ],
+    };
+  }
+
   const vaultAddress = resolveVaultAddressFromPending(tx);
   if (!vaultAddress) {
     return {
@@ -250,6 +329,41 @@ export function resolveSafePendingPreview(tx: SafePendingTransaction): TxPreview
 export function withDecodedPendingPreview(tx: SafePendingTransaction): SafePendingTransaction {
   if (tx.preview && tx.preview.changes.length > 0) return tx;
   return { ...tx, preview: resolveSafePendingPreview(tx) };
+}
+
+/**
+ * Classify a Safe transaction imported from the Transaction Service, where the
+ * only evidence is the target and the calldata. Token movements are checked
+ * first: a vault-share transfer targets a tracked vault, so vault inference
+ * alone would mislabel it.
+ */
+export function inferSafeTxSource(to: Address, data: Hex, value = '0'): SafeTransactionSource {
+  const target = getAddress(to);
+
+  const transfer = decodeErc20Transfer(data);
+  if (transfer) {
+    const meta = lookupSafeToken(target);
+    return {
+      type: 'transfer',
+      token: target,
+      tokenSymbol: meta?.symbol ?? shortAddress(target),
+      recipient: transfer.recipient,
+      amount: transfer.amount.toString(),
+    };
+  }
+
+  if ((data === '0x' || data.length <= 2) && BigInt(value || '0') > 0n) {
+    return {
+      type: 'transfer',
+      token: 'native',
+      tokenSymbol: 'ETH',
+      recipient: target,
+      amount: value,
+    };
+  }
+
+  if (!getVaultByAddress(target)) return { type: 'manual' };
+  return inferVaultSourceFromCalldata(target, data);
 }
 
 export function inferVaultSourceFromCalldata(

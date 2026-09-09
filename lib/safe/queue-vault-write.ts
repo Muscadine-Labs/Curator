@@ -25,11 +25,14 @@ function newPendingId(): string {
 
 async function tryPublishViaSafeApp(
   tx: SafePendingTransaction,
-  calldata: { to: Address; data: Hex },
+  calldata: SafeCalldata,
   safeAppSdk: SafeAppsSDK
 ): Promise<SafePendingTransaction> {
   try {
-    const appSafeTxHash = await sendTransactionViaSafeApp(safeAppSdk, calldata);
+    const appSafeTxHash = await sendTransactionViaSafeApp(safeAppSdk, {
+      ...calldata,
+      value: (calldata.value ?? 0n).toString(),
+    });
     if (appSafeTxHash.toLowerCase() !== tx.safeTxHash.toLowerCase()) {
       return (
         updatePendingTransaction(tx.id, {
@@ -58,9 +61,12 @@ async function tryPublishViaSafeApp(
   }
 }
 
-export async function queueVaultWriteInSafe(options: {
+/** A Safe meta-tx target. `value` is native ETH in wei, defaulting to none. */
+export type SafeCalldata = { to: Address; data: Hex; value?: bigint };
+
+export async function queueSafeTransaction(options: {
   safeRole: SafeRole;
-  calldata: { to: Address; data: Hex };
+  calldata: SafeCalldata;
   description: string;
   preview: TxPreview;
   source: SafeTransactionSource;
@@ -73,6 +79,7 @@ export async function queueVaultWriteInSafe(options: {
     safeAddress: safe.address,
     to: options.calldata.to,
     data: options.calldata.data,
+    value: options.calldata.value,
   });
 
   const now = new Date().toISOString();
@@ -119,7 +126,7 @@ export async function queueVaultRebalanceInSafe(options: {
     throw new Error('No on-chain allocation changes to queue.');
   }
 
-  return queueVaultWriteInSafe({
+  return queueSafeTransaction({
     safeRole,
     calldata,
     description: `Vault rebalance — ${options.vaultSymbol ?? calldata.to}`,

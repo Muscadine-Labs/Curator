@@ -35,6 +35,15 @@ export type SafeTransactionSource =
       vaultSymbol?: string;
     }
   | {
+      type: 'transfer';
+      /** `native` for ETH, otherwise the ERC-20 contract. */
+      token: string;
+      tokenSymbol: string;
+      recipient: Address;
+      /** Raw units, matching the token's own decimals. */
+      amount: string;
+    }
+  | {
       type: 'manual';
     };
 

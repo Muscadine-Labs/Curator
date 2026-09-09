@@ -32,6 +32,7 @@ Copy `.env.example` → `.env.local`. See that file for the full list.
 | `CURATOR_ADMIN_PASSWORD` | Login | Admin auth + default session HMAC |
 | `CURATOR_SESSION_SECRET` | No | Optional dedicated HMAC for `curator_session` |
 | `CURATOR_SESSION_VERSION` | No | Bump to invalidate all sessions |
+| `CURATOR_TRUSTED_PROXY_HOPS` | **Yes in production** | Proxy count in front of the app; required for per-IP login rate limiting |
 | `MORPHO_API_URL`, `NEXT_PUBLIC_VAULT_*` | No | Overrides |
 
 ---
@@ -977,7 +978,31 @@ components.
 - Curator tools routes: `/markets`, `/market/blue/[id]`, `/midnight/[id]`, `/safe`, `/curator`,
   `/monthly-statement`, etc. Entire app is behind `AuthGuard` in `app/providers.tsx`.
 - Server auth: `POST /api/auth/verify` sets an HttpOnly `curator_session`
-  cookie (HMAC). IP rate-limited (`AUTH_LOGIN_MAX_ATTEMPTS` / 15 min).
+  cookie (HMAC). Two limits: `AUTH_LOGIN_MAX_ATTEMPTS` / 15 min per client, and
+  `AUTH_LOGIN_GLOBAL_MAX_ATTEMPTS` / 1 min across all clients. Every attempt is
+  charged **before** the body is read — `consumeRateLimit` checks and increments
+  in one synchronous step, so concurrent requests cannot all pass a check before
+  any of them counts. A successful login clears both buckets, so charging every
+  attempt costs a legitimate admin nothing. The client bucket is charged first
+  and returns early, so an already-locked-out client cannot drain the global
+  budget.
+  The per-client bucket keys off `resolveClientIp()`; when the IP is **not**
+  trustworthy every such request shares one `untrusted` bucket, because
+  `x-forwarded-for` is caller-controlled and rotating it would otherwise mint a
+  fresh bucket per guess. Set `CURATOR_TRUSTED_PROXY_HOPS` to the number of
+  proxies in front of the app (Cloudflare + Vercel = 2) to get real per-IP
+  limits. The global window is short on purpose: any global counter is a lockout
+  an attacker can hold open, so recovery takes under a minute.
+- **Never trust `cf-connecting-ip` (or any single vendor header) as proof of
+  origin.** Any caller can send it; it only means something if every request
+  provably transited that vendor. Cloudflare appends the real client IP to
+  `x-forwarded-for`, so hop counting already covers that deployment. An earlier
+  revision of this fix trusted `cf-connecting-ip` whenever a hop count was set,
+  which silently reopened the exact bypass it was meant to close.
+- If `CURATOR_TRUSTED_PROXY_HOPS` is set **higher than the real number of
+  proxies**, or the origin is reachable without passing through them, per-IP
+  limits become forgeable again. The global cap is the backstop for that case
+  and bounds guessing to ~50/min.
   HMAC uses `CURATOR_SESSION_SECRET` when set, otherwise `CURATOR_ADMIN_PASSWORD`.
   Bump `CURATOR_SESSION_VERSION` to invalidate sessions. `proxy.ts` requires the cookie on `/api/*` except
   `/api/auth/verify`, `/api/auth/me`, `/api/auth/logout`.
@@ -1340,13 +1365,50 @@ client serializes calls with ≥210ms spacing.
   ETH balance (`ethBalance` raw string), and Transaction Service **proposers**
   (delegates who can propose without being owners). Proposers require
   `NEXT_PUBLIC_SAFE_API_KEY`; returns `proposersConfigured: false` when unset.
-  Cached ≤15s.
+  Cached ≤15s. Reads are one **multicall**, not four `eth_call`s.
+- `GET /api/safe/[address]/balances?tokens=0x…,0x…` — on-chain balances for the
+  curated token set (native ETH, USDC/WETH/cbBTC, every configured vault's
+  shares) plus any comma-separated extra addresses. One multicall; unknown
+  tokens also resolve `symbol`/`name`/`decimals` in the same batch and are
+  dropped if the reads fail. Cached ≤15s. There is **no** Safe Transaction
+  Service balances call — the free tier is 5 req/s and this route is on the
+  hot path.
+
+### 13.3.1 Assets, send and receive
+
+`/safe/[role]` is three route segments — **Home** (`page.tsx`, owners/proposers/
+details), **Assets** (`assets/`), **Transactions** (`transactions/`, the queue)
+— under a shared `layout.tsx` that renders `SafeAccountHeader` (chain-prefixed
+`base:0x…` address, copy, threshold, ETH balance, Send/Receive) and
+`SafeRoleSubnav`.
+
+- **Send from a Safe** is a normal Safe proposal: `buildSafeTransferCalldata`
+  emits a native value transfer or an ERC-20 `transfer`, `queueSafeTransfer`
+  wraps it via `queueSafeTransaction`, and it then follows the existing
+  queue → sign → execute path. Available on **all five roles** — a proposal
+  confers no privilege on its own. Operation is always `Call`, never
+  `DelegateCall`.
+- **Receive** shows a QR of the `base:`-prefixed address plus a direct
+  wallet → Safe transfer (`useSafeFunding`), which needs no signatures.
+- **Balances** are read on-chain only. A Safe can hold any token, so unknown
+  ones are added by address and persisted per role in localStorage
+  (`custom-token-store.ts`) — there is no indexer to enumerate them.
+- Safe amounts render with `SAFE_AMOUNT_DP` (6), not the app-wide default of 2:
+  an ETH gas float and share dust both round to `0.00` at two places.
+- Vault-share rows use the **vault name** as the symbol — several vaults share
+  an asset, so `USDC shares` cannot tell two balances apart.
 
 ### 13.4 Key files
 
 | Concern | File |
 | ------- | ---- |
-| Queue from vault | `lib/safe/queue-vault-write.ts`, `build-vault-calldata.ts` |
+| Queue any Safe tx | `lib/safe/queue-vault-write.ts` (`queueSafeTransaction`) |
+| Queue from vault | `lib/safe/build-vault-calldata.ts` |
+| Queue a transfer | `lib/safe/queue-transfer.ts`, `build-transfer-calldata.ts` |
+| Token registry + balances | `lib/safe/tokens.ts`, `read-balances.ts`, `custom-token-store.ts` |
+| Assets / send / receive UI | `components/safe/SafeAssetsPanel.tsx`, `SafeSendDialog.tsx`, `SafeReceiveDialog.tsx`, `SafeModal.tsx` |
+| Safe page shell | `app/safe/[role]/layout.tsx`, `components/safe/SafeAccountHeader.tsx`, `SafeRoleSubnav.tsx` |
+| Fund a Safe from a wallet | `lib/hooks/useSafeFunding.ts` |
 | Calldata preview decode | `lib/safe/decode-vault-calldata-preview.ts` |
 | Post-execute refetch | `lib/safe/refetch-vault-after-safe-execute.ts` |
 | Sign / execute | `lib/safe/protocol-kit-client.ts` |
@@ -1354,7 +1416,7 @@ client serializes calls with ≥210ms spacing.
 | API rate limit | `lib/safe/transaction-service-rate-limit.ts` |
 | Safe Apps SDK | `lib/safe/safe-apps-context.tsx`, `public/manifest.json` |
 | UI queue | `components/safe/SafeTransactionQueue.tsx` |
-| Hooks | `useSafeInfo`, `useSafePending`, `useSafeTransactionActions` |
+| Hooks | `useSafeInfo`, `useSafeBalances`, `useSafePending`, `useSafeTransactionActions` |
 
 ### 13.5 Do not regress
 
@@ -1365,6 +1427,17 @@ client serializes calls with ≥210ms spacing.
 - localStorage remains authoritative; Transaction Service sync is additive.
 - Do not drop export/import when adding service features.
 - Queue cards always show a tx preview — stored preview or decoded vault calldata.
+- A `transfer` source must not resolve to a vault link: an ERC-20 share transfer
+  targets the vault contract but is not a vault operation
+  (`resolveVaultAddressFromPending`).
+- `initSafeProtocolKit` caches only the **read-only** kit (fixed Base RPC, so it
+  cannot go stale); a failed init must be evicted or every later call replays
+  the error. Never cache a signer-bound kit — it captures the wallet's chain id
+  at init and would sign for the wrong chain after a network switch.
+- Dialogs that carry a preselection (`SafeSendDialog`) must mount only while
+  open. Left mounted, `useState(initialToken)` keeps the first mount's value and
+  every later launch preselects the wrong asset.
+- Post-queue redirects go to `/safe/[role]/transactions`, not `/safe/[role]`.
 
 ---
 
@@ -1387,8 +1460,8 @@ import `lib/cctp/` until Cross-Chain Transfer is reintroduced under Later.
   indexedDB polyfill (`lib/wallet/polyfill-indexeddb.ts`), not for Jest.
   `@eslint/*` and `eslint-config-next` are wired in `eslint.config.mjs` (ESLint 9
   flat config — see §11). **Don't remove `fake-indexeddb`.**
-- **Jest** — not configured in this branch (`npm test` absent). Reintroduce
-  Jest + pure `lib/` unit tests before restoring allocation write regressions.
+- **Vitest** — configured; `npm test` runs the suite. Add pure `lib/` unit tests
+  alongside the code as `*.test.ts`.
 - **Unused exports** — a number of helpers are exported but not yet consumed
   (examples: `lib/constants.ts` time helpers, `lib/morpho/graphql-client.ts`
   types). They are kept as a shared vocabulary; remove individual ones only
@@ -1488,14 +1561,21 @@ When adding new paginated tables, reuse the same 10/page pattern and the
 
 ## 17. Tests
 
-Jest is **not** configured in this branch. Before pushing substantive changes,
-run `npm run lint` and `npm run build`.
+**Vitest** is configured: `npm test` runs `vitest run`. Before pushing
+substantive changes, run `npm test`, `npm run lint`, and `npm run build`.
 
-When reintroducing tests, prefer pure logic in `lib/` with `*.test.ts` under
-`__tests__/`. Do not call wagmi hooks from tests; mock React Query hooks at
-module level. Tests should never hit the network.
+Tests live next to the code as `lib/**/*.test.ts` (not under `__tests__/`), and
+cover pure logic only. Do not call wagmi hooks from tests; mock React Query
+hooks at module level. Tests must never hit the network — the Safe token tests
+assert declared decimals are *plausible*, and on-chain agreement is verified
+out of band, not in CI.
 
-High-value targets if Jest returns: `lib/morpho/cap-decrease-input.ts`,
+Existing suites worth extending: `lib/utils/rate-limit.test.ts` (client-IP trust
+rules — the regression guard for the login bypass), `lib/safe/*.test.ts`
+(transfer calldata, token registry, calldata preview decoding),
+`lib/config/vaults.test.ts`, `lib/morpho/treasury-statement.test.ts`.
+
+Still uncovered and high value: `lib/morpho/cap-decrease-input.ts`,
 `lib/morpho/tx-preview.ts`, `lib/onchain/allocation-dust.ts` (`applyPlanningDust`).
 
 ---

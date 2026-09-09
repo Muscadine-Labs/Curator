@@ -43,16 +43,43 @@ async function loadSafeKit(): Promise<typeof Safe> {
   return mod.default;
 }
 
+/**
+ * Read-only kits are cached per Safe: they are built against the fixed Base RPC
+ * URL, so there is nothing about them that can go stale within a session.
+ *
+ * Signer-bound kits are deliberately **not** cached. Those run on the injected
+ * wallet provider and capture its chain id at init, so a cached one would keep
+ * signing against whatever network the wallet happened to be on when it was
+ * first built — producing a `safeTxHash` for the wrong chain after the user
+ * switches networks.
+ */
+const readOnlyKitCache = new Map<Address, Promise<InstanceType<typeof Safe>>>();
+
 export async function initSafeProtocolKit(options: {
   safeAddress: Address;
   signer?: Address;
 }): Promise<InstanceType<typeof Safe>> {
-  const SafeKit = await loadSafeKit();
-  return SafeKit.init({
-    provider: resolveProvider(options.signer) as Parameters<typeof SafeKit.init>[0]['provider'],
-    signer: options.signer,
-    safeAddress: getAddress(options.safeAddress),
-  });
+  const safeAddress = getAddress(options.safeAddress);
+
+  const build = () =>
+    loadSafeKit().then((SafeKit) =>
+      SafeKit.init({
+        provider: resolveProvider(options.signer) as Parameters<typeof SafeKit.init>[0]['provider'],
+        signer: options.signer,
+        safeAddress,
+      })
+    );
+
+  if (options.signer) return build();
+
+  const cached = readOnlyKitCache.get(safeAddress);
+  if (cached) return cached;
+
+  const pending = build();
+  readOnlyKitCache.set(safeAddress, pending);
+  // A failed init must not stay cached, or every later call replays the error.
+  pending.catch(() => readOnlyKitCache.delete(safeAddress));
+  return pending;
 }
 
 function storedDataToCreateOptions(data: StoredSafeTransactionData) {

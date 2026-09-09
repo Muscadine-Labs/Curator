@@ -6,36 +6,27 @@ import type { SafeOnChainInfo } from '@/lib/safe/types';
 export async function readSafeOnChainInfo(safeAddress: Address): Promise<SafeOnChainInfo> {
   const address = getAddress(safeAddress);
 
-  const [owners, threshold, nonce, version, ethBalance] = await Promise.all([
-    publicClient.readContract({
-      address,
-      abi: safeAbi,
-      functionName: 'getOwners',
-    }) as Promise<Address[]>,
-    publicClient.readContract({
-      address,
-      abi: safeAbi,
-      functionName: 'getThreshold',
-    }) as Promise<bigint>,
-    publicClient.readContract({
-      address,
-      abi: safeAbi,
-      functionName: 'nonce',
-    }) as Promise<bigint>,
-    publicClient.readContract({
-      address,
-      abi: safeAbi,
-      functionName: 'VERSION',
-    }) as Promise<string>,
+  // One multicall instead of four separate eth_calls — this route is hit on
+  // every Safe page load and each round trip counts against the RPC quota.
+  const [[owners, threshold, nonce, version], ethBalance] = await Promise.all([
+    publicClient.multicall({
+      contracts: [
+        { address, abi: safeAbi, functionName: 'getOwners' },
+        { address, abi: safeAbi, functionName: 'getThreshold' },
+        { address, abi: safeAbi, functionName: 'nonce' },
+        { address, abi: safeAbi, functionName: 'VERSION' },
+      ],
+      allowFailure: false,
+    }),
     publicClient.getBalance({ address }),
   ]);
 
   return {
     address,
-    owners: owners.map((o) => getAddress(o)),
+    owners: (owners as Address[]).map((o) => getAddress(o)),
     threshold: Number(threshold),
-    nonce,
-    version,
+    nonce: nonce as bigint,
+    version: version as string,
     ethBalance,
   };
 }

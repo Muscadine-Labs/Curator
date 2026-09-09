@@ -4,6 +4,37 @@ Append-only session log. Newest first. Keep entries short; link files.
 
 ---
 
+## 2026-09-08 — Safe review pass: transfer decoding, trust rules, tests
+
+- **Signing safety**: a transfer imported back from the Transaction Service had no stored preview, so `resolveSafePendingPreview` fell through to vault decoding. Vault shares are ERC-20s at a tracked vault address, so a share transfer rendered as *"Vault transaction / Undecoded calldata"* with a "View vault" link — an owner was asked to sign with no recipient and no amount on screen. `decode-vault-calldata-preview.ts` now decodes ERC-20 `transfer` and bare native value transfers, and `inferSafeTxSource` classifies them before vault inference.
+- **Login bypass reintroduced and removed**: an intermediate revision trusted `cf-connecting-ip` whenever `CURATOR_TRUSTED_PROXY_HOPS` was set. Any caller can send that header, so it restored unlimited guessing (verified: 25/25 forged-header attempts allowed). Trust is now hop-counted `x-forwarded-for` only, plus `x-vercel-forwarded-for` on Vercel. Explicit hop config takes precedence over Vercel auto-detection.
+- **Send dialog preselection**: the dialog stayed mounted, so `useState(initialToken)` kept its first value and clicking Send on any row opened with the *first* asset selected (verified: clicking WETH Prime opened ETH). Dialogs now mount only while open. Added zero-address and self-send guards.
+- Auth limits are consumed atomically before the body is read (was peek-then-consume across an `await`); the client bucket is charged first so a locked-out client cannot drain the global budget.
+- `initSafeProtocolKit` no longer caches signer-bound kits — they capture the wallet's chain id at init and would sign for the wrong chain after a network switch. Read-only kits (fixed Base RPC) are still cached.
+- `qrcode` is imported on demand inside the Receive dialog instead of shipping a ~30KB chunk with every Safe page; QR failure now shows a fallback instead of an endless skeleton.
+- Wallet errors go through `TxErrorBanner` / `summarizeWalletError` like the rest of the app, so a user rejection reads "Cancelled." instead of a viem dump.
+- `?tokens=` capped at 50 entries; dropped a pointless balance refetch after queueing (a proposal changes nothing on-chain).
+- Tests: `npm test` is **vitest** (CLAUDE.md §17 claimed Jest was unconfigured — corrected). Added 34 tests across `lib/utils/rate-limit.test.ts`, `lib/safe/build-transfer-calldata.test.ts`, `lib/safe/tokens.test.ts`, `lib/safe/decode-vault-calldata-preview.test.ts`. 77 pass.
+- Verified out of band: all 14 declared token decimals match the chain; the app's viem client has `multicall3` configured (without it both new multicalls would throw).
+
+## 2026-09-08 — Safe assets, send/receive, app.safe.global-style tabs
+
+- `/safe/[role]` split into **Home / Assets / Transactions** under a shared layout with `SafeAccountHeader` (`base:0x…` address + copy, threshold, ETH balance, Send/Receive) and `SafeRoleSubnav`. Post-queue redirects now land on `.../transactions`.
+- **Send from a Safe** (all five roles): `build-transfer-calldata.ts` (native value transfer or ERC-20 `transfer`, always `Call`) → `queue-transfer.ts` → the existing queue/sign/execute path. `queueVaultWriteInSafe` generalized to `queueSafeTransaction` and now threads `value`.
+- **Receive**: QR of the chain-prefixed address plus a direct wallet → Safe transfer (`useSafeFunding`, no signatures needed). Added `qrcode` dep.
+- **Assets**: `GET /api/safe/[address]/balances` reads native + USDC/WETH/cbBTC + every configured vault's shares in one multicall; unknown tokens added by address and persisted per role in localStorage. No Transaction Service balances call — free tier is 5 req/s.
+- Optimizations: `readSafeOnChainInfo` is one multicall instead of four `eth_call`s; `initSafeProtocolKit` caches the **read-only** kit per Safe (failed inits evicted). Signer-bound kits are never cached — they capture the wallet's chain id at init, so a cached one would sign for the wrong chain after a network switch.
+- Send dialog mounts only while open: it previously kept `initialToken` from first mount, so clicking Send on a row always preselected the first asset (verified: clicking WETH Prime opened with ETH selected). Added zero-address and self-send guards on an irreversible action.
+- Display fixes: Safe amounts use 6 dp (`SAFE_AMOUNT_DP`) so ETH gas float and share dust stop rendering as `0.00`; vault-share rows use the vault name as the symbol so two USDC vaults are distinguishable; a `transfer` source no longer resolves to a "view vault" link.
+
+## 2026-09-08 — Auth rate-limit bypass fixed
+
+- `POST /api/auth/verify` keyed its 10/15min bucket off `x-forwarded-for`, so rotating that header gave a fresh bucket per guess — unlimited password attempts. Verified against the running app: 15 rotated-IP guesses all returned 401 before, all 429 after attempt 10 now.
+- `resolveClientIp()` (`lib/utils/rate-limit.ts`) only trusts a forwarded IP when `CURATOR_TRUSTED_PROXY_HOPS` says how many proxies are in front (or on Vercel via `x-vercel-forwarded-for`); otherwise every unattributable client shares one bucket.
+- Every attempt is charged atomically before the body is read (`consumeRateLimit` checks and increments in one synchronous step); a successful login clears both buckets. Added `AUTH_LOGIN_GLOBAL_MAX_ATTEMPTS` (50) over a **1-minute** window as a spray backstop. The short global window is deliberate — a global counter is a lockout an attacker can hold open, and a 15-minute one locked out the real admin indefinitely.
+- `cf-connecting-ip` is deliberately **not** trusted: any caller can send it, and an intermediate revision that trusted it whenever a hop count was set reopened the full bypass (verified: 25/25 forged-header guesses allowed). Cloudflare appends the client IP to `x-forwarded-for`, so hop counting covers that deployment.
+- General BFF routes keep best-effort IP keying: a shared bucket there would let one client lock out everyone.
+
 ## 2026-09-05 — Allow Reown + esbuild install scripts
 
 - `package.json` `allowScripts` now includes `@reown/appkit`, `esbuild`, and `fsevents` so npm 12 / Vercel stop warning on those postinstalls.

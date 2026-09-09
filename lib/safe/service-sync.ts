@@ -2,8 +2,7 @@
 
 import { getAddress, type Address, type Hex } from 'viem';
 import { getSafeByRole, type SafeRole } from '@/lib/safe/config';
-import { getVaultByAddress } from '@/lib/config/vaults';
-import { withDecodedPendingPreview, inferVaultSourceFromCalldata } from '@/lib/safe/decode-vault-calldata-preview';
+import { withDecodedPendingPreview, inferSafeTxSource } from '@/lib/safe/decode-vault-calldata-preview';
 import {
   fetchPendingMultisigTransactions,
   isTransactionServiceConfigured,
@@ -62,15 +61,14 @@ function mergeServiceTx(
     });
   }
 
-  const vaultAddress = getAddress(serviceTx.to);
-  const trackedVault = getVaultByAddress(vaultAddress);
+  const target = getAddress(serviceTx.to);
 
   return withDecodedPendingPreview({
     id: newPendingId(),
     safeRole: role,
     safeAddress: getAddress(safeAddress),
     safeTxHash: serviceTx.safeTxHash as Hex,
-    to: vaultAddress,
+    to: target,
     value: serviceTx.value,
     data: (serviceTx.data ?? '0x') as Hex,
     operation: serviceTx.operation as 0 | 1,
@@ -83,9 +81,7 @@ function mergeServiceTx(
     status: pendingStatusAfterSign(incomingSignatures.length, threshold),
     proposer: incomingSignatures[0]?.signer ?? null,
     description: serviceTxDescription(serviceTx),
-    source: trackedVault
-      ? inferVaultSourceFromCalldata(vaultAddress, (serviceTx.data ?? '0x') as Hex)
-      : { type: 'manual' },
+    source: inferSafeTxSource(target, (serviceTx.data ?? '0x') as Hex, serviceTx.value),
     preview: null,
     signatures: incomingSignatures,
     createdAt: now,

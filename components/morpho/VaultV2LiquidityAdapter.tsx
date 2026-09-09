@@ -32,7 +32,7 @@ import { curatorWriteToCalldata } from '@/lib/morpho/vault-v2-curator-write';
 import type { VaultV2GovernanceResponse } from '@/app/api/vaults/[id]/governance/route';
 import type { V2VaultRiskResponse } from '@/app/api/vaults/[id]/risk/route';
 import { vaultV2GovernanceQueryKey } from '@/lib/hooks/useVaultV2Governance';
-import { queueVaultWriteInSafe } from '@/lib/safe/queue-vault-write';
+import { queueSafeTransaction } from '@/lib/safe/queue-vault-write';
 import { useCuratorSafeApps } from '@/lib/safe/safe-apps-context';
 import { ALLOCATION_SAFE_ROLE, type SafeRole } from '@/lib/safe/config';
 import {
@@ -234,7 +234,7 @@ export function VaultV2LiquidityAdapter({
 
       try {
         const calldata = curatorWriteToCalldata(buildWriteConfig(selected));
-        await queueVaultWriteInSafe({
+        await queueSafeTransaction({
           safeRole,
           calldata,
           description: `Liquidity adapter — ${selected.label}`,
@@ -249,7 +249,7 @@ export function VaultV2LiquidityAdapter({
         });
         setPreviewOpen(false);
         closePanel();
-        router.push(`/safe/${safeRole}`);
+        router.push(`/safe/${safeRole}/transactions`);
       } catch (e) {
         setQueueSafeError(e instanceof Error ? e.message : 'Failed to queue Safe transaction.');
       } finally {

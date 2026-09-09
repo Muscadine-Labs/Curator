@@ -14,7 +14,6 @@ import {
   CuratorErrorText,
   CuratorKvList,
   CuratorKvRow,
-  CuratorPageHeader,
   CuratorPanel,
 } from '@/components/morpho/CuratorChrome';
 
@@ -149,8 +148,8 @@ export function SafeOverviewPanel({ account }: { account: SafeAccountConfig }) {
 
       {account.role === 'allocator' && (
         <p className="text-xs text-muted-foreground lg:col-span-3">
-          Vault rebalances queued from the Allocation tab appear in the transaction queue below.
-          Choose <span className="font-medium text-foreground">Queue in Allocator Safe</span> in the
+          Vault rebalances queued from the Allocation tab appear in the Transactions tab. Choose{' '}
+          <span className="font-medium text-foreground">Queue in Allocator Safe</span> in the
           preview dialog.
         </p>
       )}
@@ -158,18 +157,12 @@ export function SafeOverviewPanel({ account }: { account: SafeAccountConfig }) {
         <p className="text-xs text-muted-foreground lg:col-span-3">
           Cap decreases and deallocations queued from a vault&apos;s{' '}
           <span className="font-medium text-foreground">Sentinel</span> tab appear in the
-          transaction queue below. Choose{' '}
+          Transactions tab. Choose{' '}
           <span className="font-medium text-foreground">Queue in Sentinel Safe</span> in the
           preview dialog.
         </p>
       )}
     </div>
-  );
-}
-
-export function SafeRoleHeader({ account }: { account: SafeAccountConfig }) {
-  return (
-    <CuratorPageHeader title={account.label} description={account.description} />
   );
 }
 

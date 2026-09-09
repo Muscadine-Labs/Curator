@@ -47,7 +47,7 @@ import {
   walletCanRevokePending,
   type VaultWriteDestination,
 } from '@/lib/safe/vault-write-destination';
-import { queueVaultWriteInSafe } from '@/lib/safe/queue-vault-write';
+import { queueSafeTransaction } from '@/lib/safe/queue-vault-write';
 import { useCuratorSafeApps } from '@/lib/safe/safe-apps-context';
 import { vaultV2GovernanceQueryKey } from '@/lib/hooks/useVaultV2Governance';
 import type { SafeRole } from '@/lib/safe/config';
@@ -275,7 +275,7 @@ export function VaultV2Pending({
 
       try {
         const calldata = buildPendingRevokeCalldata(getAddress(vaultAddress), revokeItem);
-        await queueVaultWriteInSafe({
+        await queueSafeTransaction({
           safeRole,
           calldata,
           description: `Revoke ${formatVaultV2FunctionTitle(revokeItem.functionName)} — ${vaultSymbol ?? vaultAddress}`,
@@ -292,7 +292,7 @@ export function VaultV2Pending({
         setRevokePreview(null);
         setRevokeItem(null);
         setActiveRowId(null);
-        router.push(`/safe/${safeRole}`);
+        router.push(`/safe/${safeRole}/transactions`);
       } catch (e) {
         setRevokeError(e instanceof Error ? e.message : 'Failed to queue Safe transaction.');
         setActiveRowId(null);
@@ -388,7 +388,7 @@ export function VaultV2Pending({
 
       try {
         const calldata = buildPendingAcceptCalldata(getAddress(vaultAddress), acceptItem);
-        await queueVaultWriteInSafe({
+        await queueSafeTransaction({
           safeRole,
           calldata,
           description: `Accept ${formatVaultV2FunctionTitle(acceptItem.functionName)} — ${vaultSymbol ?? vaultAddress}`,
@@ -405,7 +405,7 @@ export function VaultV2Pending({
         setAcceptPreview(null);
         setAcceptItem(null);
         setActiveRowId(null);
-        router.push(`/safe/${safeRole}`);
+        router.push(`/safe/${safeRole}/transactions`);
       } catch (e) {
         setAcceptError(e instanceof Error ? e.message : 'Failed to queue Safe transaction.');
         setActiveRowId(null);

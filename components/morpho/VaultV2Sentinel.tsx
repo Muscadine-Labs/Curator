@@ -76,7 +76,7 @@ import { parseCapDecreaseInput } from '@/lib/morpho/cap-decrease-input';
 import type { TxPreview } from '@/lib/morpho/tx-preview';
 import type { Address, Hex } from 'viem';
 import { getAddress } from 'viem';
-import { queueVaultWriteInSafe } from '@/lib/safe/queue-vault-write';
+import { queueSafeTransaction } from '@/lib/safe/queue-vault-write';
 import { useCuratorSafeApps } from '@/lib/safe/safe-apps-context';
 import type { SafeRole } from '@/lib/safe/config';
 import { SENTINEL_SAFE_ROLE } from '@/lib/safe/config';
@@ -581,14 +581,14 @@ function DecreaseCapsPanel({
   }, [activeRowKey]);
 
   const handleQueueInSafe = useCallback(
-    async (safeRole: SafeRole, description: string, source: Parameters<typeof queueVaultWriteInSafe>[0]['source']) => {
+    async (safeRole: SafeRole, description: string, source: Parameters<typeof queueSafeTransaction>[0]['source']) => {
       if (!txPreview || !pendingCalldataRef.current) return;
 
       setQueueingSafe(true);
       setQueueSafeError(null);
 
       try {
-        await queueVaultWriteInSafe({
+        await queueSafeTransaction({
           safeRole,
           calldata: pendingCalldataRef.current,
           description,
@@ -601,7 +601,7 @@ function DecreaseCapsPanel({
         setTxPreview(null);
         pendingConfirmRef.current = null;
         pendingCalldataRef.current = null;
-        router.push(`/safe/${safeRole}`);
+        router.push(`/safe/${safeRole}/transactions`);
       } catch (error) {
         setQueueSafeError(
           error instanceof Error ? error.message : 'Failed to queue Safe transaction.'
@@ -1138,14 +1138,14 @@ function DeallocatePanel({
   }, [activeRowKey]);
 
   const handleQueueInSafe = useCallback(
-    async (safeRole: SafeRole, description: string, source: Parameters<typeof queueVaultWriteInSafe>[0]['source']) => {
+    async (safeRole: SafeRole, description: string, source: Parameters<typeof queueSafeTransaction>[0]['source']) => {
       if (!txPreview || !pendingCalldataRef.current) return;
 
       setQueueingSafe(true);
       setQueueSafeError(null);
 
       try {
-        await queueVaultWriteInSafe({
+        await queueSafeTransaction({
           safeRole,
           calldata: pendingCalldataRef.current,
           description,
@@ -1158,7 +1158,7 @@ function DeallocatePanel({
         setTxPreview(null);
         pendingConfirmRef.current = null;
         pendingCalldataRef.current = null;
-        router.push(`/safe/${safeRole}`);
+        router.push(`/safe/${safeRole}/transactions`);
       } catch (error) {
         setQueueSafeError(
           error instanceof Error ? error.message : 'Failed to queue Safe transaction.'

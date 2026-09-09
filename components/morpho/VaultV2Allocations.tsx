@@ -1628,7 +1628,7 @@ export function VaultV2Allocations({
         setPreparedSubmit(null);
         setEditing(false);
         setInputValues([]);
-        router.push(`/safe/${safeRole}`);
+        router.push(`/safe/${safeRole}/transactions`);
       } catch (error) {
         setQueueSafeError(
           error instanceof Error ? error.message : 'Failed to queue Safe transaction.'
